@@ -2,7 +2,7 @@
 // API Base URL Manager + Auth Header Helper
 // ============================================
 
-const REMOTE_URL = 'https://mdm-tenders.onrender.com/api';
+const REMOTE_URL = 'https://mdm-tenders-mo22.onrender.com/api';
 const LOCAL_URL = 'http://localhost:8000/api';
 const KEY = 'api_backend';
 
