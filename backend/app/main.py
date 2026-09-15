@@ -81,6 +81,32 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+request_logger = get_logger("nounmod.request")
+
+import time
+import uuid
+from fastapi import Request
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    req_id = str(uuid.uuid4().hex)[:6]
+    start_time = time.time()
+    
+    # Extract client IP
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Forward the request to the route handler
+    response = await call_next(request)
+    
+    # Calculate response time
+    process_time_ms = int((time.time() - start_time) * 1000)
+    
+    # Build strict specific log format
+    log_msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} | {request.method} | {request.url.path} | {response.status_code} | {process_time_ms}ms | {client_ip} | req:{req_id}"
+    request_logger.info(log_msg)
+    
+    return response
+
 # CORS — allow the frontend origin
 app.add_middleware(
     CORSMiddleware,
