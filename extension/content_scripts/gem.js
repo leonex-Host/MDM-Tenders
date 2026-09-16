@@ -8,18 +8,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     else if (request.action === "click_next_page") {
-        clickNextPage().then(sendResponse);
+        clickNextPage(request.currentPage).then(sendResponse);
         return true;
     }
 });
 
-async function clickNextPage() {
+async function clickNextPage(currentPage = 1) {
     try {
         const nextLinks = document.querySelectorAll("a[rel='next'], li.next a, a.page-link, button.next");
+        const nextString = (currentPage + 1).toString();
         for (const link of nextLinks) {
             const isVisible = !!(link.offsetWidth || link.offsetHeight || link.getClientRects().length);
             if (isVisible) {
-                if (link.innerText.includes("Next") || link.innerText.includes(">>") || link.getAttribute("rel") === "next") {
+                const txt = link.innerText.trim();
+                if (txt.includes("Next") || txt.includes(">>") || link.getAttribute("rel") === "next" || txt === nextString || link.getAttribute("data-ci-pagination-page") === nextString) {
                     link.click();
 
                     // Clear DOM to force wait for AJAX payload

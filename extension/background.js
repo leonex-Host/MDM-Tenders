@@ -168,7 +168,7 @@ async function startJob(job, conf) {
             }
 
             if (pageNum < maxPages) {
-                let clicked = await executeContentScript(tabId, "click_next_page", {});
+                let clicked = await executeContentScript(tabId, "click_next_page", { currentPage: pageNum });
                 if (!clicked) {
                     console.log(`[MDM Agent] No more Next pages found for ${keyword} on page ${pageNum}`);
                     break;
