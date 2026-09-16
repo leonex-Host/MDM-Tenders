@@ -222,15 +222,6 @@ async function loadScraperStatus() {
                             </div>
                         </div>
 
-                        ${(name === 'tenderontime' && localStorage.getItem('admin_api_backend') === 'local') ? `
-                            <div style="margin-bottom:8px; display:flex; flex-direction:column; gap:4px;">
-                                <label style="font-size:10px; color:var(--text-tertiary); font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">Execution Engine</label>
-                                <select id="engine-select-${name}" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:6px; border-radius:6px; font-size:11px; outline:none; cursor:pointer;" ${isRunning ? 'disabled' : ''}>
-                                    <option value="extension">Chrome (Extension)</option>
-                                    <option value="local">Playwright (Native)</option>
-                                </select>
-                            </div>
-                        ` : ''}
                         <div class="sc-controls" style="border-top:none; padding-top:0; margin:0; display:flex; width:100%; gap:8px;">
                             <button onclick="window._startScraper(event, '${name}')" class="sc-start" style="flex:1; height:32px; background:${isRunning ? 'rgba(255,255,255,0.02)' : 'var(--accent-blue)'}; color:${isRunning ? 'var(--text-tertiary)' : '#fff'}; border:none; ${!isRunning ? 'box-shadow: 0 4px 14px var(--accent-blue-dim);' : ''} border-radius:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; cursor:${isRunning ? 'not-allowed' : 'pointer'}; display:flex; justify-content:center; align-items:center; gap:8px; transition:all 0.2s;" ${isRunning ? 'disabled' : ''}>
                                 Start
@@ -337,14 +328,7 @@ window._startScraper = async (event, source) => {
     try {
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
         const baseUrl = getApiBase();
-
-        let engineParam = "";
-        const engineDropdown = document.getElementById(`engine-select-${source}`);
-        if (engineDropdown) {
-            engineParam = `&engine=${engineDropdown.value}`;
-        }
-
-        const res = await adminFetch(`${baseUrl}/admin/scrapers/start?source=${source}&headless=${isHeadless}${engineParam}`, { method: 'POST' });
+        const res = await adminFetch(`${baseUrl}/admin/scrapers/start?source=${source}&headless=${isHeadless}`, { method: 'POST' });
         if (!res.ok) {
             alert(`Could not start ${source} locally. Make sure the local server is running and you are logged in locally. (HTTP ${res.status})`);
         }

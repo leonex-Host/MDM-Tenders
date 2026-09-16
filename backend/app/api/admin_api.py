@@ -122,7 +122,6 @@ def scraper_status(db: Session = Depends(get_db), _admin=Depends(require_admin) 
 def start_scraper(
     source: str = Query(..., description="gem|tender247|tenderdetail|tenderontime|biddetail|google"),
     headless: bool = Query(True),
-    engine: Optional[str] = Query(None, description="extension|local"),
     _admin=Depends(require_admin) if not settings.DEBUG else None,
 ):
     """Start a scraper by source name."""
@@ -132,20 +131,19 @@ def start_scraper(
             return sync_google(headless=headless)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    elif source == "tenderontime":
-        if engine == "extension" or (engine is None and __import__("os").environ.get("RENDER") is not None):
-            from app.api.extension_api import _pending_jobs
+    elif source == "tenderontime" and __import__("os").environ.get("RENDER") is not None:
+        from app.api.extension_api import _pending_jobs
+        
+        db_s = SessionLocal()
+        try:
+            # Tell UI it is running
+            log = CrawlLog(source=source, keyword="Extension Triggered", status="running")
+            db_s.add(log)
+            db_s.commit()
+        finally:
+            db_s.close()
             
-            db_s = SessionLocal()
-            try:
-                # Tell UI it is running
-                log = CrawlLog(source=source, keyword="Extension Triggered", status="running")
-                db_s.add(log)
-                db_s.commit()
-            finally:
-                db_s.close()
-                
-            import uuid
+        import uuid
         job = {
             "job_id": str(uuid.uuid4())[:8],
             "source": source,

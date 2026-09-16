@@ -49,7 +49,7 @@ class Tender(Base):
     end_date     = Column(String(100), nullable=True)               # deadline / submission date
     link         = Column(String(800), nullable=True)               # source URL
     keyword      = Column(String(300), nullable=True)               # matched search keyword
-    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+    created_at   = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     # Prevent exact duplicates
     __table_args__ = (
