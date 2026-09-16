@@ -76,17 +76,6 @@ function renderTopbar() {
                 <!-- Left Side: Title & Status Controls -->
                 <div style="display:flex; align-items:center; gap:24px;">
                     <span style="font-weight:900; font-size:16px; letter-spacing:1px; color:var(--text-primary);">LEONEX</span>
-                    
-                    <div id="backend-switcher" title="Switch between local and Render server" class="bb-backend-badge"
-                        style="cursor:pointer;"
-                        onclick="(function(){
-                            const nextMode = localStorage.getItem('admin_api_backend') === 'local' ? 'remote' : 'local';
-                            localStorage.setItem('admin_api_backend', nextMode);
-                            window.location.reload();
-                        })()">
-                        <span style="width:8px;height:8px;border-radius:50%;background:${isLocal ? '#22c55e' : '#f97316'};display:inline-block;margin-right:8px;box-shadow: 0 0 8px ${isLocal ? '#22c55e' : '#f97316'};"></span>
-                        ${isLocal ? 'LOCAL ONLINE' : 'REMOTE ONLINE'}
-                    </div>
 
                     <!-- Headless / Visible Toggle -->
                     <div style="display:flex;align-items:center;gap:10px; background:var(--bg-card); padding:6px 14px; border-radius:20px; border:1px solid var(--border-glass);" class="hide-on-mobile">
