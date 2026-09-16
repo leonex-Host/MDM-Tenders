@@ -149,17 +149,22 @@ async function startJob(job, conf) {
                         continue;
                     }
 
-                    // Open detail page in a temporary background tab to preserve Search DOM state!
-                    const detailTab = await chrome.tabs.create({ url: item.href, windowId: windowObj.id, active: false });
-                    await sleep(1500);
+                    // Headless Fetch via background worker to prevent physical tabs opening
+                    try {
+                        let res = await fetch(item.href);
+                        let html = await res.text();
 
-                    let detailData = await executeContentScript(detailTab.id, "extract_details", { keyword: keyword });
-                    if (detailData && detailData.found) {
-                        let finalItem = { ...item, ...detailData };
-                        kwResults.push(finalItem);
-                        console.log(`✅ MATCH: ${finalItem.title}`);
+                        // Pass string to active domain tab for DOM sandbox parsing
+                        let detailData = await executeContentScript(tabId, "extract_details", { keyword: keyword, htmlString: html, finalUrl: res.url });
+
+                        if (detailData && detailData.found) {
+                            let finalItem = { ...item, ...detailData };
+                            kwResults.push(finalItem);
+                            console.log(`✅ MATCH: ${finalItem.title}`);
+                        }
+                    } catch (e) {
+                        console.error(`[MDM Agent] Failed to fetch details for ${item.href}`, e);
                     }
-                    await chrome.tabs.remove(detailTab.id).catch(() => { });
                 }
             }
 

@@ -4,7 +4,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     else if (request.action === "extract_details") {
-        extractDetails(request.keyword).then(sendResponse);
+        extractDetails(request.keyword, request.htmlString, request.finalUrl).then(sendResponse);
         return true;
     }
     else if (request.action === "click_next_page") {
@@ -90,25 +90,36 @@ async function extractListings() {
     return listings;
 }
 
-async function extractDetails(keyword) {
-    const rawText = document.body.innerText;
-    const phrase = keyword.toLowerCase();
+async function extractDetails(keyword, htmlString = null, finalUrl = null) {
+    let root = document;
+    let b = document.body;
+
+    if (htmlString) {
+        const parser = new DOMParser();
+        root = parser.parseFromString(htmlString, 'text/html');
+        root.querySelectorAll("script, style, noscript, svg").forEach(el => el.remove());
+        b = root.body;
+    }
+
+    const rawText = b.innerText || b.textContent || "";
+    const phrase = keyword.toLowerCase().trim();
 
     let found = false;
     let descriptionSnippet = "";
     let postingDate = "";
 
-    const strvals = document.querySelectorAll("strong.strval");
+    const strvals = root.querySelectorAll("strong.strval");
 
     // Check for keyword in summary
     for (const s of strvals) {
         const par = s.parentElement;
-        if (par && par.innerText.includes("Summary:")) {
-            const txt = s.innerText.toLowerCase();
+        if (par && (par.innerText || par.textContent || "").includes("Summary:")) {
+            const txt = (s.innerText || s.textContent || "").toLowerCase();
             if (txt.includes(phrase)) {
                 found = true;
                 const idx = txt.indexOf(phrase);
-                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
+                const sTxt = s.innerText || s.textContent || "";
+                descriptionSnippet = sTxt.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
             }
         }
     }
@@ -116,8 +127,8 @@ async function extractDetails(keyword) {
     // Check posting date
     for (const s of strvals) {
         const par = s.parentElement;
-        if (par && par.innerText.includes("Posting Date:")) {
-            postingDate = s.innerText.trim();
+        if (par && (par.innerText || par.textContent || "").includes("Posting Date:")) {
+            postingDate = (s.innerText || s.textContent || "").trim();
         }
     }
 

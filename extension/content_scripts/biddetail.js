@@ -4,7 +4,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     else if (request.action === "extract_details") {
-        extractDetails(request.keyword).then(sendResponse);
+        extractDetails(request.keyword, request.htmlString, request.finalUrl).then(sendResponse);
         return true;
     }
     else if (request.action === "click_next_page") {
@@ -82,31 +82,44 @@ async function extractListings() {
     return listings;
 }
 
-async function extractDetails(keyword) {
-    const rawText = document.body.innerText;
+async function extractDetails(keyword, htmlString = null, finalUrl = null) {
+    let root = document;
+    let b = document.body;
+
+    if (htmlString) {
+        const parser = new DOMParser();
+        root = parser.parseFromString(htmlString, 'text/html');
+        root.querySelectorAll("script, style, noscript, svg").forEach(el => el.remove());
+        b = root.body;
+    }
+
+    const rawText = b.innerText || b.textContent || "";
     const phrase = keyword.toLowerCase().trim();
 
     let brief = "";
 
-    const briefNodes = document.querySelectorAll("tr td");
+    const briefNodes = root.querySelectorAll("tr td");
     for (let i = 0; i < briefNodes.length; i++) {
-        const txt = briefNodes[i].innerText;
+        const txt = briefNodes[i].innerText || briefNodes[i].textContent || "";
         if (txt.includes("Tender Brief")) {
             const next = briefNodes[i].nextElementSibling || (briefNodes[i + 1]);
-            if (next && next.innerText.length > 5) {
-                brief = next.innerText.trim();
-                break;
+            if (next) {
+                const nextTxt = next.innerText || next.textContent || "";
+                if (nextTxt.length > 5) {
+                    brief = nextTxt.trim();
+                    break;
+                }
             }
         }
     }
 
     let meta_data = {};
-    const trs = document.querySelectorAll("table.table-bordered tr");
+    const trs = root.querySelectorAll("table.table-bordered tr");
     trs.forEach(tr => {
         const tds = tr.querySelectorAll("td");
         if (tds.length >= 2) {
-            const tempK = tds[0].innerText.replace(":", "").trim();
-            const tempV = tds[1].innerText.trim();
+            const tempK = (tds[0].innerText || tds[0].textContent || "").replace(":", "").trim();
+            const tempV = (tds[1].innerText || tds[1].textContent || "").trim();
             if (tempK && tempV && tempK.length < 50) {
                 meta_data[tempK] = tempV;
             }
@@ -120,10 +133,10 @@ async function extractDetails(keyword) {
     }
 
     let title = "";
-    const h2 = document.querySelector("h2");
-    if (h2) title = h2.innerText.trim();
+    const h2 = root.querySelector("h2");
+    if (h2) title = (h2.innerText || h2.textContent || "").trim();
 
-    let tender_id = window.location.href.split('/').pop().split('?')[0];
+    let tender_id = finalUrl || window.location.href.split('/').pop().split('?')[0];
 
     const start_date = meta_data["Opening Date"] || meta_data["Start Date"] || "";
     const end_date = meta_data["Submission Date"] || meta_data["Closing Date"] || "";

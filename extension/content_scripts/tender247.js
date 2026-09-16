@@ -4,7 +4,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     else if (request.action === "extract_details") {
-        extractDetails(request.keyword).then(sendResponse);
+        extractDetails(request.keyword, request.htmlString, request.finalUrl).then(sendResponse);
         return true;
     }
     else if (request.action === "click_next_page") {
@@ -56,8 +56,19 @@ async function extractListings() {
     return listings;
 }
 
-async function extractDetails(keyword) {
-    const rawText = document.body.innerText;
+async function extractDetails(keyword, htmlString = null, finalUrl = null) {
+    let root = document;
+    let b = document.body;
+
+    if (htmlString) {
+        const parser = new DOMParser();
+        root = parser.parseFromString(htmlString, 'text/html');
+        // Delete all script and style tags to make textContent safe
+        root.querySelectorAll("script, style, noscript, svg").forEach(el => el.remove());
+        b = root.body;
+    }
+
+    const rawText = b.innerText || b.textContent;
     const phrase = keyword.toLowerCase().trim();
 
     // STRICT Keyword match in the brief
@@ -71,20 +82,22 @@ async function extractDetails(keyword) {
 
     // Try .capitalize
     if (!brief) {
-        const caps = document.querySelectorAll(".capitalize");
+        const caps = root.querySelectorAll(".capitalize");
         for (const el of caps) {
-            if (el.innerText.length > 30) { brief = el.innerText.trim(); break; }
+            const txt = el.innerText || el.textContent;
+            if (txt && txt.length > 30) { brief = txt.trim(); break; }
         }
     }
 
     // Fallback tables
     if (!brief) {
-        const tds = document.querySelectorAll("td, div");
+        const tds = root.querySelectorAll("td, div");
         for (const td of tds) {
-            if (td.innerText.includes("Tender Brief") || td.innerText.includes("Tender Description") || td.innerText.includes("Work Description")) {
+            const txt = td.innerText || td.textContent || "";
+            if (txt.includes("Tender Brief") || txt.includes("Tender Description") || txt.includes("Work Description")) {
                 let nextEl = td.nextElementSibling;
                 if (nextEl) {
-                    brief = nextEl.innerText.trim();
+                    brief = (nextEl.innerText || nextEl.textContent || "").trim();
                     break;
                 }
             }
@@ -92,8 +105,8 @@ async function extractDetails(keyword) {
     }
 
     if (!brief) {
-        const caps = document.querySelector(".workDesc");
-        if (caps) brief = caps.innerText;
+        const caps = root.querySelector(".workDesc");
+        if (caps) brief = caps.innerText || caps.textContent || "";
     }
 
     let found = false;
@@ -104,14 +117,15 @@ async function extractDetails(keyword) {
     }
 
     let title = "";
-    const h1 = document.querySelector("h1");
-    if (h1) title = h1.innerText.trim();
+    const h1 = root.querySelector("h1");
+    if (h1) title = h1.innerText || h1.textContent;
+    if (title) title = title.trim();
 
     // Ex: T247 ID : 12345
     let tender_id = "";
     const idMatch = rawText.match(/T247\s*ID\s*[:\-]?\s*(\S+)/i);
     if (idMatch) tender_id = idMatch[1];
-    else tender_id = window.location.href.split('/').pop().split('?')[0];
+    else tender_id = finalUrl || window.location.href.split('/').pop().split('?')[0];
 
     // Dates
     let start_date = "";

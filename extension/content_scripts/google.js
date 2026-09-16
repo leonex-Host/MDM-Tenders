@@ -4,7 +4,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     else if (request.action === "extract_details") {
-        extractDetails(request.keyword).then(sendResponse);
+        extractDetails(request.keyword, request.htmlString, request.finalUrl).then(sendResponse);
         return true;
     }
     else if (request.action === "click_next_page") {
@@ -65,8 +65,18 @@ async function extractListings() {
     return listings;
 }
 
-async function extractDetails(keyword) {
-    const rawText = document.body.innerText;
+async function extractDetails(keyword, htmlString = null, finalUrl = null) {
+    let root = document;
+    let b = document.body;
+
+    if (htmlString) {
+        const parser = new DOMParser();
+        root = parser.parseFromString(htmlString, 'text/html');
+        root.querySelectorAll("script, style, noscript, svg").forEach(el => el.remove());
+        b = root.body;
+    }
+
+    const rawText = b.innerText || b.textContent || "";
     const phrase = keyword.toLowerCase().trim();
 
     if (!rawText.toLowerCase().includes(phrase)) {
@@ -79,13 +89,13 @@ async function extractDetails(keyword) {
     const excerpt = rawText.substring(start, end).replace(/\n/g, ' ');
 
     let title = "";
-    if (document.title) title = document.title;
+    if (root.title) title = root.title;
 
     return {
         found: true,
         title: title,
         description: excerpt,
-        tender_id: window.location.href, // fallback id
+        tender_id: finalUrl || window.location.href, // fallback id
         start_date: "",
         end_date: "",
         location: ""
