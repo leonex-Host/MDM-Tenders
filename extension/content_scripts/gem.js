@@ -195,6 +195,15 @@ async function clickNextPage(currentPage = 1) {
 
                 return true;
             }
+        } else {
+            // First page might not have a hash yet, so force hash to #page-2
+            window.location.hash = `#page-${currentPage + 1}`;
+            await sleep(1000);
+
+            const cards = document.querySelectorAll("div.card");
+            cards.forEach(c => c.remove());
+
+            return true;
         }
     } catch (e) { }
     return false;

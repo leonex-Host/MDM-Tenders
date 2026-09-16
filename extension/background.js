@@ -139,13 +139,13 @@ async function startJob(job, conf) {
                     listingData = null;
                     continue; // Sleep again!
                 }
-                if (listingData !== null) {
-                    break; // Successfully got an array (either empty or populated)
+                if (listingData !== null && Array.isArray(listingData) && listingData.length > 0) {
+                    break; // Successfully got a populated array
                 }
             }
 
             if (!listingData || listingData.length === 0) {
-                console.log(`[MDM Agent] No listings on page ${pageNum} for ${keyword}`);
+                console.log(`[MDM Agent] No listings on page ${pageNum} for ${keyword} after full timeout`);
                 break;
             }
 

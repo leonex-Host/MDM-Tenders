@@ -60,20 +60,18 @@ async function extractListings() {
     return listings;
 }
 
-// ─── Pagination: Google uses #pnnext or aria-label='Next page' ───
+// ─── Pagination: Google uses explicit &start= parameter manipulation ───
 async function clickNextPage(currentPage = 1) {
     try {
-        const pnnext = document.getElementById("pnnext");
-        if (pnnext) {
-            pnnext.click();
-            return true;
-        }
-        const nextAria = document.querySelector("a[aria-label='Next page']");
-        if (nextAria) {
-            nextAria.click();
-            return true;
-        }
-    } catch (e) { }
+        const url = new URL(window.location.href);
+        // Calculate the next start parameter (10 results per page)
+        const nextStart = currentPage * 10;
+
+        url.searchParams.set('start', nextStart);
+        window.location.href = url.toString();
+
+        return true;
+    } catch (e) { console.error("Google Pagination failed", e); }
     return false;
 }
 
