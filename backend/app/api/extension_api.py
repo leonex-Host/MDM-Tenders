@@ -40,7 +40,7 @@ def get_extension_config(_key=Depends(_validate_extension_key)):
     """Returns the list of search keywords and scraper sources for the extension."""
     return {
         "keywords": settings.SEARCH_KEYWORDS,
-        "sources": ["tenderontime"],
+        "sources": ["tenderontime", "tender247", "tenderdetail", "biddetail", "gem", "google"],
         "max_pages": settings.MAX_PAGES,
         "api_version": "1.0",
     }

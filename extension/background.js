@@ -53,9 +53,45 @@ async function startJob(job, conf) {
     tabId = windowObj.tabs[0].id;
 
     for (const keyword of job.keywords) {
-        console.log(`[MDM Agent] Processing keyword: ${keyword}`);
+        console.log(`[MDM Agent] Processing keyword: ${keyword} on ${job.source}`);
         const escaped = encodeURIComponent(keyword.trim());
-        const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
+        const dashFormatted = keyword.trim().replace(/\s+/g, '-');
+
+        // 1. Resolve Target URL & Script based on Source
+        let searchUrl = '';
+        let targetScript = '';
+
+        switch (job.source) {
+            case 'tenderontime':
+                searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
+                targetScript = 'tenderontime';
+                break;
+            case 'tenderdetail':
+                searchUrl = `https://www.tenderdetail.com/Indian-tender/%22${dashFormatted}%22-tenders`;
+                targetScript = 'tenderdetail';
+                break;
+            case 'biddetail':
+                searchUrl = `https://www.biddetail.com/global-tenders/%22${dashFormatted}%22-tenders`;
+                targetScript = 'biddetail';
+                break;
+            case 'gem':
+                // GEM doesn't easily paginate via URL, usually requires DOM interaction
+                searchUrl = `https://bidplus.gem.gov.in/all-bids`;
+                targetScript = 'gem';
+                break;
+            case 'tender247':
+                // Tender247 basic search
+                searchUrl = `https://www.tender247.com/keyword/${dashFormatted}`;
+                targetScript = 'tender247';
+                break;
+            case 'google':
+                searchUrl = `https://www.google.com/search?q=${escaped}+tenders`;
+                targetScript = 'google';
+                break;
+            default:
+                console.error(`[MDM Agent] Unknown source: ${job.source}`);
+                continue;
+        }
 
         await chrome.tabs.update(tabId, { url: searchUrl });
 
@@ -68,7 +104,7 @@ async function startJob(job, conf) {
             // Poll very fast (500ms) for Cloudflare or page load
             for (let attempt = 0; attempt < 50; attempt++) {
                 await sleep(500);
-                listingData = await executeContentScript(tabId, "extract_listings");
+                listingData = await executeContentScript(tabId, "extract_listings", { keyword: keyword });
 
                 if (listingData && listingData.status === "cloudflare") {
                     console.log(`[MDM Agent] Waiting on Cloudflare (Attempt ${attempt + 1}/50)...`);
