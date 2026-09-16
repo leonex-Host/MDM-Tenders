@@ -15,16 +15,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function clickNextPage() {
     try {
-        const nextLinks = document.querySelectorAll("a[rel='next'], li.next a, a");
+        const nextLinks = document.querySelectorAll("a[rel='next'], li.next a, a.page-link, button.next");
         for (const link of nextLinks) {
-            if (link.innerText.includes("Next") || link.innerText.includes(">>") || link.getAttribute("rel") === "next") {
-                link.click();
+            const isVisible = !!(link.offsetWidth || link.offsetHeight || link.getClientRects().length);
+            if (isVisible) {
+                if (link.innerText.includes("Next") || link.innerText.includes(">>") || link.getAttribute("rel") === "next") {
+                    link.click();
 
-                // Clear DOM to force wait for AJAX payload
-                const cards = document.querySelectorAll("div.card");
-                cards.forEach(c => c.remove());
+                    // Clear DOM to force wait for AJAX payload
+                    const cards = document.querySelectorAll("div.card");
+                    cards.forEach(c => c.remove());
 
-                return true;
+                    return true;
+                }
             }
         }
     } catch (e) { }

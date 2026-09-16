@@ -15,15 +15,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function clickNextPage() {
     try {
-        const nextLinks = document.querySelectorAll("a, .pagination a");
+        const nextLinks = document.querySelectorAll("a, .pagination a, button.next");
         for (const link of nextLinks) {
-            if (link.innerText.includes("Next") || link.innerText.includes(">>")) {
-                link.click();
+            const isVisible = !!(link.offsetWidth || link.offsetHeight || link.getClientRects().length);
+            if (isVisible) {
+                if (link.innerText.includes("Next") || link.innerText.includes(">>")) {
+                    link.click();
 
-                const rows = document.querySelectorAll("div.tender_row, div.tender-item, .tender-row");
-                rows.forEach(r => r.remove());
+                    const rows = document.querySelectorAll("div.tender_row, div.tender-item, .tender-row");
+                    rows.forEach(r => r.remove());
 
-                return true;
+                    return true;
+                }
             }
         }
     } catch (e) { }

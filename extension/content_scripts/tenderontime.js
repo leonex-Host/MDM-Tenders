@@ -15,16 +15,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function clickNextPage() {
     try {
-        const nextLinks = document.querySelectorAll("a, li a, .pagination a");
+        const nextLinks = document.querySelectorAll("a, li a, .pagination a, button.next");
         for (const link of nextLinks) {
-            if (link.innerText.includes("Next") || link.innerText.includes(">>")) {
-                link.click();
+            const isVisible = !!(link.offsetWidth || link.offsetHeight || link.getClientRects().length);
+            if (isVisible) {
+                if (link.innerText.includes("Next") || link.innerText.includes(">>")) {
+                    link.click();
 
-                // Clear the DOM to align with AJAX block loops
-                const items = document.querySelectorAll("div.listingbox, div.tender-item");
-                items.forEach(c => c.remove());
+                    // Clear the DOM to align with AJAX block loops
+                    const items = document.querySelectorAll("div.listingbox, div.tender-item");
+                    items.forEach(c => c.remove());
 
-                return true;
+                    return true;
+                }
             }
         }
     } catch (e) { }
