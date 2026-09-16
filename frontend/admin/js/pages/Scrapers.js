@@ -196,28 +196,28 @@ async function loadScraperStatus() {
                 } else {
                     // Initial Render
                     htmlBuffer += `
-                    <div id="${safeId}" class="scraper-item anim-in" style="display:flex; align-items:center; justify-content:space-between; padding:16px 24px; background:var(--bg-card); border:1px solid var(--border-glass); border-radius:12px; margin-bottom:8px; transition:all 0.2s;">
+                    <div id="${safeId}" class="scraper-item anim-in" style="display:flex; align-items:center; justify-content:space-between; padding:12px 24px; background:var(--bg-glass); border-bottom:1px solid var(--border-glass); transition:all 0.2s;">
                         
                         <div style="display:flex; align-items:center; gap:16px; flex:1;">
-                            <div class="soft-dot" style="width:10px; height:10px; border-radius:50%; background:${statusColor}; ${pulseAnim} box-shadow: 0 0 12px ${statusColor};"></div>
-                            <span class="sc-name" style="font-size:14px; font-weight:600; color:var(--text-primary); text-transform:none; min-width:140px;">${name}</span>
-                            <span class="soft-badge" style="font-size:10px; font-weight:700; color:${statusColor}; background:${statusColor}15; padding:6px 12px; border-radius:999px; min-width:90px; text-align:center;">${statusText}</span>
+                            <div class="soft-dot" style="width:8px; height:8px; border-radius:50%; background:${statusColor}; ${pulseAnim} box-shadow: 0 0 8px ${statusColor};"></div>
+                            <span class="sc-name" style="font-size:13px; font-weight:600; color:var(--text-primary); text-transform:none; min-width:140px;">${name}</span>
+                            <span class="soft-badge" style="font-size:10px; font-weight:600; color:${statusColor}; background:${statusColor}15; padding:4px 10px; border-radius:6px; min-width:90px; text-align:center;">${statusText}</span>
                         </div>
 
                         <div style="display:flex; align-items:center; gap:40px; flex:1;">
                             <div style="display:flex; flex-direction:column; min-width:80px;">
-                                <div style="font-size:11px; color:var(--text-tertiary); margin-bottom:2px;">Extracted</div>
-                                <div class="soft-ext" style="font-size:16px; font-weight:700; color:var(--text-primary);">${(info.total_tenders || 0).toLocaleString()}</div>
+                                <div style="font-size:10px; color:var(--text-tertiary); margin-bottom:2px;">Extracted</div>
+                                <div class="soft-ext" style="font-size:14px; font-weight:600; color:var(--text-primary);">${(info.total_tenders || 0).toLocaleString()}</div>
                             </div>
                             <div style="display:flex; flex-direction:column; min-width:120px;">
-                                <div style="font-size:11px; color:var(--text-tertiary); margin-bottom:2px;">Target Keyword</div>
-                                <div class="soft-kwd" style="font-size:13px; font-weight:500; color:var(--text-secondary);">${info.last_keyword || 'N/A'}</div>
+                                <div style="font-size:10px; color:var(--text-tertiary); margin-bottom:2px;">Target Keyword</div>
+                                <div class="soft-kwd" style="font-size:12px; font-weight:500; color:var(--text-secondary);">${info.last_keyword || 'N/A'}</div>
                             </div>
                         </div>
 
-                        <div class="sc-controls" style="display:flex; gap:12px; align-items:center; border:none; padding:0; margin:0;">
-                            <button onclick="window._startScraper(event, '${name}')" class="sc-start" style="width:88px; height:36px; background:${isRunning ? 'var(--border-subtle)' : 'var(--accent-blue)'}; color:${isRunning ? 'var(--text-tertiary)' : 'var(--accent-blue-text)'}; border:none; border-radius:999px; font-size:12px; font-weight:600; cursor:${isRunning ? 'not-allowed' : 'pointer'}; transition:all 0.2s;" ${isRunning ? 'disabled' : ''}>Start</button>
-                            <button onclick="window._stopScraper(event, '${name}')" class="sc-stop" style="width:88px; height:36px; background:${!isRunning ? 'var(--border-subtle)' : 'var(--accent-red)'}; color:${!isRunning ? 'var(--text-tertiary)' : 'var(--accent-red-text)'}; border:none; border-radius:999px; font-size:12px; font-weight:600; cursor:${!isRunning ? 'not-allowed' : 'pointer'}; transition:all 0.2s;" ${!isRunning ? 'disabled' : ''}>Abort</button>
+                        <div class="sc-controls" style="display:flex; gap:8px; align-items:center; border:none; padding:0; margin:0;">
+                            <button onclick="window._startScraper(event, '${name}')" class="sc-start" style="width:80px; height:32px; background:${isRunning ? 'var(--border-subtle)' : 'var(--accent-blue)'}; color:${isRunning ? 'var(--text-tertiary)' : 'var(--accent-blue-text)'}; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:${isRunning ? 'not-allowed' : 'pointer'}; transition:all 0.2s;" ${isRunning ? 'disabled' : ''}>Start</button>
+                            <button onclick="window._stopScraper(event, '${name}')" class="sc-stop" style="width:80px; height:32px; background:${!isRunning ? 'var(--border-subtle)' : 'var(--accent-red)'}; color:${!isRunning ? 'var(--text-tertiary)' : 'var(--accent-red-text)'}; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:${!isRunning ? 'not-allowed' : 'pointer'}; transition:all 0.2s;" ${!isRunning ? 'disabled' : ''}>Abort</button>
                         </div>
                     </div>`;
                 }
@@ -260,28 +260,28 @@ async function loadScraperStatus() {
 
                 gPanel.setAttribute('data-state-id', newStateId);
                 gPanel.innerHTML = `
-                <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid ${isRunning ? (isCaptcha ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.3)') : 'var(--border-glass)'}; border-radius:12px; margin-bottom: 8px; padding:16px 24px; background:var(--bg-card);">
+                <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid ${isRunning ? (isCaptcha ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.3)') : 'var(--border-glass)'}; border-radius:12px; padding:12px 24px; background:var(--bg-glass);">
                     
                     <div style="display:flex; align-items:center; gap:16px;">
-                        <div style="width:10px; height:10px; border-radius:50%; background:${statusColor}; ${pulseAnim} box-shadow: 0 0 12px ${statusColor};"></div>
+                        <div style="width:8px; height:8px; border-radius:50%; background:${statusColor}; ${pulseAnim} box-shadow: 0 0 8px ${statusColor};"></div>
                         <div style="display:flex; flex-direction:column;">
-                            <span style="font-weight:700; font-size:14px; color:var(--text-primary);">Google Search Agent</span>
+                            <span style="font-weight:700; font-size:13px; color:var(--text-primary);">Google Search Agent</span>
                             <span style="font-size:11px; color:var(--text-secondary);">${g.message || 'Ready for broad spectrum querying'}</span>
                         </div>
                     </div>
 
                     ${(isCaptcha || isRunning) ? `
-                        <div class="captcha-box anim-in" style="margin:0; background:${isCaptcha ? 'rgba(244, 63, 94, 0.1)' : 'transparent'}; border:1px solid ${isCaptcha ? 'rgba(244, 63, 94, 0.4)' : 'transparent'}; padding:4px 12px; border-radius:8px; ${isCaptcha ? 'animation: pulse 2s infinite;' : ''} display:flex; align-items:center; gap:12px;">
-                            ${isCaptcha ? `<div style="color:#F43F5E; font-size:11px; font-weight:700; text-transform:uppercase;">⚠️ CAPTCHA DETECTED</div>` : ''}
-                            ${isCaptcha ? `<button id="adm-clear-captcha-btn" onclick="window._submitCaptcha(event)" style="background:var(--accent-red); color:var(--accent-red-text); border:none; height:28px; padding:0 12px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">Cleared</button>` : ''}
+                        <div class="captcha-box anim-in" style="margin:0; background:${isCaptcha ? '#FEF2F2' : 'transparent'}; border:1px solid ${isCaptcha ? '#FECACA' : 'transparent'}; padding:4px 12px; border-radius:8px; ${isCaptcha ? 'animation: pulse 2s infinite;' : ''} display:flex; align-items:center; gap:12px;">
+                            ${isCaptcha ? `<div style="color:#DC2626; font-size:11px; font-weight:700; text-transform:uppercase;">⚠️ CAPTCHA DETECTED</div>` : ''}
+                            ${isCaptcha ? `<button id="adm-clear-captcha-btn" onclick="window._submitCaptcha(event)" style="background:#EF4444; color:#fff; border:none; height:28px; padding:0 12px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">Cleared</button>` : ''}
                         </div>
                     ` : ''}
 
-                    <div style="display:flex; gap:12px;">
+                    <div style="display:flex; gap:8px;">
                         ${isRunning ? `
-                            <button onclick="window._stopGoogle(event)" style="width:88px; height:36px; background:var(--accent-red); color:var(--accent-red-text); border:none; border-radius:999px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Abort</button>
+                            <button onclick="window._stopGoogle(event)" style="width:80px; height:32px; background:var(--accent-red); color:var(--accent-red-text); border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Abort</button>
                         ` : `
-                            <button onclick="window._startGoogle(event)" style="width:88px; height:36px; background:var(--accent-blue); color:var(--accent-blue-text); border:none; border-radius:999px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Start</button>
+                            <button onclick="window._startGoogle(event)" style="width:80px; height:32px; background:var(--accent-blue); color:var(--accent-blue-text); border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Start</button>
                         `}
                     </div>
                 </div>
