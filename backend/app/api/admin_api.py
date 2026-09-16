@@ -207,8 +207,12 @@ def stop_scraper(
         # Forcibly update any 'running' DB rows so the UI clears immediately
         # (Handles cases where the thread crashed and left a stale 'running' row)
         from app.models import CrawlLog
-        stale = db.query(CrawlLog).filter(CrawlLog.status == "running", CrawlLog.source == source)
-        count = stale.update({"status": "stopped", "error_message": "Force stopped by admin"})
+        if source == "all":
+            stale = db.query(CrawlLog).filter(CrawlLog.status == "running")
+        else:
+            stale = db.query(CrawlLog).filter(CrawlLog.status == "running", CrawlLog.source == source)
+            
+        count = stale.update({"status": "stopped", "error_message": "Force stopped by admin"}, synchronize_session=False)
         db.commit()
         
         return {"status": "stopping", "source": source, "cleared_stale": count}
