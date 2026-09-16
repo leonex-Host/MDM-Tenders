@@ -108,6 +108,7 @@ async function startJob(job, conf) {
         await chrome.tabs.update(tabId, { url: searchUrl });
 
         let kwResults = [];
+        let seenLinks = new Set();
         let pageNum = 1;
 
         while (pageNum <= maxPages) {
@@ -135,8 +136,13 @@ async function startJob(job, conf) {
 
             console.log(`[MDM Agent] Found ${listingData.length} listings on page ${pageNum}`);
 
+            let newItems = 0;
+
             for (const item of listingData) {
-                if (item.href) {
+                if (item.href && !seenLinks.has(item.href)) {
+                    seenLinks.add(item.href);
+                    newItems++;
+
                     // Open detail page in a temporary background tab to preserve Search DOM state!
                     const detailTab = await chrome.tabs.create({ url: item.href, windowId: windowObj.id, active: false });
                     await sleep(1500);
@@ -149,6 +155,11 @@ async function startJob(job, conf) {
                     }
                     await chrome.tabs.remove(detailTab.id).catch(() => { });
                 }
+            }
+
+            if (newItems === 0 && listingData.length > 0) {
+                console.log(`[MDM Agent] Pagination loop detected (all ${listingData.length} items on page ${pageNum} were already seen). Breaking.`);
+                break;
             }
 
             // Advance to next page via DOM
