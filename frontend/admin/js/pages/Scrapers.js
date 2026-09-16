@@ -196,39 +196,28 @@ async function loadScraperStatus() {
                 } else {
                     // Initial Render
                     htmlBuffer += `
-                    <div id="${safeId}" class="scraper-item anim-in" style="position:relative; overflow:hidden; border-color:${isRunning ? 'rgba(16,185,129,0.4)' : 'var(--border-glass)'}; display:flex; flex-direction:column; justify-content:space-between; padding:16px; background:var(--bg-card); border-radius:12px; transition:all 0.2s;">
-                        ${isRunning ? `<div class="soft-scanline" style="position:absolute; top:0; left:0; width:100%; height:2px; background: linear-gradient(90deg, transparent, #10b981, transparent); animation: scanline 2s linear infinite;"></div>` : ''}
+                    <div id="${safeId}" class="scraper-item anim-in" style="display:flex; align-items:center; justify-content:space-between; padding:12px 24px; background:var(--bg-glass); border-bottom:1px solid var(--border-glass); transition:all 0.2s;">
                         
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                            <span class="sc-name" style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:800; color:var(--text-primary);">
-                                <div class="soft-dot" style="width:8px; height:8px; border-radius:50%; background:${statusColor}; ${pulseAnim} box-shadow: 0 0 8px ${statusColor};"></div>
-                                ${name}
-                            </span>
-                            <span class="soft-badge" style="font-size:9px; font-weight:800; letter-spacing:1px; color:${statusColor}; background:rgba(255,255,255,0.03); padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,0.05);">${statusText}</span>
+                        <div style="display:flex; align-items:center; gap:16px; flex:1;">
+                            <div class="soft-dot" style="width:8px; height:8px; border-radius:50%; background:${statusColor}; ${pulseAnim} box-shadow: 0 0 8px ${statusColor};"></div>
+                            <span class="sc-name" style="font-size:13px; font-weight:600; color:var(--text-primary); text-transform:none; min-width:140px;">${name}</span>
+                            <span class="soft-badge" style="font-size:10px; font-weight:600; color:${statusColor}; background:${statusColor}15; padding:4px 10px; border-radius:6px; min-width:90px; text-align:center;">${statusText}</span>
                         </div>
 
-                        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px;">
-                            <div>
-                                <div style="font-size:10px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; font-weight:700; margin-bottom:4px;">Extracted</div>
-                                <div class="soft-ext" style="font-size:24px; font-weight:800; color:var(--text-primary); line-height:1; letter-spacing:-0.5px;">
-                                    ${(info.total_tenders || 0).toLocaleString()}
-                                </div>
+                        <div style="display:flex; align-items:center; gap:40px; flex:1;">
+                            <div style="display:flex; flex-direction:column; min-width:80px;">
+                                <div style="font-size:10px; color:var(--text-tertiary); margin-bottom:2px;">Extracted</div>
+                                <div class="soft-ext" style="font-size:14px; font-weight:600; color:var(--text-primary);">${(info.total_tenders || 0).toLocaleString()}</div>
                             </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:4px;">
-                                    KWD: <span class="soft-kwd" style="color:var(--text-primary); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; font-family:var(--font-mono);">${info.last_keyword || 'N/A'}</span>
-                                </div>
-                                <div class="soft-sync" style="font-size:9px; color:var(--text-tertiary);">Sync: ${info.last_run ? new Date(info.last_run).toLocaleTimeString() : 'Never'}</div>
+                            <div style="display:flex; flex-direction:column; min-width:120px;">
+                                <div style="font-size:10px; color:var(--text-tertiary); margin-bottom:2px;">Target Keyword</div>
+                                <div class="soft-kwd" style="font-size:12px; font-weight:500; color:var(--text-secondary);">${info.last_keyword || 'N/A'}</div>
                             </div>
                         </div>
 
-                        <div class="sc-controls" style="border-top:none; padding-top:0; margin:0; display:flex; width:100%; gap:8px;">
-                            <button onclick="window._startScraper(event, '${name}')" class="sc-start" style="flex:1; height:32px; background:${isRunning ? 'rgba(255,255,255,0.02)' : 'var(--accent-blue)'}; color:${isRunning ? 'var(--text-tertiary)' : '#fff'}; border:none; ${!isRunning ? 'box-shadow: 0 4px 14px var(--accent-blue-dim);' : ''} border-radius:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; cursor:${isRunning ? 'not-allowed' : 'pointer'}; display:flex; justify-content:center; align-items:center; gap:8px; transition:all 0.2s;" ${isRunning ? 'disabled' : ''}>
-                                Start
-                            </button>
-                            <button onclick="window._stopScraper(event, '${name}')" class="sc-stop" style="flex:1; height:32px; background:${!isRunning ? 'rgba(255,255,255,0.02)' : 'rgba(239,68,68,0.1)'}; color:${!isRunning ? 'var(--text-tertiary)' : '#ef4444'}; border:${!isRunning ? 'none' : '1px solid rgba(239,68,68,0.2)'}; border-radius:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; cursor:${!isRunning ? 'not-allowed' : 'pointer'}; display:flex; justify-content:center; align-items:center; gap:8px; transition:all 0.2s;" ${!isRunning ? 'disabled' : ''}>
-                                Abort
-                            </button>
+                        <div class="sc-controls" style="display:flex; gap:8px; align-items:center; border:none; padding:0; margin:0;">
+                            <button onclick="window._startScraper(event, '${name}')" class="sc-start" style="width:80px; height:32px; background:${isRunning ? 'var(--border-subtle)' : 'var(--accent-blue)'}; color:${isRunning ? 'var(--text-tertiary)' : 'var(--accent-blue-text)'}; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:${isRunning ? 'not-allowed' : 'pointer'}; transition:all 0.2s;" ${isRunning ? 'disabled' : ''}>Start</button>
+                            <button onclick="window._stopScraper(event, '${name}')" class="sc-stop" style="width:80px; height:32px; background:${!isRunning ? 'var(--border-subtle)' : 'var(--accent-red)'}; color:${!isRunning ? 'var(--text-tertiary)' : 'var(--accent-red-text)'}; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:${!isRunning ? 'not-allowed' : 'pointer'}; transition:all 0.2s;" ${!isRunning ? 'disabled' : ''}>Abort</button>
                         </div>
                     </div>`;
                 }
@@ -271,46 +260,31 @@ async function loadScraperStatus() {
 
                 gPanel.setAttribute('data-state-id', newStateId);
                 gPanel.innerHTML = `
-                <div style="position:relative; overflow:hidden; border:1px solid ${isRunning ? (isCaptcha ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.3)') : 'var(--border-glass)'}; border-radius:16px; padding:16px; background:var(--bg-card);">
-                    ${isRunning && !isCaptcha ? `<div style="position:absolute; top:0; left:0; width:100%; height:2px; background: linear-gradient(90deg, transparent, #10b981, transparent); animation: scanline 2s linear infinite;"></div>` : ''}
-
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
-                <div style="flex:1;">
-                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-                        <div style="display:flex; align-items:center; gap:8px; font-weight:800; font-size:14px; color:var(--text-primary);">
-                            <div style="width:8px; height:8px; border-radius:50%; background:${statusColor}; ${pulseAnim} box-shadow: 0 0 8px ${statusColor};"></div>
-                            GOOGLE RESEARCH
+                <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid ${isRunning ? (isCaptcha ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.3)') : 'var(--border-glass)'}; border-radius:12px; padding:12px 24px; background:var(--bg-glass);">
+                    
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <div style="width:8px; height:8px; border-radius:50%; background:${statusColor}; ${pulseAnim} box-shadow: 0 0 8px ${statusColor};"></div>
+                        <div style="display:flex; flex-direction:column;">
+                            <span style="font-weight:700; font-size:13px; color:var(--text-primary);">Google Search Agent</span>
+                            <span style="font-size:11px; color:var(--text-secondary);">${g.message || 'Ready for broad spectrum querying'}</span>
                         </div>
-                        <span style="font-size:10px; font-weight:800; letter-spacing:1px; color:${statusColor}; background:rgba(255,255,255,0.03); padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,0.05);">${statusText}</span>
-                    </div>
-
-                    <div style="font-size:15px; font-weight:500; color:var(--text-secondary); margin-bottom:16px; display:flex; align-items:center; gap:8px;">
-                        ${g.message || 'Ready for deep research extraction'}
                     </div>
 
                     ${(isCaptcha || isRunning) ? `
-                        <div class="captcha-box anim-in" style="margin-top:8px; background:${isCaptcha ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${isCaptcha ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255,255,255,0.07)'}; padding:12px 16px; border-radius:12px; ${isCaptcha ? 'animation: pulse 2s infinite;' : ''}">
-                            ${isCaptcha ? `<div style="color:#f59e0b; font-size:12px; font-weight:700; text-transform:uppercase; margin-bottom:10px;">⚠️ CAPTCHA / SECURITY CHECK DETECTED</div>` : ''}
-                            <div style="font-size:11px; color:var(--text-tertiary); margin-bottom:10px;">If the browser is stuck on a captcha or verification screen, solve it manually then click below.</div>
-                            <button id="adm-clear-captcha-btn" onclick="window._submitCaptcha(event)" style="background:${isCaptcha ? '#ef4444' : 'rgba(255,255,255,0.06)'}; color:${isCaptcha ? '#fff' : 'var(--text-secondary)'}; border:1px solid ${isCaptcha ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}; width:100%; height:36px; border-radius:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; transition:all 0.2s;">
-                                ✓ I've Cleared the Captcha / Continue
-                            </button>
+                        <div class="captcha-box anim-in" style="margin:0; background:${isCaptcha ? '#FEF2F2' : 'transparent'}; border:1px solid ${isCaptcha ? '#FECACA' : 'transparent'}; padding:4px 12px; border-radius:8px; ${isCaptcha ? 'animation: pulse 2s infinite;' : ''} display:flex; align-items:center; gap:12px;">
+                            ${isCaptcha ? `<div style="color:#DC2626; font-size:11px; font-weight:700; text-transform:uppercase;">⚠️ CAPTCHA DETECTED</div>` : ''}
+                            ${isCaptcha ? `<button id="adm-clear-captcha-btn" onclick="window._submitCaptcha(event)" style="background:#EF4444; color:#fff; border:none; height:28px; padding:0 12px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">Cleared</button>` : ''}
                         </div>
                     ` : ''}
-                </div>
-                <div style="display:flex; flex-direction:column; gap:12px; min-width:140px; flex:1;">
-                    ${isRunning ? `
-                        <button onclick="window._stopGoogle(event)" style="height:36px; background:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); border-radius:999px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; transition:all 0.2s;">
-                            Abort Sequence
-                        </button>
-                    ` : `
-                        <button onclick="window._startGoogle(event)" style="height:36px; background:var(--accent-blue); color:#fff; border:none; box-shadow: 0 4px 14px var(--accent-blue-dim); border-radius:999px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; transition:all 0.2s;">
-                            Launch Engine
-                        </button>
-                    `}
-                </div>
-            </div>
+
+                    <div style="display:flex; gap:8px;">
+                        ${isRunning ? `
+                            <button onclick="window._stopGoogle(event)" style="width:80px; height:32px; background:var(--accent-red); color:var(--accent-red-text); border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Abort</button>
+                        ` : `
+                            <button onclick="window._startGoogle(event)" style="width:80px; height:32px; background:var(--accent-blue); color:var(--accent-blue-text); border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Start</button>
+                        `}
                     </div>
+                </div>
                 `;
             }
         }
