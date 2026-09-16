@@ -56,11 +56,7 @@ export function renderAdminSidebar() {
         <div class="sidebar-header" style="margin-bottom: 12px;">
             <div class="sidebar-logo" style="display: flex; align-items: center; gap: 14px;">
                 <div class="logo-icon" style="width:36px; height:36px; background:var(--bg-card); border:1px solid var(--border-glass); border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                        <path d="M2 17l10 5 10-5"></path>
-                        <path d="M2 12l10 5 10-5"></path>
-                    </svg>
+                    <img src="favicon.png" style="width: 24px; height: 24px; object-fit: contain;">
                 </div>
                 <div class="logo-text" style="display:flex; flex-direction:column; justify-content:center;">
                     <span style="font-size:16px; font-weight:900; letter-spacing:1px; line-height:1;">LEONEX</span>

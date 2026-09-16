@@ -27,11 +27,8 @@ const navItems = [
     }
 ];
 
-// Geometric AI Sparkle logo SVG
-const logoSVG = `
-<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-  <path d="M12 0L14.4 9.6L24 12L14.4 14.4L12 24L9.6 14.4L0 12L9.6 9.6L12 0Z"/>
-</svg>`;
+// Leonex Logo Image
+const logoSVG = `<img src="favicon.png" style="width: 24px; height: 24px; object-fit: contain;">`;
 
 export function renderSidebar() {
     const currentRoute = getCurrentRoute();
