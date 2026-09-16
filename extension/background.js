@@ -1,7 +1,5 @@
 let intervalId = null;
-let currentJob = null;
-let tabId = null;
-
+let activeJobs = new Set();
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "start_polling") {
         if (!intervalId) {
@@ -13,7 +11,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function pollForJobs() {
-    if (currentJob) return; // busy
+    // parallel poll active
 
     const conf = await chrome.storage.local.get(['apiUrl', 'apiKey']);
     if (!conf.apiUrl || !conf.apiKey) return;
@@ -26,8 +24,12 @@ async function pollForJobs() {
 
         const data = await res.json();
         if (data.jobs && data.jobs.length > 0) {
-            const job = data.jobs[0];
-            await startJob(job, conf);
+            for (const job of data.jobs) {
+                if (!activeJobs.has(job.job_id)) {
+                    activeJobs.add(job.job_id);
+                    startJob(job, conf).catch(console.error); // start async and parallel
+                }
+            }
         }
     } catch (e) {
         console.log("[MDM Agent] Poll error:", e);
@@ -36,21 +38,20 @@ async function pollForJobs() {
 
 async function startJob(job, conf) {
     console.log("[MDM Agent] Picking up job:", job.job_id);
-    currentJob = job;
 
     try {
         await fetch(`${conf.apiUrl}/api/extension/jobs/${job.job_id}/start`, {
             method: 'POST',
             headers: { 'X-Extension-Key': conf.apiKey }
         });
-    } catch (e) { console.error(e); currentJob = null; return; }
+    } catch (e) { console.error(e); activeJobs.delete(job.job_id); return; }
 
     const maxPages = job.max_pages || 5;
     let allTenders = [];
 
-    // Create ONE visible window/tab to reuse for this entire job
+    // Create ONE visible window/tab to reuse for this specific job thread
     const windowObj = await chrome.windows.create({ url: "about:blank", state: "normal" });
-    tabId = windowObj.tabs[0].id;
+    const tabId = windowObj.tabs[0].id;
 
     for (const keyword of job.keywords) {
         console.log(`[MDM Agent] Processing keyword: ${keyword} on ${job.source}`);
@@ -148,7 +149,7 @@ async function startJob(job, conf) {
                     'X-Extension-Key': conf.apiKey,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ source: "tenderontime", keyword: keyword, tenders: kwResults })
+                body: JSON.stringify({ source: job.source, keyword: keyword, tenders: kwResults })
             });
             allTenders.push(...kwResults);
         }
@@ -173,9 +174,8 @@ async function startJob(job, conf) {
         });
     } catch (e) { console.error(e); }
 
-    console.log("[MDM Agent] Job Complete!");
-    currentJob = null;
-    tabId = null;
+    console.log(`[MDM Agent] Job Complete: ${job.job_id}`);
+    activeJobs.delete(job.job_id);
 }
 
 function sleep(ms) {
