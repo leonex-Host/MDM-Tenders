@@ -23,43 +23,106 @@ html {
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-    /* ── COLORS (Light Mode Default - Clean Admin Aesthetic) ── */
-    --bg-page: #E4E9F7;
-    /* Soft pastel blue background matching reference */
-    --bg-glass: #FFFFFF;
-    --bg-card: #FFFFFF;
+    /* ── COLORS (Dark Mode Default - Red/Black Aesthetic) ── */
+    --bg-page: #000000;
+    --bg-glass: #000000;
+    --bg-card: #080808;
+    --border-glass: rgba(255, 255, 255, 0.05);
+    --border-subtle: rgba(255, 255, 255, 0.02);
 
-    --border-glass: #E2E8F0;
-    --border-subtle: #F1F5F9;
+    --text-primary: #FFFFFF;
+    --text-secondary: #A1A1AA;
+    --text-tertiary: #52525B;
 
-    --text-primary: #1E293B;
-    --text-secondary: #64748B;
-    --text-tertiary: #94A3B8;
-
-    /* Soft Pastel Accent Colors */
-    --accent-blue: #C2D8FB;
-    --accent-blue-text: #1E3A8A;
-    --accent-yellow: #FBEBD0;
-    --accent-yellow-text: #9A3412;
-    --accent-purple: #EEDCFF;
-    --accent-purple-text: #581C87;
-
-    --accent-green: #BBF7D0;
-    --accent-green-text: #166534;
-    --accent-red: #FECDD3;
-    --accent-red-text: #9F1239;
+    --accent-red: #E11D48;
+    --accent-red-dim: rgba(225, 29, 72, 0.1);
+    --accent-orange: #EF4444;
+    --accent-orange-dim: rgba(239, 68, 68, 0.1);
+    --accent-purple: #E11D48;
+    /* Repurposed to red for unified theme */
+    --accent-green: #FFFFFF;
+    --accent-blue: #0EA5E9;
+    --accent-blue-dim: rgba(14, 165, 233, 0.1);
+    --neon-cyan: #00f3ff;
+    --neon-green: #22c55e;
 
     --r-panel: 24px;
-    --r-card: 12px;
+    --r-card: 16px;
     --r-btn: 8px;
     --r-pill: 999px;
 
-    --sidebar-width: 240px;
-    --topbar-height: 64px;
-    --panel-gap: 20px;
+    --sidebar-width: 220px;
+    --topbar-height: 56px;
+    --panel-gap: 0px;
 
     --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
     --duration: 0.25s;
+}
+
+[data-theme="light"] {
+    --bg-page: #FFFFFF;
+    --bg-glass: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --border-glass: rgba(0, 0, 0, 0.08);
+    --border-subtle: rgba(0, 0, 0, 0.04);
+    --text-primary: #18181B;
+    --text-secondary: #52525B;
+    --text-tertiary: #A1A1AA;
+
+    --accent-red: #E11D48;
+    --accent-red-dim: rgba(225, 29, 72, 0.1);
+    --accent-orange: #EF4444;
+    --accent-orange-dim: rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="light"] .bb-nav-group {
+    background: #E4E4E7;
+    border-color: #D4D4D8;
+}
+
+[data-theme="light"] .bb-nav-item {
+    color: #71717A;
+}
+
+[data-theme="light"] .bb-nav-item:hover {
+    color: #18181B;
+}
+
+[data-theme="light"] .bb-nav-item.active {
+    background: #FFFFFF;
+    color: #18181B;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .bb-theme-toggle {
+    border-color: #D4D4D8;
+    color: #71717A;
+}
+
+[data-theme="light"] .bb-theme-toggle:hover {
+    background: #E4E4E7;
+    color: #18181B;
+}
+
+[data-theme="light"] .bb-profile-bubble {
+    border-color: #D4D4D8;
+    color: #18181B;
+}
+
+[data-theme="light"] .bb-profile-bubble:hover {
+    border-color: #A1A1AA;
+}
+
+[data-theme="light"] .bb-backend-badge {
+    color: #71717A;
+}
+
+[data-theme="light"] .bb-backend-badge:hover {
+    color: #18181B;
+}
+
+[data-theme="light"] .admin-topbar {
+    border-bottom: 1px solid #E4E4E7;
 }
 
 /* ── Reset & Base ─────────────────────────────────────────── */
@@ -83,17 +146,14 @@ body {
 }
 
 /* ── App Shell (Edge-to-Edge Layout) ──────────────────────────── */
+/* ── App Shell (Blackbox Layout) ──────────────────────────── */
 #admin-app {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    width: 100vw;
-    margin: 0;
     padding: 0;
-    border-radius: 0;
-    background: var(--bg-glass);
-    box-shadow: none;
-    overflow: hidden;
+    gap: 0;
+    background: var(--bg-page);
     transition: none;
 }
 
@@ -147,15 +207,15 @@ body {
     gap: 0;
 }
 
-/* ── Topbar / Clean Navigation ──────────────────────── */
+/* ── Topbar / Blackbox Navigation ──────────────────────── */
 .admin-topbar {
-    height: var(--topbar-height);
-    min-height: var(--topbar-height);
-    background: var(--bg-glass);
-    border-bottom: 1px solid var(--border-glass);
+    height: 72px;
+    min-height: 72px;
+    background: transparent;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.03);
     display: flex;
     align-items: center;
-    padding: 0 24px;
+    padding: 0 32px;
     z-index: 5;
     width: 100%;
 }
@@ -210,7 +270,7 @@ body {
 .bb-nav-item.active {
     background: #000000;
     color: var(--text-primary);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 
 .bb-backend-badge {
@@ -250,7 +310,7 @@ body {
 /* ── Content Area (Flush Canvas) ─────────────────────────── */
 .admin-content {
     flex: 1;
-    background: var(--bg-glass);
+    background: var(--bg-page);
     border: none;
     border-radius: 0;
     overflow-y: auto;
@@ -330,7 +390,7 @@ body {
 
 .scraper-item:hover {
     border-color: rgba(225, 29, 72, 0.4);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
 }
 
 .sc-info-row {
@@ -573,8 +633,8 @@ body {
 }
 
 .stat-box:hover {
-    border-color: #E2E8F0;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+    border-color: rgba(225, 29, 72, 0.4);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
     transform: translateY(-2px);
 }
 
@@ -1134,7 +1194,7 @@ body {
     background: var(--bg-card);
     border: 1px solid var(--border-glass);
     border-radius: var(--r-card);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     transition: transform 0.3s var(--ease), border-color 0.3s var(--ease);
 }
 
