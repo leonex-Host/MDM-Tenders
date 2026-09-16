@@ -344,7 +344,7 @@ window._startScraper = async (event, source) => {
 
 window._stopScraper = async (event, source) => {
     const isHeadless = localStorage.getItem('admin_headless') !== 'false';
-    const baseUrl = !isHeadless ? 'http://localhost:8000/api' : getApiBase();
+    const baseUrl = getApiBase();
     await adminFetch(`${baseUrl}/admin/scrapers/stop?source=${source}`, { method: 'POST' });
     await loadScraperStatus();
 };
@@ -398,7 +398,7 @@ window._submitCaptcha = async (event) => {
     btn.innerHTML = '⏳ Resuming...';
 
     const isHeadless = localStorage.getItem('admin_headless') !== 'false';
-    const baseUrl = !isHeadless ? 'http://localhost:8000/api' : getApiBase();
+    const baseUrl = getApiBase();
 
     try {
         await adminFetch(`${baseUrl}/admin/scrapers/captcha`, {
