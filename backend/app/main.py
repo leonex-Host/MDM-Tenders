@@ -126,6 +126,11 @@ logger.info("Auth router loaded")
 from app.api.routes import router as tender_router
 app.include_router(tender_router)                  # /api/tenders, /api/search, etc.
 
+# Extension API (Chrome Extension communication)
+from app.api.extension_api import router as extension_router
+app.include_router(extension_router)               # /api/extension/*
+logger.info("Extension API router loaded")
+
 # Google Search router
 try:
     from app.api.google_routes import router as google_router

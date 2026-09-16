@@ -131,6 +131,29 @@ def start_scraper(
             return sync_google(headless=headless)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+    elif source == "tenderontime":
+        from app.api.extension_api import _pending_jobs
+        
+        db_s = SessionLocal()
+        try:
+            # Tell UI it is running
+            log = CrawlLog(source=source, keyword="Extension Triggered", status="running")
+            db_s.add(log)
+            db_s.commit()
+        finally:
+            db_s.close()
+            
+        import uuid
+        job = {
+            "job_id": str(uuid.uuid4())[:8],
+            "source": source,
+            "status": "pending",
+            "keywords": settings.SEARCH_KEYWORDS,
+            "max_pages": getattr(settings, "MAX_PAGES", 5),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        _pending_jobs.append(job)
+        return {"status": "started", "message": "Queued for Chrome Extension"}
     else:
         import threading
         from app.services.scraper_service import run_all_scrapers
