@@ -7,7 +7,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         extractDetails(request.keyword).then(sendResponse);
         return true;
     }
+    else if (request.action === "click_next_page") {
+        clickNextPage().then(sendResponse);
+        return true;
+    }
 });
+
+async function clickNextPage() {
+    try {
+        const pnnext = document.getElementById("pnnext");
+        if (pnnext) {
+            pnnext.click();
+            return true;
+        }
+        const nextAria = document.querySelector("a[aria-label='Next page']");
+        if (nextAria) {
+            nextAria.click();
+            return true;
+        }
+    } catch (e) { }
+    return false;
+}
 
 async function extractListings() {
     let listings = [];

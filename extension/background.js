@@ -137,18 +137,29 @@ async function startJob(job, conf) {
 
             for (const item of listingData) {
                 if (item.href) {
-                    await chrome.tabs.update(tabId, { url: item.href });
-                    await sleep(1500); // 1.5s wait for detail page is much faster than 2.5s
+                    // Open detail page in a temporary background tab to preserve Search DOM state!
+                    const detailTab = await chrome.tabs.create({ url: item.href, windowId: windowObj.id, active: false });
+                    await sleep(1500);
 
-                    let detailData = await executeContentScript(tabId, "extract_details", { keyword: keyword });
+                    let detailData = await executeContentScript(detailTab.id, "extract_details", { keyword: keyword });
                     if (detailData && detailData.found) {
                         let finalItem = { ...item, ...detailData };
                         kwResults.push(finalItem);
                         console.log(`✅ MATCH: ${finalItem.title}`);
                     }
+                    await chrome.tabs.remove(detailTab.id).catch(() => { });
                 }
             }
-            break; // Stick to page 1 for stability in MVP
+
+            // Advance to next page via DOM
+            const hasNext = await executeContentScript(tabId, "click_next_page");
+            if (!hasNext) {
+                console.log(`[MDM Agent] No more pages available after page ${pageNum}`);
+                break;
+            }
+
+            pageNum++;
+            await sleep(3000); // wait for page 2+ to load
         }
 
         console.log(`[MDM Agent] Finished keyword ${keyword}. Matches found: ${kwResults.length}`);
