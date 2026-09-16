@@ -6,7 +6,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "start_polling") {
         if (!intervalId) {
             console.log("[MDM Agent] Started polling for jobs...");
-            intervalId = setInterval(pollForJobs, 10000);
+            intervalId = setInterval(pollForJobs, 3000); // 3 second polling for blistering speeds
             pollForJobs(); // run immediately
         }
     }
@@ -38,7 +38,6 @@ async function startJob(job, conf) {
     console.log("[MDM Agent] Picking up job:", job.job_id);
     currentJob = job;
 
-    // Acknowledge pickup
     try {
         await fetch(`${conf.apiUrl}/api/extension/jobs/${job.job_id}/start`, {
             method: 'POST',
@@ -49,25 +48,38 @@ async function startJob(job, conf) {
     const maxPages = job.max_pages || 5;
     let allTenders = [];
 
-    // Loop over keywords
+    // Create ONE visible window/tab to reuse for this entire job
+    const windowObj = await chrome.windows.create({ url: "about:blank", state: "normal" });
+    tabId = windowObj.tabs[0].id;
+
     for (const keyword of job.keywords) {
         console.log(`[MDM Agent] Processing keyword: ${keyword}`);
         const escaped = encodeURIComponent(keyword.trim());
         const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
 
-        // Create visible tab
-        const tab = await chrome.tabs.create({ url: searchUrl, active: true });
-        tabId = tab.id;
-
-        // Wait for page to load completely
-        await sleep(4000);
+        await chrome.tabs.update(tabId, { url: searchUrl });
 
         let kwResults = [];
         let pageNum = 1;
 
         while (pageNum <= maxPages) {
-            // Tell content script to extract listing links
-            let listingData = await executeContentScript(tabId, "extract_listings");
+            let listingData = null;
+
+            // Poll very fast (500ms) for Cloudflare or page load
+            for (let attempt = 0; attempt < 50; attempt++) {
+                await sleep(500);
+                listingData = await executeContentScript(tabId, "extract_listings");
+
+                if (listingData && listingData.status === "cloudflare") {
+                    console.log(`[MDM Agent] Waiting on Cloudflare (Attempt ${attempt + 1}/50)...`);
+                    listingData = null;
+                    continue; // Sleep again!
+                }
+                if (listingData !== null) {
+                    break; // Successfully got an array (either empty or populated)
+                }
+            }
+
             if (!listingData || listingData.length === 0) {
                 console.log(`[MDM Agent] No listings on page ${pageNum} for ${keyword}`);
                 break;
@@ -75,11 +87,10 @@ async function startJob(job, conf) {
 
             console.log(`[MDM Agent] Found ${listingData.length} listings on page ${pageNum}`);
 
-            // Loop over extracted listings and visit detail pages
             for (const item of listingData) {
                 if (item.href) {
                     await chrome.tabs.update(tabId, { url: item.href });
-                    await sleep(3000); // wait for detail load
+                    await sleep(1500); // 1.5s wait for detail page is much faster than 2.5s
 
                     let detailData = await executeContentScript(tabId, "extract_details", { keyword: keyword });
                     if (detailData && detailData.found) {
@@ -89,38 +100,29 @@ async function startJob(job, conf) {
                     }
                 }
             }
-
-            // We finished the page. We have to go back to the search results to click "Next".
-            // Since we navigated away, going back requires rebuilding the search POST or simply skipping multi-page for now to keep it extremely stable.
-            // For stability without complex state management in the extension, we'll extract page 1 first in this iteration.
-            break;
+            break; // Stick to page 1 for stability in MVP
         }
 
         console.log(`[MDM Agent] Finished keyword ${keyword}. Matches found: ${kwResults.length}`);
 
         if (kwResults.length > 0) {
-            // Upload immediately for this keyword
             await fetch(`${conf.apiUrl}/api/extension/upload`, {
                 method: 'POST',
                 headers: {
                     'X-Extension-Key': conf.apiKey,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    source: "tenderontime",
-                    keyword: keyword,
-                    tenders: kwResults
-                })
+                body: JSON.stringify({ source: "tenderontime", keyword: keyword, tenders: kwResults })
             });
             allTenders.push(...kwResults);
         }
 
-        // Close the tab between keywords if needed, or wait
-        await chrome.tabs.remove(tabId);
-        await sleep(2000);
+        await sleep(1500); // Short breather before next keyword
     }
 
-    // Mark Job Complete
+    // Close the reusable tab/window
+    await chrome.windows.remove(windowObj.id).catch(() => { });
+
     try {
         await fetch(`${conf.apiUrl}/api/extension/jobs/${job.job_id}/complete`, {
             method: 'POST',
@@ -148,7 +150,7 @@ function executeContentScript(tid, action, payload = null) {
     return new Promise((resolve) => {
         chrome.tabs.sendMessage(tid, { action, ...payload }, (response) => {
             if (chrome.runtime.lastError) {
-                console.error("[MDM] tab communication error:", chrome.runtime.lastError.message);
+                // Expected during early page initialization; silence to prevent Extension Error badge
                 resolve(null);
             } else {
                 resolve(response);

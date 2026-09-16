@@ -10,6 +10,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function extractListings() {
+    if (document.title.includes("Just a moment") ||
+        (document.body && document.body.innerHTML && document.body.innerHTML.includes("cf-turnstile")) ||
+        (document.body && document.body.innerText && document.body.innerText.includes("Cloudflare"))) {
+        return { status: "cloudflare" };
+    }
+
     let listings = [];
 
     // Attempt clicking the filter button if we are on the initial search page redirect
