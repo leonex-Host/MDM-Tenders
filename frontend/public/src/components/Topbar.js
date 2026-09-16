@@ -12,20 +12,7 @@ export function renderTopbar() {
             <span class="search-shortcut">⌘F</span>
         </div>
         <div class="topbar-actions">
-            <!-- Backend Switcher -->
-            <div id="backend-switcher" title="Switch between local (visible browser) and Render server" style="display:flex;align-items:center;gap:6px;background:var(--surface-2,rgba(255,255,255,0.05));border:1px solid var(--border,rgba(255,255,255,0.08));border-radius:20px;padding:3px 4px;cursor:pointer;" onclick="(function(){
-                const mode = localStorage.getItem('api_backend') === 'local' ? 'remote' : 'local';
-                localStorage.setItem('api_backend', mode);
-                document.getElementById('backend-dot').style.background = mode === 'local' ? '#22c55e' : '#f97316';
-                document.getElementById('backend-label').textContent = mode === 'local' ? 'Local' : 'Render';
-                document.getElementById('backend-icon').setAttribute('data-lucide', mode === 'local' ? 'monitor' : 'cloud');
-                if(window.lucide) window.lucide.createIcons();
-                window.location.reload();
-            })()">
-                <span id="backend-dot" style="width:8px;height:8px;border-radius:50%;background:${localStorage.getItem('api_backend') === 'local' ? '#22c55e' : '#f97316'};flex-shrink:0;"></span>
-                <i id="backend-icon" data-lucide="${localStorage.getItem('api_backend') === 'local' ? 'monitor' : 'cloud'}" style="width:13px;height:13px;opacity:0.75;"></i>
-                <span id="backend-label" style="font-size:11px;font-weight:600;letter-spacing:0.3px;color:var(--text-secondary);padding-right:4px;">${localStorage.getItem('api_backend') === 'local' ? 'Local' : 'Render'}</span>
-            </div>
+
             <button class="theme-toggle" id="theme-btn" aria-label="Toggle Theme">
                 <span class="icon-sun"><i data-lucide="sun" style="width:16px;height:16px;"></i></span>
                 <span class="icon-moon"><i data-lucide="moon" style="width:16px;height:16px;"></i></span>
