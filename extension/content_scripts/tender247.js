@@ -19,6 +19,10 @@ async function clickNextPage() {
         for (const link of nextLinks) {
             if (link.innerText.includes("Next") || link.innerText.includes(">>") || link.className.includes("NextPage")) {
                 link.click();
+
+                const links = document.querySelectorAll("a[href*='/tender-details/']");
+                links.forEach(l => l.remove());
+
                 return true;
             }
         }

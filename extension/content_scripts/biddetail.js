@@ -19,6 +19,10 @@ async function clickNextPage() {
         for (const link of nextLinks) {
             if (link.innerText.includes("Next") || link.innerText.includes(">>")) {
                 link.click();
+
+                const rows = document.querySelectorAll("div.tender_row, .search-result .tender-item");
+                rows.forEach(r => r.remove());
+
                 return true;
             }
         }

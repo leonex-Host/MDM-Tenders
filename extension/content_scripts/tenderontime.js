@@ -19,6 +19,11 @@ async function clickNextPage() {
         for (const link of nextLinks) {
             if (link.innerText.includes("Next") || link.innerText.includes(">>")) {
                 link.click();
+
+                // Clear the DOM to align with AJAX block loops
+                const items = document.querySelectorAll("div.listingbox, div.tender-item");
+                items.forEach(c => c.remove());
+
                 return true;
             }
         }

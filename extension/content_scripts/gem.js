@@ -19,6 +19,11 @@ async function clickNextPage() {
         for (const link of nextLinks) {
             if (link.innerText.includes("Next") || link.innerText.includes(">>") || link.getAttribute("rel") === "next") {
                 link.click();
+
+                // Clear DOM to force wait for AJAX payload
+                const cards = document.querySelectorAll("div.card");
+                cards.forEach(c => c.remove());
+
                 return true;
             }
         }

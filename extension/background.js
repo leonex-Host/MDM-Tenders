@@ -164,19 +164,20 @@ async function startJob(job, conf) {
             }
 
             if (newItems === 0 && listingData.length > 0) {
-                console.log(`[MDM Agent] Pagination loop detected (all ${listingData.length} items on page ${pageNum} were already seen). Breaking.`);
-                break;
+                console.log(`[MDM Agent] Pagination loop or slow AJAX DOM detected. Skipping break to emulate python scraper tolerance.`);
             }
 
-            // Advance to next page via DOM
-            const hasNext = await executeContentScript(tabId, "click_next_page");
-            if (!hasNext) {
-                console.log(`[MDM Agent] No more pages available after page ${pageNum}`);
-                break;
+            if (pageNum < maxPages) {
+                let clicked = await executeContentScript(tabId, "click_next_page", {});
+                if (!clicked) {
+                    console.log(`[MDM Agent] No more Next pages found for ${keyword} on page ${pageNum}`);
+                    break;
+                }
+                console.log(`[MDM Agent] Clicked Next page for ${keyword}. Waiting 5 seconds for DOM sweeps...`);
+                await sleep(5000);
             }
 
             pageNum++;
-            await sleep(3000); // wait for page 2+ to load
         }
 
         console.log(`[MDM Agent] Finished keyword ${keyword}. Matches found: ${kwResults.length}`);
