@@ -67,7 +67,7 @@ export async function renderScrapers(container) {
         if (window.lucide) window.lucide.createIcons();
 
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
-        const baseUrl = !isHeadless ? 'http://localhost:8000/api' : getApiBase();
+        const baseUrl = getApiBase();
         const sources = ['gem', 'tender247', 'tenderdetail', 'tenderontime', 'biddetail'];
 
         try {
@@ -84,7 +84,7 @@ export async function renderScrapers(container) {
 
     container.querySelector('#adm-stop-all')?.addEventListener('click', async () => {
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
-        const baseUrl = !isHeadless ? 'http://localhost:8000/api' : getApiBase();
+        const baseUrl = getApiBase();
         try {
             await adminFetch(`${baseUrl}/admin/scrapers/stop?source=all`, { method: 'POST' });
         } catch (e) { console.error(e); }
@@ -95,7 +95,7 @@ export async function renderScrapers(container) {
 async function loadScraperStatus() {
     try {
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
-        const baseUrl = !isHeadless ? 'http://localhost:8000/api' : getApiBase();
+        const baseUrl = getApiBase();
 
         let res = await adminFetch(`${baseUrl}/admin/scrapers/status`).catch(() => null);
 
@@ -327,7 +327,7 @@ window._startScraper = async (event, source) => {
 
     try {
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
-        const baseUrl = !isHeadless ? 'http://localhost:8000/api' : getApiBase();
+        const baseUrl = getApiBase();
         const res = await adminFetch(`${baseUrl}/admin/scrapers/start?source=${source}&headless=${isHeadless}`, { method: 'POST' });
         if (!res.ok) {
             alert(`Could not start ${source} locally. Make sure the local server is running and you are logged in locally. (HTTP ${res.status})`);
@@ -358,7 +358,7 @@ window._startGoogle = async (event) => {
 
     try {
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
-        const baseUrl = !isHeadless ? 'http://localhost:8000/api' : getApiBase();
+        const baseUrl = getApiBase();
         const res = await adminFetch(`${baseUrl}/admin/scrapers/start?source=google&headless=${isHeadless}`, { method: 'POST' });
         if (!res.ok) {
             const d = await res.json().catch(() => ({}));
@@ -383,7 +383,7 @@ window._stopGoogle = async (event) => {
 
     try {
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
-        const baseUrl = !isHeadless ? 'http://localhost:8000/api' : getApiBase();
+        const baseUrl = getApiBase();
         await adminFetch(`${baseUrl}/admin/scrapers/stop?source=google`, { method: 'POST' });
     } catch (e) { console.error(e); }
 
