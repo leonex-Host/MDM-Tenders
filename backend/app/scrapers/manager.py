@@ -43,24 +43,76 @@ class ScraperManager:
 
         from playwright.sync_api import sync_playwright
 
+        # If headless mode changed (e.g. user switched to visible), restart the browser
+        if self.playwright is not None and self._launched_headless != self.headless:
+            self.logger.info(f"Headless mode changed ({self._launched_headless} → {self.headless}). Restarting browser...")
+            self.stop()
+
         if self.playwright is None:
+            is_windows = os.name == 'nt'
+            use_real_browser = is_windows and not self.headless
+
             self.playwright = sync_playwright().start()
 
-            try:
-                self.logger.info("Connecting to active Chrome browser via CDP on localhost:9222...")
-                # Connect to the actively running Chrome browser on port 9222
-                browser = self.playwright.chromium.connect_over_cdp("http://localhost:9222")
-                self.context = browser.contexts[0]
-                self.logger.info("Successfully connected to Chrome CDP.")
-            except Exception as e:
-                self.logger.error("Failed to connect to Chrome on port 9222.")
-                self.logger.error("Make sure Chrome is running with the flag: --remote-debugging-port=9222")
-                raise RuntimeError(f"Could not connect to Chrome Desktop. Is it running on port 9222? Error: {e}")
+            # Build arg lists
+            stealth_args = ["--disable-blink-features=AutomationControlled"]
+            headless_args = stealth_args + [
+                "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"
+            ]
+            fallback_ua = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+            # Try order: real browser channels first on Windows visible, else bundled Chromium
+            candidates = []
+            if use_real_browser:
+                candidates = [
+                    {"channel": "msedge", "args": stealth_args,  "user_agent": None},
+                    {"channel": "chrome", "args": stealth_args,  "user_agent": None},
+                    {"channel": None,     "args": headless_args, "user_agent": fallback_ua},
+                ]
+            else:
+                candidates = [
+                    {"channel": None, "args": headless_args, "user_agent": fallback_ua},
+                ]
+
+            profile_dirs = [self.profile_dir]
+
+            self.context = None
+            for cand in candidates:
+                for pdir in profile_dirs:
+                    try:
+                        label = cand["channel"] or "Chromium"
+                        self.logger.info(f"Trying {label} with profile: {pdir}")
+                        kw = dict(
+                            user_data_dir=pdir,
+                            headless=self.headless,
+                            args=cand["args"],
+                            viewport={"width": 1280, "height": 900},
+                        )
+                        if cand["channel"]:
+                            kw["channel"] = cand["channel"]
+                        if cand["user_agent"]:
+                            kw["user_agent"] = cand["user_agent"]
+                        self.context = self.playwright.chromium.launch_persistent_context(**kw)
+                        self.logger.info(f"Browser launched: {label}")
+                        break
+                    except Exception as e:
+                        self.logger.warning(f"  {label} @ {pdir} failed: {repr(e)}")
+                        import tempfile
+                        tmp = tempfile.mkdtemp(prefix="pw_profile_")
+                        profile_dirs = [tmp]  # next attempt uses temp dir
+                if self.context:
+                    break
+
+            if not self.context:
+                raise RuntimeError("All browser launch attempts failed. Check logs above.")
+
+
 
         if not self.context.pages:
             self.page = self.context.new_page()
         else:
-            self.page = self.context.new_page()  # Always open a new tab for new scrapes
+            self.page = self.context.pages[0]
 
         return self.page
 
