@@ -15,6 +15,14 @@ engine = create_engine(
     connect_args={'sslmode': 'require'} if 'render.com' in settings.DATABASE_URL else {}
 )
 
+from sqlalchemy import event
+
+@event.listens_for(engine, "connect")
+def set_search_path(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("SET search_path TO public,extensions;")
+    cursor.close()
+
 
 # Test connections
 try:
