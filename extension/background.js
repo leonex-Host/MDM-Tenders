@@ -1,12 +1,23 @@
 let intervalId = null;
 let activeJobs = new Set();
+
+// Ensure the engine starts immediately when Chrome loads or extension refreshes
+chrome.runtime.onStartup.addListener(startBackgroundEngine);
+chrome.runtime.onInstalled.addListener(startBackgroundEngine);
+startBackgroundEngine(); // Fallback direct execution
+
+function startBackgroundEngine() {
+    if (!intervalId) {
+        console.log("[MDM Agent] Auto-started polling for jobs...");
+        intervalId = setInterval(pollForJobs, 3000);
+        pollForJobs();
+    }
+}
+
+// Keep listener just in case UI wants to force ping
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "start_polling") {
-        if (!intervalId) {
-            console.log("[MDM Agent] Started polling for jobs...");
-            intervalId = setInterval(pollForJobs, 3000); // 3 second polling for blistering speeds
-            pollForJobs(); // run immediately
-        }
+        startBackgroundEngine();
     }
 });
 
