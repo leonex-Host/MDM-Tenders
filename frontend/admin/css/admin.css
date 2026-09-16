@@ -23,39 +23,41 @@ html {
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-    /* ── COLORS (Light Mode Default - Clean Admin Aesthetic) ── */
-    --bg-page: #E4E9F7;
-    /* Soft pastel blue background matching reference */
-    --bg-glass: #FFFFFF;
-    --bg-card: #FFFFFF;
+    /* ── COLORS (Resq.io Dark Aesthetic) ── */
+    --bg-page: #9AA0A6;
+    /* Soft gray outer wrapper */
+    --bg-glass: #19191C;
+    /* Deep black inner dashboard */
+    --bg-card: #212025;
+    /* Translucent dark cards */
 
-    --border-glass: #E2E8F0;
-    --border-subtle: #F1F5F9;
+    --border-glass: #2A2A2E;
+    --border-subtle: #2A2A2E;
 
-    --text-primary: #1E293B;
-    --text-secondary: #64748B;
-    --text-tertiary: #94A3B8;
+    --text-primary: #FFFFFF;
+    --text-secondary: #9FA0A7;
+    --text-tertiary: #6E7079;
 
-    /* Soft Pastel Accent Colors */
-    --accent-blue: #C2D8FB;
-    --accent-blue-text: #1E3A8A;
-    --accent-yellow: #FBEBD0;
-    --accent-yellow-text: #9A3412;
-    --accent-purple: #EEDCFF;
-    --accent-purple-text: #581C87;
+    /* Vibrant Neon Accents for Pills */
+    --accent-blue: #3B82F6;
+    --accent-blue-text: #FFFFFF;
+    --accent-yellow: #EAB308;
+    --accent-yellow-text: #FFFFFF;
+    --accent-purple: #8B5CF6;
+    --accent-purple-text: #FFFFFF;
 
-    --accent-green: #BBF7D0;
-    --accent-green-text: #166534;
-    --accent-red: #FECDD3;
-    --accent-red-text: #9F1239;
+    --accent-green: #10B981;
+    --accent-green-text: #FFFFFF;
+    --accent-red: #F43F5E;
+    --accent-red-text: #FFFFFF;
 
     --r-panel: 24px;
-    --r-card: 12px;
-    --r-btn: 8px;
+    --r-card: 16px;
+    --r-btn: 12px;
     --r-pill: 999px;
 
     --sidebar-width: 240px;
-    --topbar-height: 64px;
+    --topbar-height: 80px;
     --panel-gap: 20px;
 
     --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -82,16 +84,16 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── App Shell (Floating Layout) ──────────────────────────── */
+/* ── App Shell (Resq.io Floating Layout) ──────────────────────────── */
 #admin-app {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 40px);
-    width: calc(100vw - 40px);
-    margin: 20px;
+    height: calc(100vh - 48px);
+    width: calc(100vw - 48px);
+    margin: 24px;
     border-radius: var(--r-panel);
     background: var(--bg-glass);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.3);
     overflow: hidden;
     transition: none;
 }
@@ -146,15 +148,15 @@ body {
     gap: 0;
 }
 
-/* ── Topbar / Clean Navigation ──────────────────────── */
+/* ── Topbar / Nav ──────────────────────── */
 .admin-topbar {
     height: var(--topbar-height);
     min-height: var(--topbar-height);
-    background: var(--bg-glass);
-    border-bottom: 1px solid var(--border-glass);
+    background: transparent;
+    border-bottom: none;
     display: flex;
     align-items: center;
-    padding: 0 24px;
+    padding: 0 32px;
     z-index: 5;
     width: 100%;
 }
@@ -179,9 +181,9 @@ body {
 }
 
 .bb-nav-group {
-    background: #171717;
+    background: rgba(255, 255, 255, 0.03);
     border-radius: 999px;
-    padding: 4px;
+    padding: 6px;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -191,15 +193,15 @@ body {
 .bb-nav-item {
     background: transparent;
     border: none;
-    padding: 6px 16px;
+    padding: 8px 20px;
     border-radius: 999px;
     color: var(--text-secondary);
     font-family: inherit;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
-
-    letter-spacing: 0.3px;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
 }
 
 .bb-nav-item:hover {
@@ -207,9 +209,9 @@ body {
 }
 
 .bb-nav-item.active {
-    background: #000000;
+    background: rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    box-shadow: none;
 }
 
 .bb-backend-badge {
