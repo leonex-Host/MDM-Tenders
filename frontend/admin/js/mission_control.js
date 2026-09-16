@@ -77,14 +77,7 @@ function renderTopbar() {
                 <div style="display:flex; align-items:center; gap:24px;">
                     <span style="font-weight:900; font-size:16px; letter-spacing:1px; color:var(--text-primary);">LEONEX</span>
 
-                    <!-- Headless / Visible Toggle -->
-                    <div style="display:flex;align-items:center;gap:10px; background:var(--bg-card); padding:6px 14px; border-radius:20px; border:1px solid var(--border-glass);" class="hide-on-mobile">
-                        <span style="font-size:11px;font-weight:800;color:var(--text-tertiary);letter-spacing:0.5px;">VISIBLE BROWSER</span>
-                        <label class="adm-toggle">
-                            <input type="checkbox" id="adm-headless-toggle" ${!isHeadless ? 'checked' : ''}>
-                            <span class="slider" style="background-color: var(--accent-blue);"></span>
-                        </label>
-                    </div>
+
                 </div>
 
                 <!-- Right Side: Navigation & Theme -->
@@ -111,11 +104,6 @@ function renderTopbar() {
 
         // Theme Toggle click
         document.getElementById('adm-theme-toggle')?.addEventListener('click', toggleTheme);
-
-        // Headless (Visible Browser) Toggle click
-        document.getElementById('adm-headless-toggle')?.addEventListener('change', (e) => {
-            localStorage.setItem('admin_headless', e.target.checked ? 'false' : 'true');
-        });
 
         // Logout handling
         document.getElementById('adm-profile-btn')?.addEventListener('click', () => {
