@@ -74,8 +74,9 @@ function renderTopbar() {
             <div style="display:flex; justify-content:space-between; align-items:center; width:100%; height:100%; padding:0 12px;">
                 
                 <!-- Left Side: Title & Status Controls -->
-                <div style="display:flex; align-items:center; gap:24px;">
-                    <span style="font-weight:900; font-size:16px; letter-spacing:1px; color:var(--text-primary);">LEONEX</span>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <img src="favicon.png" style="width: 28px; height: 28px; object-fit: contain;">
+                    <span style="font-weight:900; font-size:18px; letter-spacing:1px; color:var(--text-primary);">LEONEX</span>
 
 
                 </div>
