@@ -143,6 +143,12 @@ async function startJob(job, conf) {
                     seenLinks.add(item.href);
                     newItems++;
 
+                    if (item.skip_details) {
+                        kwResults.push(item);
+                        console.log(`✅ MATCH (Skip Details): ${item.title}`);
+                        continue;
+                    }
+
                     // Open detail page in a temporary background tab to preserve Search DOM state!
                     const detailTab = await chrome.tabs.create({ url: item.href, windowId: windowObj.id, active: false });
                     await sleep(1500);

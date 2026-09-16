@@ -74,12 +74,36 @@ async function extractListings(keyword) {
                 const titleLink = card.querySelector("a[data-toggle='popover']");
                 const itemsText = titleLink ? (titleLink.getAttribute("data-content") || titleLink.innerText.trim()) : "";
 
-                // Purely evaluate locally here in the listing stage (skip detail extraction if possible!) is more efficient, but we will pass it back for background script.
-                // Actually, background script expects `href`. The bidNo dictates the href.
                 if (itemsText.toLowerCase().includes(keyword.toLowerCase())) {
                     const href = `https://bidplus.gem.gov.in/bidlists?bid_no=${bidNo}`;
+
                     if (!listings.find(x => x.href === href)) {
-                        listings.push({ href });
+
+                        let start_date = "";
+                        let end_date = "";
+                        try {
+                            const starts = card.querySelectorAll("span.start_date");
+                            if (starts.length > 0) start_date = starts[0].innerText;
+                            const ends = card.querySelectorAll("span.end_date");
+                            if (ends.length > 0) end_date = ends[0].innerText;
+                        } catch (e) { }
+
+                        let dept = "";
+                        try {
+                            const col4 = card.querySelectorAll("div.col-md-4");
+                            if (col4.length > 0) dept = col4[0].innerText;
+                        } catch (e) { }
+
+                        listings.push({
+                            href: href,
+                            title: itemsText.substring(0, 500),
+                            description: itemsText,
+                            tender_id: bidNo,
+                            start_date: start_date,
+                            end_date: end_date,
+                            location: dept,
+                            skip_details: true
+                        });
                     }
                 }
             }
