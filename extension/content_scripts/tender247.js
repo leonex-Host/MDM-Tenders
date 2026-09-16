@@ -82,7 +82,10 @@ async function extractDetails(keyword) {
         }
     }
 
-    if (!brief) brief = rawText.substring(0, 500);
+    if (!brief) {
+        const caps = document.querySelector(".workDesc");
+        if (caps) brief = caps.innerText;
+    }
 
     let found = false;
     if (brief.toLowerCase().includes(phrase)) {

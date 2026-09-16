@@ -30,6 +30,30 @@ async function extractListings() {
     let listings = [];
 
     // BidDetail listings extraction
+    const hasFiltered = sessionStorage.getItem("bd_filtered");
+    if (!hasFiltered) {
+        const drpDD = document.getElementById("drpDD");
+        if (drpDD) {
+            drpDD.click();
+            await new Promise(r => setTimeout(r, 1000));
+            const options = document.querySelectorAll("a, li, span, div");
+            for (const opt of options) {
+                if (opt.innerText.includes("Next 15 Days") || opt.innerText === "15 Days") {
+                    opt.click();
+                    break;
+                }
+            }
+            await new Promise(r => setTimeout(r, 1000));
+
+            const searchBtn = document.getElementById("btnFilterTender") || document.querySelector("input[value='SEARCH']");
+            if (searchBtn) {
+                sessionStorage.setItem("bd_filtered", "true");
+                searchBtn.click();
+                return null; // Force reload
+            }
+        }
+    }
+
     const rows = document.querySelectorAll("div.tender_row, .search-result .tender-item");
 
     rows.forEach(row => {

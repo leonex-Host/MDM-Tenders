@@ -30,6 +30,30 @@ async function extractListings() {
     let listings = [];
 
     // TenderDetail listings
+    const hasFiltered = sessionStorage.getItem("td_filtered");
+    if (!hasFiltered) {
+        const drpDD = document.getElementById("drpDD");
+        if (drpDD) {
+            drpDD.click();
+            await new Promise(r => setTimeout(r, 1000));
+            const options = document.querySelectorAll("a, li, span, div");
+            for (const opt of options) {
+                if (opt.innerText.includes("Next 15 Days") || opt.innerText === "15 Days") {
+                    opt.click();
+                    break;
+                }
+            }
+            await new Promise(r => setTimeout(r, 1000));
+
+            const searchBtn = document.getElementById("btnFilterTender") || document.querySelector("input[value='SEARCH']");
+            if (searchBtn) {
+                sessionStorage.setItem("td_filtered", "true");
+                searchBtn.click();
+                return null; // Force reload
+            }
+        }
+    }
+
     const rows = document.querySelectorAll("div.tender_row, div.tender-item, .tender-row");
 
     // Check if the page is still loading or asks for filter. We will implicitly extract whatever is on screen.
@@ -70,7 +94,10 @@ async function extractDetails(keyword) {
             }
         }
     }
-    if (!brief) brief = rawText.substring(0, 500);
+    if (!brief) {
+        const h2 = document.querySelector(".tender-brief");
+        if (h2) brief = h2.innerText;
+    }
 
     let found = false;
     if (brief.toLowerCase().includes(phrase)) {

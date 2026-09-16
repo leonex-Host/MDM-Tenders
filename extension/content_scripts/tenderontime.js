@@ -36,10 +36,15 @@ async function extractListings() {
     let listings = [];
 
     // Attempt clicking the filter button if we are on the initial search page redirect
-    const filterBtn = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
-    if (filterBtn) {
-        filterBtn.click();
-        await new Promise(r => setTimeout(r, 2000)); // wait for ajax reload
+    const hasFiltered = sessionStorage.getItem("tot_filtered");
+    if (!hasFiltered) {
+        const filterBtn = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
+        if (filterBtn && filterBtn.offsetParent !== null) { // is visible
+            sessionStorage.setItem("tot_filtered", keyword);
+            filterBtn.click();
+            await new Promise(r => setTimeout(r, 2000)); // wait for ajax reload
+            return null; // Force background to poll again
+        }
     }
 
     const items = document.querySelectorAll("div.listingbox, div.tender-item");
