@@ -131,7 +131,7 @@ def start_scraper(
             return sync_google(headless=headless)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    elif source == "tenderontime":
+    elif source == "tenderontime" and __import__("os").environ.get("RENDER") is not None:
         from app.api.extension_api import _pending_jobs
         
         db_s = SessionLocal()
