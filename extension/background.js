@@ -107,6 +107,21 @@ async function startJob(job, conf) {
 
         await chrome.tabs.update(tabId, { url: searchUrl });
 
+        // GEM requires in-page keyword search + sort setup (Python does this via Selenium)
+        if (job.source === 'gem') {
+            await sleep(5000); // Wait for all-bids page to load
+            // Poll until content script is ready
+            for (let attempt = 0; attempt < 20; attempt++) {
+                let setupResult = await executeContentScript(tabId, "search_and_setup", { keyword: keyword });
+                if (setupResult && setupResult.success) {
+                    console.log(`[MDM Agent] GEM search_and_setup complete for: ${keyword}`);
+                    break;
+                }
+                await sleep(1000);
+            }
+            await sleep(4000); // Wait for search results to load
+        }
+
         let kwResults = [];
         let seenLinks = new Set();
         let pageNum = 1;
