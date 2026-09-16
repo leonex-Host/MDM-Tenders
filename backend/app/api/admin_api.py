@@ -124,31 +124,52 @@ def start_scraper(
     headless: bool = Query(True),
     _admin=Depends(require_admin) if not settings.DEBUG else None,
 ):
-    """Start a scraper by source name. All routing has been migrated to the Extension."""
-    from app.api.extension_api import _pending_jobs
-    
-    db_s = SessionLocal()
-    try:
-        from app.models import CrawlLog
-        # Tell UI it is running (the extension will pick it up)
-        log = CrawlLog(source=source, keyword="Extension Triggered", status="running")
-        db_s.add(log)
-        db_s.commit()
-    finally:
-        db_s.close()
+    """Start a scraper by source name."""
+    if source == "google":
+        try:
+            from app.api.google_routes import sync_google
+            return sync_google(headless=headless)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    elif source == "tenderontime":
+        from app.api.extension_api import _pending_jobs
         
-    import uuid
-    from datetime import datetime, timezone
-    job = {
-        "job_id": str(uuid.uuid4())[:8],
-        "source": source,
-        "status": "pending",
-        "keywords": settings.SEARCH_KEYWORDS,
-        "max_pages": getattr(settings, "MAX_PAGES", 5),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    _pending_jobs.append(job)
-    return {"status": "started", "message": f"{source} Queued for Chrome Extension", "source": source}
+        db_s = SessionLocal()
+        try:
+            # Tell UI it is running
+            log = CrawlLog(source=source, keyword="Extension Triggered", status="running")
+            db_s.add(log)
+            db_s.commit()
+        finally:
+            db_s.close()
+            
+        import uuid
+        job = {
+            "job_id": str(uuid.uuid4())[:8],
+            "source": source,
+            "status": "pending",
+            "keywords": settings.SEARCH_KEYWORDS,
+            "max_pages": getattr(settings, "MAX_PAGES", 5),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        _pending_jobs.append(job)
+        return {"status": "started", "message": "Queued for Chrome Extension"}
+    else:
+        import threading
+        from app.services.scraper_service import run_all_scrapers
+
+        def _bg(src, is_headless):
+            db = SessionLocal()
+            try:
+                run_all_scrapers(db, source_filter=src, headless=is_headless)
+            except Exception as exc:
+                logger.error("Admin scraper error [%s]: %s", src, exc)
+            finally:
+                db.close()
+
+        t = threading.Thread(target=_bg, args=(source, headless), daemon=True, name=f"admin-{source}")
+        t.start()
+        return {"status": "started", "source": source, "message": f"{source} scraper started"}
 
 
 from typing import Any, Dict

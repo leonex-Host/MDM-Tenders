@@ -17,11 +17,6 @@
     ],
     "host_permissions": [
         "https://www.tendersontime.com/*",
-        "https://www.tenderdetail.com/*",
-        "https://www.biddetail.com/*",
-        "https://bidplus.gem.gov.in/*",
-        "https://www.tender247.com/*",
-        "https://www.google.com/*",
         "*://*.onrender.com/*",
         "*://localhost/*"
     ],
@@ -38,51 +33,6 @@
                 "content_scripts/tenderontime.js"
             ],
             "run_at": "document_end"
-        },
-        {
-            "matches": [
-                "https://www.tenderdetail.com/*"
-            ],
-            "js": [
-                "content_scripts/tenderdetail.js"
-            ],
-            "run_at": "document_idle"
-        },
-        {
-            "matches": [
-                "https://www.biddetail.com/*"
-            ],
-            "js": [
-                "content_scripts/biddetail.js"
-            ],
-            "run_at": "document_idle"
-        },
-        {
-            "matches": [
-                "https://bidplus.gem.gov.in/*"
-            ],
-            "js": [
-                "content_scripts/gem.js"
-            ],
-            "run_at": "document_idle"
-        },
-        {
-            "matches": [
-                "https://www.tender247.com/*"
-            ],
-            "js": [
-                "content_scripts/tender247.js"
-            ],
-            "run_at": "document_idle"
-        },
-        {
-            "matches": [
-                "https://www.google.com/*"
-            ],
-            "js": [
-                "content_scripts/google.js"
-            ],
-            "run_at": "document_idle"
         }
     ],
     "action": {

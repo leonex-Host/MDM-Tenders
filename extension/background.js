@@ -1,28 +1,19 @@
 let intervalId = null;
-let activeJobs = new Set();
+let currentJob = null;
+let tabId = null;
 
-// Ensure the engine starts immediately when Chrome loads or extension refreshes
-chrome.runtime.onStartup.addListener(startBackgroundEngine);
-chrome.runtime.onInstalled.addListener(startBackgroundEngine);
-startBackgroundEngine(); // Fallback direct execution
-
-function startBackgroundEngine() {
-    if (!intervalId) {
-        console.log("[MDM Agent] Auto-started polling for jobs...");
-        intervalId = setInterval(pollForJobs, 3000);
-        pollForJobs();
-    }
-}
-
-// Keep listener just in case UI wants to force ping
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "start_polling") {
-        startBackgroundEngine();
+        if (!intervalId) {
+            console.log("[MDM Agent] Started polling for jobs...");
+            intervalId = setInterval(pollForJobs, 3000); // 3 second polling for blistering speeds
+            pollForJobs(); // run immediately
+        }
     }
 });
 
 async function pollForJobs() {
-    // parallel poll active
+    if (currentJob) return; // busy
 
     const conf = await chrome.storage.local.get(['apiUrl', 'apiKey']);
     if (!conf.apiUrl || !conf.apiKey) return;
@@ -35,12 +26,8 @@ async function pollForJobs() {
 
         const data = await res.json();
         if (data.jobs && data.jobs.length > 0) {
-            for (const job of data.jobs) {
-                if (!activeJobs.has(job.job_id)) {
-                    activeJobs.add(job.job_id);
-                    startJob(job, conf).catch(console.error); // start async and parallel
-                }
-            }
+            const job = data.jobs[0];
+            await startJob(job, conf);
         }
     } catch (e) {
         console.log("[MDM Agent] Poll error:", e);
@@ -49,81 +36,30 @@ async function pollForJobs() {
 
 async function startJob(job, conf) {
     console.log("[MDM Agent] Picking up job:", job.job_id);
+    currentJob = job;
 
     try {
         await fetch(`${conf.apiUrl}/api/extension/jobs/${job.job_id}/start`, {
             method: 'POST',
             headers: { 'X-Extension-Key': conf.apiKey }
         });
-    } catch (e) { console.error(e); activeJobs.delete(job.job_id); return; }
+    } catch (e) { console.error(e); currentJob = null; return; }
 
     const maxPages = job.max_pages || 5;
     let allTenders = [];
 
-    // Create ONE visible window/tab to reuse for this specific job thread
+    // Create ONE visible window/tab to reuse for this entire job
     const windowObj = await chrome.windows.create({ url: "about:blank", state: "normal" });
-    const tabId = windowObj.tabs[0].id;
+    tabId = windowObj.tabs[0].id;
 
     for (const keyword of job.keywords) {
-        console.log(`[MDM Agent] Processing keyword: ${keyword} on ${job.source}`);
+        console.log(`[MDM Agent] Processing keyword: ${keyword}`);
         const escaped = encodeURIComponent(keyword.trim());
-        let plusFormatted = keyword.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, " ").replace(/\s+/g, "+");
-
-        let targetScript = "";
-        let searchUrl = "";
-
-        switch (job.source) {
-            case 'tenderontime':
-                searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
-                targetScript = 'tenderontime';
-                break;
-            case 'tenderdetail':
-                searchUrl = `https://www.tenderdetail.com/Indian-tender/%22${escaped}%22-tenders`;
-                targetScript = 'tenderdetail';
-                break;
-            case 'biddetail':
-                searchUrl = `https://www.biddetail.com/global-tenders/%22${escaped}%22-tenders`;
-                targetScript = 'biddetail';
-                break;
-            case 'gem':
-                // GEM doesn't easily paginate via URL, usually requires DOM interaction
-                searchUrl = `https://bidplus.gem.gov.in/all-bids`;
-                targetScript = 'gem';
-                break;
-            case 'tender247':
-                // Tender247 basic search
-                searchUrl = `https://www.tender247.com/keyword/${plusFormatted}+tenders`;
-                targetScript = 'tender247';
-                break;
-            case 'google':
-                // Google requires exact phrase quotes over the base keyword!
-                searchUrl = `https://www.google.com/search?q=%22${escaped}%22+tenders`;
-                targetScript = 'google';
-                break;
-            default:
-                console.error(`[MDM Agent] Unknown source: ${job.source}`);
-                continue;
-        }
+        const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
 
         await chrome.tabs.update(tabId, { url: searchUrl });
 
-        // GEM requires in-page keyword search + sort setup (Python does this via Selenium)
-        if (job.source === 'gem') {
-            await sleep(5000); // Wait for all-bids page to load
-            // Poll until content script is ready
-            for (let attempt = 0; attempt < 20; attempt++) {
-                let setupResult = await executeContentScript(tabId, "search_and_setup", { keyword: keyword });
-                if (setupResult && setupResult.success) {
-                    console.log(`[MDM Agent] GEM search_and_setup complete for: ${keyword}`);
-                    break;
-                }
-                await sleep(1000);
-            }
-            await sleep(4000); // Wait for search results to load
-        }
-
         let kwResults = [];
-        let seenLinks = new Set();
         let pageNum = 1;
 
         while (pageNum <= maxPages) {
@@ -132,72 +68,39 @@ async function startJob(job, conf) {
             // Poll very fast (500ms) for Cloudflare or page load
             for (let attempt = 0; attempt < 50; attempt++) {
                 await sleep(500);
-                listingData = await executeContentScript(tabId, "extract_listings", { keyword: keyword });
+                listingData = await executeContentScript(tabId, "extract_listings");
 
                 if (listingData && listingData.status === "cloudflare") {
                     console.log(`[MDM Agent] Waiting on Cloudflare (Attempt ${attempt + 1}/50)...`);
                     listingData = null;
                     continue; // Sleep again!
                 }
-                if (listingData !== null && Array.isArray(listingData) && listingData.length > 0) {
-                    break; // Successfully got a populated array
+                if (listingData !== null) {
+                    break; // Successfully got an array (either empty or populated)
                 }
             }
 
             if (!listingData || listingData.length === 0) {
-                console.log(`[MDM Agent] No listings on page ${pageNum} for ${keyword} after full timeout`);
+                console.log(`[MDM Agent] No listings on page ${pageNum} for ${keyword}`);
                 break;
             }
 
             console.log(`[MDM Agent] Found ${listingData.length} listings on page ${pageNum}`);
 
-            let newItems = 0;
-
             for (const item of listingData) {
-                if (item.href && !seenLinks.has(item.href)) {
-                    seenLinks.add(item.href);
-                    newItems++;
+                if (item.href) {
+                    await chrome.tabs.update(tabId, { url: item.href });
+                    await sleep(1500); // 1.5s wait for detail page is much faster than 2.5s
 
-                    if (item.skip_details) {
-                        kwResults.push(item);
-                        console.log(`✅ MATCH (Skip Details): ${item.title}`);
-                        continue;
-                    }
-
-                    // Headless Fetch via background worker to prevent physical tabs opening
-                    try {
-                        let res = await fetch(item.href);
-                        let html = await res.text();
-
-                        // Pass string to active domain tab for DOM sandbox parsing
-                        let detailData = await executeContentScript(tabId, "extract_details", { keyword: keyword, htmlString: html, finalUrl: res.url });
-
-                        if (detailData && detailData.found) {
-                            let finalItem = { ...item, ...detailData };
-                            kwResults.push(finalItem);
-                            console.log(`✅ MATCH: ${finalItem.title}`);
-                        }
-                    } catch (e) {
-                        console.error(`[MDM Agent] Failed to fetch details for ${item.href}`, e);
+                    let detailData = await executeContentScript(tabId, "extract_details", { keyword: keyword });
+                    if (detailData && detailData.found) {
+                        let finalItem = { ...item, ...detailData };
+                        kwResults.push(finalItem);
+                        console.log(`✅ MATCH: ${finalItem.title}`);
                     }
                 }
             }
-
-            if (newItems === 0 && listingData.length > 0) {
-                console.log(`[MDM Agent] Pagination loop or slow AJAX DOM detected. Skipping break to emulate python scraper tolerance.`);
-            }
-
-            if (pageNum < maxPages) {
-                let clicked = await executeContentScript(tabId, "click_next_page", { currentPage: pageNum });
-                if (!clicked) {
-                    console.log(`[MDM Agent] No more Next pages found for ${keyword} on page ${pageNum}`);
-                    break;
-                }
-                console.log(`[MDM Agent] Clicked Next page for ${keyword}. Waiting 5 seconds for DOM sweeps...`);
-                await sleep(5000);
-            }
-
-            pageNum++;
+            break; // Stick to page 1 for stability in MVP
         }
 
         console.log(`[MDM Agent] Finished keyword ${keyword}. Matches found: ${kwResults.length}`);
@@ -209,7 +112,7 @@ async function startJob(job, conf) {
                     'X-Extension-Key': conf.apiKey,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ source: job.source, keyword: keyword, tenders: kwResults })
+                body: JSON.stringify({ source: "tenderontime", keyword: keyword, tenders: kwResults })
             });
             allTenders.push(...kwResults);
         }
@@ -234,8 +137,9 @@ async function startJob(job, conf) {
         });
     } catch (e) { console.error(e); }
 
-    console.log(`[MDM Agent] Job Complete: ${job.job_id}`);
-    activeJobs.delete(job.job_id);
+    console.log("[MDM Agent] Job Complete!");
+    currentJob = null;
+    tabId = null;
 }
 
 function sleep(ms) {
