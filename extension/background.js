@@ -67,11 +67,10 @@ async function startJob(job, conf) {
     for (const keyword of job.keywords) {
         console.log(`[MDM Agent] Processing keyword: ${keyword} on ${job.source}`);
         const escaped = encodeURIComponent(keyword.trim());
-        const dashFormatted = keyword.trim().replace(/\s+/g, '-');
+        let plusFormatted = keyword.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, " ").replace(/\s+/g, "+");
 
-        // 1. Resolve Target URL & Script based on Source
-        let searchUrl = '';
-        let targetScript = '';
+        let targetScript = "";
+        let searchUrl = "";
 
         switch (job.source) {
             case 'tenderontime':
@@ -79,11 +78,11 @@ async function startJob(job, conf) {
                 targetScript = 'tenderontime';
                 break;
             case 'tenderdetail':
-                searchUrl = `https://www.tenderdetail.com/Indian-tender/%22${dashFormatted}%22-tenders`;
+                searchUrl = `https://www.tenderdetail.com/Indian-tender/%22${escaped}%22-tenders`;
                 targetScript = 'tenderdetail';
                 break;
             case 'biddetail':
-                searchUrl = `https://www.biddetail.com/global-tenders/%22${dashFormatted}%22-tenders`;
+                searchUrl = `https://www.biddetail.com/global-tenders/%22${escaped}%22-tenders`;
                 targetScript = 'biddetail';
                 break;
             case 'gem':
@@ -93,11 +92,12 @@ async function startJob(job, conf) {
                 break;
             case 'tender247':
                 // Tender247 basic search
-                searchUrl = `https://www.tender247.com/keyword/${dashFormatted}`;
+                searchUrl = `https://www.tender247.com/keyword/${plusFormatted}+tenders`;
                 targetScript = 'tender247';
                 break;
             case 'google':
-                searchUrl = `https://www.google.com/search?q=${escaped}+tenders`;
+                // Google requires exact phrase quotes over the base keyword!
+                searchUrl = `https://www.google.com/search?q=%22${escaped}%22+tenders`;
                 targetScript = 'google';
                 break;
             default:
