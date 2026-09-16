@@ -176,3 +176,27 @@ https://harishhckr.github.io/MDM-Tenders/#/portal
   Insecure Content" in Chrome Site Settings.
 
 ============================================
+GEM (gem.js)
+Tab opens bidplus.gem.gov.in/all-bids
+Types keyword into #searchBid input box → clicks #searchBidRA search button
+Sorts by clicking #currentSort dropdown → selects #Bid-Start-Date-Latest
+Extracts from div.card elements: a.bid_no_hover bid number, a[data-toggle='popover'] data-content for items text, span.start_date, span.end_date, div.col-md-4 department
+NEVER visits detail pages — returns skip_details: true
+Pagination via visible Next/rel=next links + URL #page- fallback
+Tender247 (tender247.js)
+Collects a[href*='/tender-details/'] links
+Pagination via visible "Next" or "›" links
+Detail extraction: meta description → .capitalize → table "Tender Brief"/"Work Description"/.workDesc → strict keyword match in brief only
+TenderDetail (tenderdetail.js)
+Clicks #drpDD → "Next 15 Days" → #btnFilterTender SEARCH
+Extracts div.tender_row rows with a.m-brief/h2 a links
+Detail: checks .brief/.tender-brief divs + "Tender Brief" table labels
+BidDetail (biddetail.js)
+Same #drpDD → "Next 15 Days" → SEARCH filter
+Extracts div.tender_row with h2 a + p.workDesc + icon metadata (clock, map, hashtag)
+Detail: Tender Brief from td rows + table.table-bordered metadata
+TenderOnTime (tenderontime.js)
+Clicks button.search-btn[onclick*='filterTendersJS'] filter
+Extracts div.listingbox with a.truncatetext, div.deadline strong, TOT Ref regex, flag-icon country
+Pagination via li.nextclass a (preferred, matching your Python code exactly)
+Detail: Summary check via strong.strval in "Summary:" parent 

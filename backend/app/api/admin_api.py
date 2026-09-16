@@ -117,38 +117,38 @@ def scraper_status(db: Session = Depends(get_db), _admin=Depends(require_admin) 
     return {"scrapers": statuses, "google": google_status}
 
 
+from fastapi import BackgroundTasks
+
 # ── Start Scraper ────────────────────────────────────────────────────────────
 @router.post("/scrapers/start")
 def start_scraper(
-    source: str = Query(..., description="gem|tender247|tenderdetail|tenderontime|biddetail|google"),
+    background_tasks: BackgroundTasks,
+    source: str = Query(..., description="gem|tender247|tenderdetail|tenderontime|biddetail|google|all"),
     headless: bool = Query(True),
     _admin=Depends(require_admin) if not settings.DEBUG else None,
 ):
-    """Start a scraper by source name. All routing has been migrated to the Extension."""
-    from app.api.extension_api import _pending_jobs
+    """Start a scraper by source name."""
+    from app.services.scraper_service import run_single_scraper, run_all_scrapers
     
-    db_s = SessionLocal()
-    try:
-        from app.models import CrawlLog
-        # Tell UI it is running (the extension will pick it up)
-        log = CrawlLog(source=source, keyword="Extension Triggered", status="running")
-        db_s.add(log)
-        db_s.commit()
-    finally:
-        db_s.close()
-        
-    import uuid
-    from datetime import datetime, timezone
-    job = {
-        "job_id": str(uuid.uuid4())[:8],
-        "source": source,
-        "status": "pending",
-        "keywords": settings.SEARCH_KEYWORDS,
-        "max_pages": getattr(settings, "MAX_PAGES", 5),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    _pending_jobs.append(job)
-    return {"status": "started", "message": f"{source} Queued for Chrome Extension", "source": source}
+    if source == "google":
+        from app.api.google_routes import start_google
+        try:
+            return start_google(headless=headless)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+            
+    if source == "all":
+        import threading
+        # We spawn a thread instead of background task to avoid blocking the main event loop
+        # for a heavy all-scraper runner if wanted, or we can use background_tasks directly.
+        t = threading.Thread(target=run_all_scrapers, args=(headless,))
+        t.start()
+        return {"status": "started", "message": "All scrapers started in background"}
+    else:
+        import threading
+        t = threading.Thread(target=run_single_scraper, args=(source, headless))
+        t.start()
+        return {"status": "started", "message": f"{source} started in background", "source": source}
 
 
 from typing import Any, Dict
