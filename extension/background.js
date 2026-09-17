@@ -82,7 +82,7 @@ async function startJob(job, conf) {
 
         await chrome.tabs.update(tabId, { url: searchUrl });
 
-        const pageReady = await waitUntilPageAvailable(tabId, { timeout: 120000 });
+        const pageReady = await waitUntilPageAvailable(tabId, { timeout: 120000, isGoogle });
         if (!pageReady) {
             console.log(`[KEYWORD STOPPED] Keyword ${keyword} page/content-script unavailable (or form not ready).`);
             console.log("[KEYWORD TRANSITION] Waiting before next keyword...");
@@ -102,8 +102,10 @@ async function startJob(job, conf) {
                 continue;
             }
 
-            if (filterResult.verified === false) {
-                console.log(`[KEYWORD WARNING] Filter might not have triggered properly:`, filterResult.reason);
+            if (filterResult.verified !== true) {
+                console.warn(`[KEYWORD STOPPED] Filter action was not verified for ${keyword}:`, filterResult.reason);
+                await sleep(2500);
+                continue;
             }
         }
 
@@ -284,6 +286,21 @@ async function waitUntilPageAvailable(tabId, options = {}) {
     }
 
     while (Date.now() - startTime < timeout) {
+        let tabInfo;
+        try { tabInfo = await chrome.tabs.get(tabId); } catch (e) {
+            console.error("[PAGE ERROR] Tab unavailable", e);
+            return false;
+        }
+        if (!tabInfo.url || !tabInfo.url.toLowerCase().includes("/tenders/advancesearch")) {
+            logState(`[PAGE WAIT] Waiting for expected URL... (current: ${tabInfo.url || "unknown"})`);
+            await sleep(1200);
+            continue;
+        }
+        if (tabInfo.status !== "complete") {
+            logState(`[PAGE WAIT] Tab still loading: ${tabInfo.status}`);
+            await sleep(1200);
+            continue;
+        }
         const pageCheck = await executeContentScript(tabId, "check_page_available");
 
         if (!pageCheck) {
@@ -299,13 +316,14 @@ async function waitUntilPageAvailable(tabId, options = {}) {
         }
 
         const currentUrl = (pageCheck.url || "").toLowerCase();
-        const isExpectedSearchPage = currentUrl.includes("/tenders/advancesearch") || currentUrl.includes("advancesearch");
+        const isExpectedSearchPage = options.isGoogle
+            ? currentUrl.includes("google.com/search")
+            : (currentUrl.includes("/tenders/advancesearch") || currentUrl.includes("advancesearch"));
 
         if (
             isExpectedSearchPage &&
             pageCheck.readyState === "complete" &&
-            pageCheck.formReady === true &&
-            pageCheck.filterReady === true
+            (options.isGoogle || (pageCheck.formReady === true && pageCheck.filterReady === true))
         ) {
             logState("[PAGE READY] New advanced-search form is ready.");
 

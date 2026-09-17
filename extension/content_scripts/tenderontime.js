@@ -48,10 +48,13 @@ function checkPageAvailable() {
     let filterReady = false;
 
     if (isSearchPage) {
-        if (forms.length > 0) formReady = true;
+        formReady = Array.from(forms).some(form => {
+            const r = form.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && !!form.querySelector("input, button, select");
+        });
 
         const candidates = Array.from(document.querySelectorAll("button, input, a, [role='button'], [onclick], [ng-click]"));
-        filterReady = candidates.some(el => {
+        filterReady = formReady && candidates.some(el => {
             const elText = (el.innerText || el.value || el.getAttribute("aria-label") || "").trim().toLowerCase();
             const elClasses = (el.className || "").toLowerCase();
             const elId = (el.id || "").toLowerCase();
@@ -68,7 +71,7 @@ function checkPageAvailable() {
 
     return {
         success: true,
-        pageAvailable: true,
+        pageAvailable: !cloudflareActive && isSearchPage && formReady && filterReady,
         formReady,
         filterReady,
         readyState: document.readyState,
@@ -94,6 +97,7 @@ async function clickFilterButton(keyword) {
     const beforeUrl = window.location.href;
     const beforeSignature = getSignature();
     const beforeListingCount = beforeSignature.split('|')[0];
+    let bestInput = null;
 
     const candidates = Array.from(document.querySelectorAll("button, input, a, [role='button'], [onclick], [ng-click]"));
     let candidateList = [];
@@ -168,12 +172,10 @@ async function clickFilterButton(keyword) {
 
     if (keyword) {
         const inputs = Array.from(document.querySelectorAll("input[type='text'], input[type='search'], input[name='search'], input[name='q']"));
-        let bestInput = null;
-
         for (const input of inputs) {
             const rect = input.getBoundingClientRect();
             // Loosening strict visibility requirement slightly for responsive designs where inputs might be initially collapsed
-            if (rect.width >= 0 && rect.height >= 0) {
+            if (rect.width > 0 && rect.height > 0 && window.getComputedStyle(input).visibility !== "hidden") {
                 const lowerName = (input.name || "").toLowerCase();
                 const lowerId = (input.id || "").toLowerCase();
                 const lowerHolder = (input.placeholder || "").toLowerCase();
