@@ -196,23 +196,42 @@ def _save_results(db: Session, results: list, result_type: str) -> int:
 
 @router.post("/sync")
 def sync_google(headless: bool = Query(True)):
-    """Start the Google scraper in a background thread."""
-    global _sync_thread
+    """Start the Google scraper by queueing an extension job."""
+    global _sync_status
     if _sync_status["running"]:
         return {"status": "already_running", "message": "Scraper is already running"}
 
-    from app.database import SessionLocal
+    from app.api.extension_api import _pending_jobs
+    import uuid
+    from datetime import datetime, timezone
+
     _stop_event.clear()
     _captcha_event.clear()
     _sync_status["captcha_detected"] = False
     
-    _sync_thread = threading.Thread(
-        target=_run_scraper, args=(SessionLocal, headless), daemon=True, name="google-scraper"
-    )
-    _sync_thread.start()
+    # Generate Google search keyword matrix
+    mdm_keywords = [
+        "material codification", "Data Cataloguing", "Master data management",
+        "Data Enrichment", "physical verification", "asset valuation",
+        "material cataloguing", "Asset Verification", "bill of material",
+        "sap master data", "Material Data Governance"
+    ]
+    suffixes = ["tenders"]
+    job_keywords = [f'"{kw}" {suf}' for kw in mdm_keywords for suf in suffixes]
+
+    job = {
+        "job_id": str(uuid.uuid4())[:8],
+        "source": "google",
+        "status": "pending",
+        "keywords": job_keywords,
+        "max_pages": 7,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _pending_jobs.append(job)
+
     _sync_status["running"] = True
-    _sync_status["message"] = "Sync started — searching Google…"
-    return {"status": "started", "message": "Google scraper started"}
+    _sync_status["message"] = "Queued in Chrome Extension: MDM keywords"
+    return {"status": "started", "message": "Google scraper queued to extension"}
 
 
 @router.post("/clear-captcha")
