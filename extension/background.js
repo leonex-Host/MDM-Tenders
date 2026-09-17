@@ -275,7 +275,7 @@ async function startJob(job, conf) {
 async function startGoogleJob(job, conf) {
     console.log("[MDM Google] Starting strict two-phase workflow:", job.job_id);
     currentJob = job;
-    const maxPages = Math.min(Number(job.max_pages || 7), 7);
+    const maxPages = 7; // Google must always process pages 1 through 7
     const keywords = (job.keywords || []).map(String).map(x => x.trim()).filter(Boolean);
     let windowObj = null;
     const allMap = new Map();
