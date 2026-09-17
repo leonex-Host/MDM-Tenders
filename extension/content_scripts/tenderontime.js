@@ -11,7 +11,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         clickNextPage().then(sendResponse);
         return true;
     }
+    else if (request.action === "click_filter_button") {
+        clickFilterButton().then(sendResponse);
+        return true;
+    }
 });
+
+async function clickFilterButton() {
+    const filterBtn = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
+    if (filterBtn) {
+        filterBtn.click();
+        await new Promise(r => setTimeout(r, 2000)); // wait for ajax reload
+        return { clicked: true };
+    }
+    return { clicked: false };
+}
 
 async function extractListings() {
     if (document.title.includes("Just a moment") ||
@@ -21,13 +35,6 @@ async function extractListings() {
     }
 
     let listings = [];
-
-    // Attempt clicking the filter button if we are on the initial search page redirect
-    const filterBtn = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
-    if (filterBtn) {
-        filterBtn.click();
-        await new Promise(r => setTimeout(r, 2000)); // wait for ajax reload
-    }
 
     const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
 
@@ -108,54 +115,152 @@ async function extractDetails(keyword) {
     };
 }
 
-function getListingSignature() {
-    const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
+function getCurrentPageNumber() {
+    // Specifically target pagination bounds
+    const active = document.querySelector(
+        ".pagination li.active a, .pagination li.active span, ul.pagination li.active, .pagination .active"
+    );
 
-    return [...items]
-        .slice(0, 5)
+    return active ? active.innerText.trim() : null;
+}
+
+function getListingSignature() {
+    const items = document.querySelectorAll(
+        "div.listingbox.ng-scope, div.listingbox, div.tender-item"
+    );
+
+    const urls = [...items]
         .map(item => {
-            const link = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn");
-            return link ? (link.href || link.getAttribute("href") || "") : item.innerText.slice(0, 100);
+            const link = item.querySelector(
+                "a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn"
+            );
+
+            return link
+                ? link.href || link.getAttribute("href") || ""
+                : "";
         })
-        .join("|");
+        .filter(Boolean)
+        .slice(0, 10);
+
+    return `${items.length}|${urls.join("|")}`;
 }
 
 async function clickNextPage() {
-    // 1. Look for next button
-    const btn = document.querySelector("li.nextclass a, li.next a, a[rel='next'], a.next, button.next");
+    const candidates = document.querySelectorAll(
+        "ul.pagination li a, .pagination a, a[rel='next'], a.next, li.nextclass a, li.next a, button.next"
+    );
+
+    let btn = null;
+
+    for (const el of candidates) {
+        const text = (el.innerText || "").toLowerCase().trim();
+        const parentLi = el.closest("li");
+
+        if (
+            el.disabled ||
+            el.classList.contains("disabled") ||
+            el.getAttribute("aria-disabled") === "true" ||
+            (parentLi && (parentLi.classList.contains("disabled") || parentLi.classList.contains("inactive"))) ||
+            (parentLi && parentLi.classList.contains("active"))
+        ) {
+            continue;
+        }
+
+        const isNextBtn = text.includes("next") ||
+            text.includes("»") ||
+            text.includes(">") ||
+            el.className.includes("next") ||
+            (parentLi && parentLi.className.includes("next"));
+
+        const isVisible = !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+
+        if (isNextBtn && isVisible) {
+            btn = el;
+            break;
+        }
+    }
+
     if (!btn) {
-        return { clicked: false, reason: "next_button_not_found" };
+        return {
+            clicked: false,
+            changed: false,
+            reason: "next_button_not_found"
+        };
     }
 
-    // 2. Check disabled
-    if (btn.disabled || btn.classList.contains("disabled") || btn.closest("li.disabled, li.inactive")) {
-        return { clicked: false, reason: "next_button_disabled" };
-    }
+    const beforeSignature = getListingSignature();
 
-    // 3. Scroll into view
-    btn.scrollIntoView({ behavior: "smooth", block: "center" });
+    console.log("[NEXT CLICK TARGET]", {
+        text: btn.innerText?.trim(),
+        href: btn.href || null,
+        className: btn.className,
+        visible: !!(btn.offsetWidth || btn.offsetHeight || btn.getClientRects().length),
+        outerHTML: btn.outerHTML.slice(0, 1000)
+    });
 
-    // 4. Get signature before click
-    const beforeSig = getListingSignature();
+    console.log("[BEFORE NEXT]", {
+        signature: beforeSignature,
+        activePage: getCurrentPageNumber(),
+        url: location.href
+    });
 
-    // 5. Click
+    btn.scrollIntoView({
+        behavior: "instant",
+        block: "center"
+    });
+
     btn.click();
 
-    // 6. Wait for signature change
-    for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 500));
+    let lastSignature = null;
+    let stableCount = 0;
 
-        if (document.title.includes("Just a moment") ||
-            (document.body && document.body.innerHTML && document.body.innerHTML.includes("cf-turnstile")) ||
-            (document.body && document.body.innerText && document.body.innerText.includes("Cloudflare"))) {
-            return { clicked: true, changed: true }; // Hit cloudflare loading
+    for (let attempt = 0; attempt < 40; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const items = document.querySelectorAll(
+            "div.listingbox.ng-scope, div.listingbox, div.tender-item"
+        );
+
+        if (!items || items.length === 0) {
+            continue;
         }
 
-        const afterSig = getListingSignature();
-        if (afterSig !== beforeSig) {
-            return { clicked: true, changed: true };
+        const currentSignature = getListingSignature();
+
+        if (
+            currentSignature &&
+            currentSignature !== beforeSignature
+        ) {
+            if (currentSignature === lastSignature) {
+                stableCount++;
+            } else {
+                lastSignature = currentSignature;
+                stableCount = 1;
+            }
+
+            if (stableCount >= 2) {
+                console.log("[AFTER NEXT]", {
+                    signature: currentSignature,
+                    activePage: getCurrentPageNumber(),
+                    url: location.href
+                });
+
+                return {
+                    clicked: true,
+                    changed: true,
+                    beforeSignature,
+                    afterSignature: currentSignature,
+                    pageNumber: getCurrentPageNumber()
+                };
+            }
         }
     }
 
-    return { clicked: true, changed: false, reason: "timeout_waiting_for_change" };
+    return {
+        clicked: true,
+        changed: false,
+        reason: "new_page_did_not_stabilize",
+        beforeSignature,
+        pageNumber: getCurrentPageNumber()
+    };
 }
