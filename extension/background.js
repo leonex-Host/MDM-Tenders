@@ -78,13 +78,19 @@ async function startJob(job, conf) {
             : `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
 
         console.log(`[NAVIGATE] ${searchUrl}`);
+        if (!isGoogle) console.log("[NAVIGATION WAIT] Waiting for expected URL...");
+
         await chrome.tabs.update(tabId, { url: searchUrl });
 
         const pageReady = await waitUntilPageAvailable(tabId, { timeout: 120000 });
         if (!pageReady) {
-            console.log(`[KEYWORD STOPPED] Keyword ${keyword} page/content-script unavailable.`);
+            console.log(`[KEYWORD STOPPED] Keyword ${keyword} page/content-script unavailable (or form not ready).`);
+            console.log("[KEYWORD TRANSITION] Waiting before next keyword...");
+            await sleep(2000);
             continue;
         }
+
+        if (!isGoogle) console.log("[NAVIGATION READY] Expected advanced-search URL confirmed");
 
         // Google renders listings automatically on navigation, TenderOnTime requires a manual filter click
         if (!isGoogle) {
@@ -109,15 +115,23 @@ async function startJob(job, conf) {
         } else if (result.status === "no_results") {
             console.log(`[KEYWORD COMPLETE] ${keyword} returned confirmed no results`);
             console.log("[KEYWORD NEXT] Moving to next keyword");
+            console.log("[KEYWORD TRANSITION] Waiting before next keyword...");
+            await sleep(2000);
             continue;
         } else if (result.status === "timeout") {
             console.warn(`[KEYWORD TIMEOUT] ${keyword} result state was not confirmed`);
+            console.log("[KEYWORD TRANSITION] Waiting before next keyword...");
+            await sleep(2000);
             continue;
         } else if (result.status === "error") {
             console.error(`[KEYWORD ERROR] ${keyword}: ${result.reason || "unknown error"}`);
+            console.log("[KEYWORD TRANSITION] Waiting before next keyword...");
+            await sleep(2000);
             continue;
         } else {
             console.warn(`[KEYWORD ERROR] ${keyword}: undefined status from waitUntilListingsReady`);
+            console.log("[KEYWORD TRANSITION] Waiting before next keyword...");
+            await sleep(2000);
             continue;
         }
 
@@ -228,7 +242,8 @@ async function startJob(job, conf) {
             allTenders.push(...kwResults);
         }
 
-        await sleep(1500);
+        console.log("[KEYWORD TRANSITION] Waiting before next keyword...");
+        await sleep(2000);
     }
 
     await chrome.windows.remove(windowObj.id).catch(() => { });
@@ -269,22 +284,44 @@ async function waitUntilPageAvailable(tabId, options = {}) {
     }
 
     while (Date.now() - startTime < timeout) {
-        let pageCheck = await executeContentScript(tabId, "check_page_available");
+        const pageCheck = await executeContentScript(tabId, "check_page_available");
 
         if (!pageCheck) {
-            logState("[PAGE WAIT] Waiting for content script to respond...");
-            await sleep(1000);
+            logState("[PAGE WAIT] Content script not ready...");
+            await sleep(1500);
             continue;
         }
 
         if (pageCheck.cloudflareActive) {
             logState("[CLOUDFLARE] Cloudflare active. Waiting...");
-            await sleep(2000);
+            await sleep(2500);
             continue;
         }
 
-        logState("[PAGE READY] Page is available (Cloudflare passed).");
-        return true;
+        const currentUrl = pageCheck.url || "";
+        const isExpectedSearchPage = currentUrl.includes("/tenders/advanceSearch");
+
+        if (
+            isExpectedSearchPage &&
+            pageCheck.readyState === "complete" &&
+            pageCheck.formReady === true &&
+            pageCheck.filterReady === true
+        ) {
+            logState("[PAGE READY] New advanced-search form is ready.");
+
+            // Small stabilization delay so the DOM and event handlers settle.
+            await sleep(1500);
+
+            return true;
+        }
+
+        if (isExpectedSearchPage) {
+            logState(`[PAGE WAIT] Search form is not ready yet. Waiting...`);
+        } else {
+            logState(`[PAGE WAIT] Waiting for expected URL... (current: ${currentUrl})`);
+        }
+
+        await sleep(1500);
     }
 
     console.log("[TIMEOUT] Timed out waiting for page to become available.");

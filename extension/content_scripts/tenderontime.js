@@ -41,14 +41,41 @@ function checkPageAvailable() {
         text.toLowerCase().includes("no tenders found") ||
         text.toLowerCase().includes("no records available");
 
+    const isSearchPage = window.location.pathname.includes("/tenders/advanceSearch");
+    const forms = document.querySelectorAll("form");
+    let formReady = false;
+    let filterReady = false;
+
+    if (isSearchPage) {
+        if (forms.length > 0) formReady = true;
+
+        const candidates = Array.from(document.querySelectorAll("button, input, a, [role='button'], [onclick], [ng-click]"));
+        filterReady = candidates.some(el => {
+            const elText = (el.innerText || el.value || el.getAttribute("aria-label") || "").trim().toLowerCase();
+            const elClasses = (el.className || "").toLowerCase();
+            const elId = (el.id || "").toLowerCase();
+            const elType = (el.getAttribute("type") || "").toLowerCase();
+            const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
+
+            // Simple fast checks to confirm at least one plausible button is available visually
+            if (disabled) return false;
+            return ["search", "filter", "go", "apply", "submit"].includes(elText) ||
+                elClasses.includes("search-btn") ||
+                (elType === "submit" && el.closest("form"));
+        });
+    }
+
     return {
         success: true,
         pageAvailable: true,
+        formReady,
+        filterReady,
         readyState: document.readyState,
         title,
         url: window.location.href,
         cloudflareActive,
-        hasNoResultsText
+        hasNoResultsText,
+        reason: formReady ? "advanced_search_form_ready" : "advanced_search_form_not_ready"
     };
 }
 
@@ -177,6 +204,19 @@ async function clickFilterButton(keyword) {
             console.error("[FILTER ERROR] WARNING: No valid keyword search input found on page.");
             return { success: false, clicked: false, verified: false, reason: "search_input_not_found" };
         }
+    }
+
+    const currentUrl = window.location.href;
+    const isSearchUrl = currentUrl.includes("/tenders/advanceSearch");
+
+    console.log("[FILTER PRECHECK] URL:", currentUrl);
+    console.log("[FILTER PRECHECK] Search form ready:", !!button.closest("form"));
+    console.log("[FILTER PRECHECK] Input ready:", !!bestInput);
+    console.log("[FILTER PRECHECK] Filter button ready: true");
+
+    if (!isSearchUrl) {
+        console.warn("[FILTER ERROR] Incorrect URL before click");
+        return { success: false, clicked: false, verified: false, reason: "incorrect_url_for_filter" };
     }
 
     button.scrollIntoView({ behavior: "instant", block: "center" });
