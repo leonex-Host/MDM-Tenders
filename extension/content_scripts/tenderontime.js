@@ -110,9 +110,9 @@ async function clickFilterButton(keyword) {
 
     candidateList.sort((a, b) => b.score - a.score);
 
-    console.log("[FILTER CANDIDATE] Scored list of candidates:");
+    console.log("[FILTER CANDIDATES] Scored list of candidates:");
     candidateList.forEach(c => {
-        console.log(`[FILTER CANDIDATE] Score: ${c.score}`, { tag: c.tag, className: c.className, onclick: c.onclick });
+        console.log(`[FILTER CANDIDATES] Score: ${c.score}`, { tag: c.tag, className: c.className, onclick: c.onclick });
     });
 
     if (candidateList.length === 0) {
@@ -180,6 +180,10 @@ async function clickFilterButton(keyword) {
     button.click();
 
     console.log("[FILTER VERIFY] Waiting for visual changes to search results...");
+
+    // Explicit buffer before validating to prevent instant-reads of stale DOM
+    await new Promise(resolve => setTimeout(resolve, 2500));
+
     let stableCount = 0;
     let lastSignature = null;
     let hasChanged = false;
@@ -196,13 +200,6 @@ async function clickFilterButton(keyword) {
             console.log("[FILTER VERIFY] Cloudflare activation detected post-click, trusting click action.");
             verified = true;
             reason = "cloudflare_triggered";
-            break;
-        }
-
-        if (currentUrl !== beforeUrl) {
-            console.log("[FILTER VERIFY] URL changed post-click, trusting click action.");
-            verified = true;
-            reason = "url_changed";
             break;
         }
 
@@ -416,6 +413,9 @@ async function clickNextPage() {
 
     btn.scrollIntoView({ behavior: "instant", block: "center" });
     btn.click();
+
+    // Explicit buffer to allow pagination AJAX to start clearing old DOM
+    await new Promise(resolve => setTimeout(resolve, 2500));
 
     let lastSignature = null;
     let stableCount = 0;
