@@ -88,7 +88,7 @@ async function startJob(job, conf) {
 
         // Click filter only once, if required
         console.log("[FILTER] Clicking filter button");
-        const filterResult = await executeContentScript(tabId, "click_filter_button");
+        const filterResult = await executeContentScript(tabId, "click_filter_button", { keyword });
 
         if (filterResult && filterResult.clicked) {
             console.log("[MDM Agent] Filter clicked, waiting for exact listings...");

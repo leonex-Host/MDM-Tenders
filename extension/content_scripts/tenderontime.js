@@ -12,12 +12,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     else if (request.action === "click_filter_button") {
-        clickFilterButton().then(sendResponse);
+        clickFilterButton(request.keyword).then(sendResponse);
         return true;
     }
 });
 
-async function clickFilterButton() {
+async function clickFilterButton(keyword) {
     console.log("[FILTER SEARCH] Looking for Filter button");
     const timeoutMs = 30000;
     const startedAt = Date.now();
@@ -64,17 +64,28 @@ async function clickFilterButton() {
                 el.disabled ||
                 el.getAttribute("aria-disabled") === "true";
 
+            const angularClick = (el.getAttribute("ng-click") || "").toLowerCase();
+            const classes = (el.className || "").toLowerCase();
+            const type = (el.getAttribute("type") || "").toLowerCase();
+            const title = (el.getAttribute("title") || "").toLowerCase();
+
             // Be careful not to click unrelated elements. Typical targets:
-            // "filter", "search", onclick="filterTendersJS()"
             const isFilter =
                 text === "filter" ||
                 text === "search" ||
                 text.includes("filter") ||
                 text.includes("search") ||
-                onclick.includes("filtertendersjs");
+                onclick.includes("filter") ||
+                onclick.includes("search") ||
+                angularClick.includes("filter") ||
+                angularClick.includes("search") ||
+                classes.includes("search") ||
+                classes.includes("filter") ||
+                title.includes("search") ||
+                type === "submit";
 
             // Verify it is inside the header/filter wrapper if generic "search" text to avoid breaking.
-            if (text === "search" && !onclick.includes("filter") && el.tagName !== "BUTTON" && el.tagName !== "INPUT") {
+            if (text === "search" && el.tagName !== "BUTTON" && el.tagName !== "INPUT" && !classes.includes("btn")) {
                 return false;
             }
 
@@ -89,15 +100,26 @@ async function clickFilterButton() {
 
             console.log("[FILTER TARGET]", {
                 tag: button.tagName,
-                id: button.id,
                 className: button.className,
                 text: button.innerText || button.value,
-                name: button.getAttribute("name"),
-                type: button.getAttribute("type"),
                 onclick: button.getAttribute("onclick"),
-                disabled: button.disabled,
-                href: button.getAttribute("href")
+                ngClick: button.getAttribute("ng-click")
             });
+
+            if (keyword) {
+                const inputs = document.querySelectorAll("input[type='text'], input[type='search'], input[name='search'], input[name='q']");
+                for (const input of inputs) {
+                    const lowerName = (input.name || "").toLowerCase();
+                    const lowerId = (input.id || "").toLowerCase();
+                    const lowerHolder = (input.placeholder || "").toLowerCase();
+                    if (lowerName === 'q' || lowerHolder.includes("keyword") || lowerHolder.includes("search") || lowerName.includes("search") || lowerId.includes("search")) {
+                        console.log("[FILTER INPUT] Injecting keyword into:", input.name || input.id || input.placeholder);
+                        input.value = keyword;
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            }
 
             console.log("[FILTER CLICK] Clicking Filter button");
             button.click();
