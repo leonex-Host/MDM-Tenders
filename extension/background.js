@@ -95,16 +95,15 @@ async function startJob(job, conf) {
         // Google renders listings automatically on navigation, TenderOnTime requires a manual filter click
         if (!isGoogle) {
             console.log("[FILTER SEARCH] Requesting filter click with keyword:", keyword);
-            const filterResult = await executeContentScript(tabId, "click_filter_button", { keyword });
-
-            if (!filterResult || !filterResult.clicked) {
-                console.log(`[KEYWORD STOPPED] Keyword ${keyword} filter button was not clicked.`, filterResult);
-                continue;
+            let filterResult = null;
+            for (let filterAttempt = 1; filterAttempt <= 3; filterAttempt++) {
+                filterResult = await executeContentScript(tabId, "click_filter_button", { keyword });
+                console.log(`[FILTER ATTEMPT ${filterAttempt}]`, filterResult);
+                if (filterResult?.clicked && filterResult?.verified) break;
+                await sleep(1500);
             }
-
-            if (filterResult.verified !== true) {
-                console.warn(`[KEYWORD STOPPED] Filter action was not verified for ${keyword}:`, filterResult.reason);
-                await sleep(2500);
+            if (!filterResult?.clicked) {
+                console.log(`[KEYWORD STOPPED] Filter button failed after retries for ${keyword}`, filterResult);
                 continue;
             }
         }

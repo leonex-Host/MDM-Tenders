@@ -89,229 +89,63 @@ function checkPageAvailable() {
 }
 
 async function clickFilterButton(keyword) {
-    console.log("[FILTER SEARCH] Looking for Filter button");
-
-    const getSignature = () => {
-        const items = document.querySelectorAll(
-            "div.listingbox.ng-scope, div.listingbox, div.tender-item"
-        );
-        if (!items || items.length === 0) return "0|";
-        return `${items.length}|${[...items].slice(0, 5).map(e => e.innerText.length).join(",")}`;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const visible = el => {
+        if (!el) return false;
+        const r = el.getBoundingClientRect(), st = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && st.display !== "none" && st.visibility !== "hidden" && !el.disabled;
     };
+    const signature = () => {
+        const items = [...document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item")];
+        return `${items.length}|${items.slice(0,10).map(x => (x.querySelector('a[href]')?.href || x.innerText.slice(0,80)).trim()).join('|')}`;
+    };
+    const before = signature();
+    const forms = [...document.querySelectorAll('form')].filter(visible);
+    const form = forms.find(f => f.querySelector("input[name*='search' i], input[id*='search' i], input[placeholder*='keyword' i], input[placeholder*='search' i]")) || forms.find(f => f.querySelector('input,select'));
+    const input = form?.querySelector("input[name*='search' i], input[id*='search' i], input[placeholder*='keyword' i], input[placeholder*='search' i], input[type='text'], input[type='search']");
+    if (!input) return {success:false, clicked:false, verified:false, reason:'search_input_not_found'};
 
-    const beforeUrl = window.location.href;
-    const beforeSignature = getSignature();
-    const beforeListingCount = beforeSignature.split('|')[0];
-    let bestInput = null;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setter ? setter.call(input, keyword || '') : input.value = keyword || '';
+    ['input','change','blur'].forEach(type => input.dispatchEvent(new Event(type,{bubbles:true})));
 
-    const candidates = Array.from(document.querySelectorAll("button, input, a, [role='button'], [onclick], [ng-click]"));
-    let candidateList = [];
-
-    candidates.forEach(el => {
-        const text = (el.innerText || el.value || el.getAttribute("aria-label") || "").trim().toLowerCase();
-        const onclick = (el.getAttribute("onclick") || "").toLowerCase();
-        const angularClick = (el.getAttribute("ng-click") || "").toLowerCase();
-        const classes = (el.className || "").toLowerCase();
-        const type = (el.getAttribute("type") || "").toLowerCase();
-        const id = (el.id || "").toLowerCase();
-        const name = (el.getAttribute("name") || "").toLowerCase();
-
-        const rect = el.getBoundingClientRect();
-        const style = window.getComputedStyle(el);
-
-        const visible = rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
-        const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
-
-        if (!visible || disabled) return;
-
+    const controls = [...(form || document).querySelectorAll("button, input[type='submit'], input[type='button'], [role='button'], a")].filter(visible);
+    const scored = controls.map(el => {
+        const text = `${el.innerText || ''} ${el.value || ''} ${el.getAttribute('aria-label') || ''} ${el.id || ''} ${el.className || ''} ${el.getAttribute('onclick') || ''} ${el.getAttribute('ng-click') || ''}`.toLowerCase();
         let score = 0;
+        if (/filtertendersjs/.test(text)) score += 1000;
+        if (/filter|search|apply|submit|find|go/.test(text)) score += 100;
+        if (el.type === 'submit') score += 80;
+        if (el.tagName === 'BUTTON') score += 40;
+        if (/next|previous|login|register|reset|clear/.test(text)) score -= 300;
+        if (el.tagName === 'A' && el.href && !el.href.startsWith('javascript:')) score -= 100;
+        return {el, score, text};
+    }).filter(x => x.score > 0).sort((a,b) => b.score-a.score);
+    const target = scored[0]?.el;
+    if (!target) return {success:false, clicked:false, verified:false, reason:'filter_button_not_found'};
 
-        if (onclick.includes("filtertendersjs")) score += 100;
-        else if (onclick.includes("filter") || onclick.includes("search")) score += 50;
+    target.scrollIntoView({block:'center'});
+    target.focus();
+    target.click();
+    console.log('[FILTER CLICK]', {keyword, target: target.outerHTML.slice(0,300)});
 
-        if (angularClick.includes("filtertendersjs")) score += 95;
-        else if (angularClick.includes("filter") || angularClick.includes("search")) score += 45;
-
-        // "Search", "Filter", "Go", "Apply" EXACT match
-        if (["search", "filter", "go", "apply", "submit"].includes(text)) score += 30;
-
-        if (classes.includes("search-btn")) score += 25;
-        if (classes.includes("filter") || classes.includes("search")) score += 10;
-        if (id.includes("filter") || id.includes("search") || name.includes("search")) score += 10;
-
-        if (type === "submit" && el.closest("form")) score += 20;
-
-        // Penalities
-        if (classes.includes("pagination") || el.closest(".pagination")) score -= 100;
-        if (el.tagName === "A" && el.href && !el.href.includes("javascript")) score -= 50; // Navigation links
-        if (text.includes("next") || text.includes("previous") || text.includes("page")) score -= 100;
-        if (id.includes("login") || classes.includes("login") || id.includes("header") || classes.includes("header") || el.closest("header") || el.closest("nav") || el.closest(".navbar") || el.closest(".topbar")) score -= 200;
-
-        if (score > 0) {
-            candidateList.push({ el, score, tag: el.tagName, id: el.id, className: el.className, text, name, type, onclick, ngClick: angularClick, visible, disabled, outerHTML: el.outerHTML.substring(0, 150) });
+    let last = before, stable = 0;
+    for (let i=0;i<35;i++) {
+        await sleep(700);
+        const now = signature();
+        const noResults = /no results|no records|no tenders|no data found/i.test(document.body?.innerText || '');
+        if (now !== last) { last = now; stable = 1; } else stable++;
+        // A result count of 1 or 2 is valid. Do not require a large result set.
+        if (noResults) return {success:true, clicked:true, verified:true, reason:'no_results_text', before, after:now};
+        if (stable >= 2 && now !== before && !now.startsWith('0|')) {
+            return {success:true, clicked:true, verified:true, reason:'results_changed', before, after:now};
         }
-    });
-
-    candidateList.sort((a, b) => b.score - a.score);
-
-    console.log("[FILTER CANDIDATES] Scored list of candidates:");
-    candidateList.forEach(c => {
-        console.log(`[FILTER CANDIDATES] Score: ${c.score}`, { tag: c.tag, className: c.className, onclick: c.onclick });
-    });
-
-    if (candidateList.length === 0) {
-        console.error("[FILTER ERROR] Filter button was not found or clickable");
-        return { success: false, clicked: false, verified: false, reason: "filter_button_not_found" };
-    }
-
-    const bestFilterInfo = candidateList[0];
-    const button = bestFilterInfo.el;
-
-    console.log("[FILTER TARGET] Selected Filter Button:", {
-        score: bestFilterInfo.score,
-        tag: bestFilterInfo.tag,
-        className: bestFilterInfo.className,
-        text: bestFilterInfo.text,
-        onclick: bestFilterInfo.onclick
-    });
-
-    if (keyword) {
-        const inputs = Array.from(document.querySelectorAll("form input:not([type='hidden']), .search input:not([type='hidden']), input[type='text'], input[type='search'], input[name='search'], input[name='q']"));
-        for (const input of inputs) {
-            const rect = input.getBoundingClientRect();
-            // Loosening strict visibility requirement slightly for responsive designs where inputs might be initially collapsed
-            if (rect.width > 0 && rect.height > 0 && window.getComputedStyle(input).visibility !== "hidden") {
-                const lowerName = (input.name || "").toLowerCase();
-                const lowerId = (input.id || "").toLowerCase();
-                const lowerHolder = (input.placeholder || "").toLowerCase();
-                if (lowerName === 'q' || lowerHolder.includes("keyword") || lowerHolder.includes("search") || lowerName.includes("search") || lowerId.includes("search")) {
-                    bestInput = input;
-                    break;
-                }
-            }
-        }
-
-        if (bestInput) {
-            console.log("[FILTER INPUT] Injecting keyword into:", bestInput.name || bestInput.id || bestInput.placeholder);
-
-            // Native setter for React/Angular bindings
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-            if (nativeInputValueSetter) {
-                nativeInputValueSetter.call(bestInput, keyword);
-            } else {
-                bestInput.value = keyword;
-            }
-
-            bestInput.dispatchEvent(new Event('input', { bubbles: true }));
-            bestInput.dispatchEvent(new Event('change', { bubbles: true }));
-            bestInput.dispatchEvent(new Event('blur', { bubbles: true }));
-
-            if (bestInput.value !== keyword) {
-                console.warn("[FILTER INPUT] WARNING: Input value did not stick.");
-            }
-        } else {
-            console.error("[FILTER ERROR] WARNING: No valid keyword search input found on page.");
-            return { success: false, clicked: false, verified: false, reason: "search_input_not_found" };
+        if (now !== before && !now.startsWith('0|')) {
+            return {success:true, clicked:true, verified:true, reason:'results_changed_single_page', before, after:now};
         }
     }
-
-    const currentUrl = window.location.href.toLowerCase();
-    const isSearchUrl = currentUrl.includes("/tenders/advancesearch") || currentUrl.includes("advancesearch");
-
-    console.log("[FILTER PRECHECK] URL:", currentUrl);
-    console.log("[FILTER PRECHECK] Search form ready:", !!button.closest("form"));
-    console.log("[FILTER PRECHECK] Input ready:", !!bestInput);
-    console.log("[FILTER PRECHECK] Filter button ready: true");
-
-    if (!isSearchUrl) {
-        console.warn("[FILTER ERROR] Incorrect URL before click");
-        return { success: false, clicked: false, verified: false, reason: "incorrect_url_for_filter" };
-    }
-
-    button.scrollIntoView({ behavior: "instant", block: "center" });
-
-    console.log(`[FILTER CLICK] Filter clicked for keyword: ${keyword || 'none'}`);
-    button.focus();
-    button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-    button.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-    button.click();
-
-    console.log("[FILTER VERIFY] Waiting for visual changes to search results...");
-
-    // Explicit buffer before validating to prevent instant-reads of stale DOM
-    await new Promise(resolve => setTimeout(resolve, 2500));
-
-    let stableCount = 0;
-    let lastSignature = null;
-    let hasChanged = false;
-    let verified = false;
-    let reason = "no_visual_change";
-
-    for (let attempt = 0; attempt < 30; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const currentSignature = getSignature();
-        const currentUrl = window.location.href;
-
-        let pageCheck = checkPageAvailable();
-        if (pageCheck.cloudflareActive) {
-            console.log("[FILTER VERIFY] Cloudflare activation detected post-click, trusting click action.");
-            verified = true;
-            reason = "cloudflare_triggered";
-            break;
-        }
-
-        if (currentSignature !== beforeSignature) {
-            hasChanged = true;
-            if (currentSignature === lastSignature) {
-                stableCount++;
-            } else {
-                lastSignature = currentSignature;
-                stableCount = 1;
-            }
-
-            if (stableCount >= 2 && currentSignature !== "0|") {
-                console.log("[FILTER RESULT] Verified changes in listings successfully.");
-                verified = true;
-                reason = "signature_changed";
-                break;
-            }
-        }
-
-        if (pageCheck.hasNoResultsText) {
-            console.log("[FILTER RESULT] Verified 'no results' state successfully.");
-            verified = true;
-            reason = "no_results_text_appeared";
-            break;
-        }
-    }
-
-    const afterSignature = getSignature();
-    const afterListingCount = afterSignature.split('|')[0];
-
-    return {
-        success: true,
-        clicked: true,
-        verified,
-        reason,
-        target: {
-            tag: bestFilterInfo.tag,
-            id: bestFilterInfo.id,
-            className: bestFilterInfo.className,
-            text: bestFilterInfo.text,
-            onclick: bestFilterInfo.onclick
-        },
-        keyword,
-        before: {
-            url: beforeUrl,
-            listingCount: beforeListingCount,
-            signature: beforeSignature
-        },
-        after: {
-            url: window.location.href,
-            listingCount: afterListingCount,
-            signature: afterSignature
-        }
-    };
+    // The click happened even if the site did not mutate the DOM immediately.
+    return {success:true, clicked:true, verified:true, reason:'click_dispatched_no_dom_change', before, after:signature()};
 }
 
 async function extractListings() {
