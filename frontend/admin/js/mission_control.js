@@ -7,7 +7,7 @@ import { renderLogin } from './pages/Login.js?v=3.0';
 import { renderDashboard } from './pages/Dashboard.js?v=3.0';
 import { renderScrapers } from './pages/Scrapers.js?v=3.0';
 import { renderUsers } from './pages/Users.js?v=3.0';
-import { renderEmails } from './pages/Emails.js?v=3.0';
+import { renderEmails } from './pages/Emails.js?v=4.0';
 import { renderTerminal } from './pages/Terminal.js?v=3.0';
 
 console.log('[Main] Booting System...');
