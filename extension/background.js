@@ -304,6 +304,11 @@ async function waitUntilListingsReady(tabId, options = {}) {
             continue;
         }
 
+        if (listingData.status === "no_data") {
+            logState("[READY] Explicit 0 results verified.");
+            return [];
+        }
+
         if (Array.isArray(listingData)) {
             if (listingData.length === 0) {
                 logState("[WAIT][LISTINGS] Waiting for listing elements...");

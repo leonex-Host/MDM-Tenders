@@ -139,8 +139,8 @@ async function clickFilterButton(keyword) {
             let hasChanged = false;
 
             // Poll until items disappear and reappear, or signature firmly changes
-            for (let attempt = 0; attempt < 30; attempt++) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+            for (let attempt = 0; attempt < 120; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 250));
                 const currentSignature = getSignature();
 
                 if (currentSignature !== beforeSignature || hasChanged) {
@@ -152,7 +152,7 @@ async function clickFilterButton(keyword) {
                         stableCount = 1;
                     }
 
-                    if (stableCount >= 2 && currentSignature !== "0|") {
+                    if (stableCount >= 4 && currentSignature !== "0|") {
                         console.log("[FILTER RESULT] Verified changes in listings successfully.");
                         return {
                             clicked: true,
@@ -192,6 +192,10 @@ async function extractListings() {
         (document.body && document.body.innerHTML && document.body.innerHTML.includes("cf-turnstile")) ||
         (document.body && document.body.innerText && document.body.innerText.includes("Cloudflare"))) {
         return { status: "cloudflare" };
+    }
+
+    if (document.body && document.body.innerText && (document.body.innerText.includes("No data Found!!") || document.body.innerText.includes("No records found"))) {
+        return { status: "no_data" };
     }
 
     let listings = [];
@@ -374,8 +378,8 @@ async function clickNextPage() {
     let lastSignature = null;
     let stableCount = 0;
 
-    for (let attempt = 0; attempt < 40; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+    for (let attempt = 0; attempt < 80; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         const items = document.querySelectorAll(
             "div.listingbox.ng-scope, div.listingbox, div.tender-item"
@@ -398,7 +402,7 @@ async function clickNextPage() {
                 stableCount = 1;
             }
 
-            if (stableCount >= 2) {
+            if (stableCount >= 3) {
                 console.log("[AFTER NEXT]", {
                     signature: currentSignature,
                     activePage: getCurrentPageNumber(),
