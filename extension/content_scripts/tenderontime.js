@@ -18,13 +18,142 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function clickFilterButton() {
-    const filterBtn = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
-    if (filterBtn) {
-        filterBtn.click();
-        await new Promise(r => setTimeout(r, 2000)); // wait for ajax reload
-        return { clicked: true };
+    console.log("[FILTER SEARCH] Looking for Filter button");
+    const timeoutMs = 30000;
+    const startedAt = Date.now();
+
+    const getSignature = () => {
+        const items = document.querySelectorAll(
+            "div.listingbox.ng-scope, div.listingbox, div.tender-item"
+        );
+        if (!items || items.length === 0) return "0|";
+        return `${items.length}|${[...items].slice(0, 5).map(e => e.innerText.length).join(",")}`;
+    };
+
+    const beforeSignature = getSignature();
+
+    while (Date.now() - startedAt < timeoutMs) {
+        const candidates = Array.from(
+            document.querySelectorAll(
+                "button, input[type='button'], input[type='submit'], a"
+            )
+        );
+
+        const button = candidates.find(el => {
+            const text = (
+                el.innerText ||
+                el.value ||
+                el.getAttribute("aria-label") ||
+                ""
+            ).trim().toLowerCase();
+
+            const onclick = (
+                el.getAttribute("onclick") || ""
+            ).toLowerCase();
+
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+
+            const visible =
+                rect.width > 0 &&
+                rect.height > 0 &&
+                style.display !== "none" &&
+                style.visibility !== "hidden";
+
+            const disabled =
+                el.disabled ||
+                el.getAttribute("aria-disabled") === "true";
+
+            // Be careful not to click unrelated elements. Typical targets:
+            // "filter", "search", onclick="filterTendersJS()"
+            const isFilter =
+                text === "filter" ||
+                text === "search" ||
+                text.includes("filter") ||
+                text.includes("search") ||
+                onclick.includes("filtertendersjs");
+
+            // Verify it is inside the header/filter wrapper if generic "search" text to avoid breaking.
+            if (text === "search" && !onclick.includes("filter") && el.tagName !== "BUTTON" && el.tagName !== "INPUT") {
+                return false;
+            }
+
+            return isFilter && visible && !disabled;
+        });
+
+        if (button) {
+            button.scrollIntoView({
+                behavior: "instant",
+                block: "center"
+            });
+
+            console.log("[FILTER TARGET]", {
+                tag: button.tagName,
+                id: button.id,
+                className: button.className,
+                text: button.innerText || button.value,
+                name: button.getAttribute("name"),
+                type: button.getAttribute("type"),
+                onclick: button.getAttribute("onclick"),
+                disabled: button.disabled,
+                href: button.getAttribute("href")
+            });
+
+            console.log("[FILTER CLICK] Clicking Filter button");
+            button.click();
+
+            console.log("[FILTER VERIFY] Waiting for visual changes to search results...");
+            let stableCount = 0;
+            let lastSignature = null;
+            let hasChanged = false;
+
+            // Poll until items disappear and reappear, or signature firmly changes
+            for (let attempt = 0; attempt < 30; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const currentSignature = getSignature();
+
+                if (currentSignature !== beforeSignature || hasChanged) {
+                    hasChanged = true;
+                    if (currentSignature === lastSignature) {
+                        stableCount++;
+                    } else {
+                        lastSignature = currentSignature;
+                        stableCount = 1;
+                    }
+
+                    if (stableCount >= 2 && currentSignature !== "0|") {
+                        console.log("[FILTER RESULT] Verified changes in listings successfully.");
+                        return {
+                            clicked: true,
+                            tag: button.tagName,
+                            id: button.id,
+                            className: button.className,
+                            text: button.innerText || button.value,
+                            verified: true
+                        };
+                    }
+                }
+            }
+
+            console.warn("[FILTER TIMEOUT] Clicked, but items did not register a signature change within 30s.");
+            return {
+                clicked: true,
+                tag: button.tagName,
+                id: button.id,
+                className: button.className,
+                text: button.innerText || button.value,
+                verified: false
+            };
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 500));
     }
-    return { clicked: false };
+
+    console.error("[FILTER ERROR] Filter button was not found or clickable");
+    return {
+        clicked: false,
+        reason: "filter_button_not_found_or_not_clickable"
+    };
 }
 
 async function extractListings() {
