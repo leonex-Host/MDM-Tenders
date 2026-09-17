@@ -35,7 +35,7 @@ class EmailService:
         display_name = from_name or "Tender Intelligence"
         
         try:
-            logger.info("Routing email to %s via Node.js microservice at port 3001", to)
+            logger.info("Routing email to %s via Node.js microservice", to)
             
             payload = {
                 "to": to,
@@ -44,7 +44,8 @@ class EmailService:
                 "fromName": display_name
             }
             
-            response = requests.post("http://127.0.0.1:3001/send", json=payload, timeout=30)
+            url = f"{settings.MAILER_URL.rstrip('/')}/send"
+            response = requests.post(url, json=payload, timeout=30)
             response.raise_for_status()
             
             data = response.json()
