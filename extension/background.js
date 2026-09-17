@@ -298,8 +298,8 @@ async function waitUntilPageAvailable(tabId, options = {}) {
             continue;
         }
 
-        const currentUrl = pageCheck.url || "";
-        const isExpectedSearchPage = currentUrl.includes("/tenders/advanceSearch");
+        const currentUrl = (pageCheck.url || "").toLowerCase();
+        const isExpectedSearchPage = currentUrl.includes("/tenders/advancesearch") || currentUrl.includes("advancesearch");
 
         if (
             isExpectedSearchPage &&

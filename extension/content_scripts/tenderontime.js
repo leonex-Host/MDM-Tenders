@@ -41,7 +41,8 @@ function checkPageAvailable() {
         text.toLowerCase().includes("no tenders found") ||
         text.toLowerCase().includes("no records available");
 
-    const isSearchPage = window.location.pathname.includes("/tenders/advanceSearch");
+    const currentUrl = window.location.href.toLowerCase();
+    const isSearchPage = currentUrl.includes("/tenders/advancesearch") || currentUrl.includes("/advancesearch");
     const forms = document.querySelectorAll("form");
     let formReady = false;
     let filterReady = false;
@@ -135,7 +136,7 @@ async function clickFilterButton(keyword) {
         if (classes.includes("pagination") || el.closest(".pagination")) score -= 100;
         if (el.tagName === "A" && el.href && !el.href.includes("javascript")) score -= 50; // Navigation links
         if (text.includes("next") || text.includes("previous") || text.includes("page")) score -= 100;
-        if (id.includes("login") || classes.includes("login") || id.includes("header") || classes.includes("header")) score -= 100;
+        if (id.includes("login") || classes.includes("login") || id.includes("header") || classes.includes("header") || el.closest("header") || el.closest("nav") || el.closest(".navbar") || el.closest(".topbar")) score -= 200;
 
         if (score > 0) {
             candidateList.push({ el, score, tag: el.tagName, id: el.id, className: el.className, text, name, type, onclick, ngClick: angularClick, visible, disabled, outerHTML: el.outerHTML.substring(0, 150) });
@@ -171,7 +172,8 @@ async function clickFilterButton(keyword) {
 
         for (const input of inputs) {
             const rect = input.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
+            // Loosening strict visibility requirement slightly for responsive designs where inputs might be initially collapsed
+            if (rect.width >= 0 && rect.height >= 0) {
                 const lowerName = (input.name || "").toLowerCase();
                 const lowerId = (input.id || "").toLowerCase();
                 const lowerHolder = (input.placeholder || "").toLowerCase();
@@ -206,8 +208,8 @@ async function clickFilterButton(keyword) {
         }
     }
 
-    const currentUrl = window.location.href;
-    const isSearchUrl = currentUrl.includes("/tenders/advanceSearch");
+    const currentUrl = window.location.href.toLowerCase();
+    const isSearchUrl = currentUrl.includes("/tenders/advancesearch") || currentUrl.includes("advancesearch");
 
     console.log("[FILTER PRECHECK] URL:", currentUrl);
     console.log("[FILTER PRECHECK] Search form ready:", !!button.closest("form"));
