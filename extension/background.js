@@ -322,9 +322,9 @@ async function waitUntilPageAvailable(tabId, options = {}) {
         if (
             isExpectedSearchPage &&
             pageCheck.readyState === "complete" &&
-            (options.isGoogle || (pageCheck.formReady === true && pageCheck.filterReady === true))
+            (options.isGoogle || pageCheck.formReady === true)
         ) {
-            logState("[PAGE READY] New advanced-search form is ready.");
+            logState(options.isGoogle ? "[PAGE READY] Google search page is ready." : "[PAGE READY] TenderOnTime advanced-search page is ready.");
 
             // Small stabilization delay so the DOM and event handlers settle.
             await sleep(1500);

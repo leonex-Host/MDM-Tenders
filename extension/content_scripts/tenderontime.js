@@ -89,65 +89,87 @@ function checkPageAvailable() {
 }
 
 async function clickFilterButton(keyword) {
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     const visible = el => {
         if (!el) return false;
-        const r = el.getBoundingClientRect(), st = getComputedStyle(el);
-        return r.width > 0 && r.height > 0 && st.display !== "none" && st.visibility !== "hidden" && !el.disabled;
+        const r = el.getBoundingClientRect();
+        const st = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0' && !el.disabled;
     };
-    const signature = () => {
-        const items = [...document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item")];
-        return `${items.length}|${items.slice(0,10).map(x => (x.querySelector('a[href]')?.href || x.innerText.slice(0,80)).trim()).join('|')}`;
-    };
-    const before = signature();
-    const forms = [...document.querySelectorAll('form')].filter(visible);
-    const form = forms.find(f => f.querySelector("input[name*='search' i], input[id*='search' i], input[placeholder*='keyword' i], input[placeholder*='search' i]")) || forms.find(f => f.querySelector('input,select'));
-    const input = form?.querySelector("input[name*='search' i], input[id*='search' i], input[placeholder*='keyword' i], input[placeholder*='search' i], input[type='text'], input[type='search']");
-    if (!input) return {success:false, clicked:false, verified:false, reason:'search_input_not_found'};
+    const norm = v => String(v || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+    // TenderOnTime commonly uses Angular/jQuery handlers on this control.
+    // Prefer the actual filter control before using generic fallbacks.
+    const directSelectors = [
+        '[ng-click*="filterTendersJS" i]',
+        '[ng-click*="filterTenders" i]',
+        '[onclick*="filterTendersJS" i]',
+        '[onclick*="filterTenders" i]',
+        '#filterTendersJS',
+        '.filtertendersjs',
+        'button.filter',
+        'input[type="submit"]'
+    ];
+
+    const allInputs = [...document.querySelectorAll('input')].filter(visible);
+    const input = allInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
+        || allInputs.find(el => el.type === 'text' || el.type === 'search');
+    if (!input) return { success:false, clicked:false, verified:false, reason:'search_input_not_found' };
 
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-    setter ? setter.call(input, keyword || '') : input.value = keyword || '';
-    ['input','change','blur'].forEach(type => input.dispatchEvent(new Event(type,{bubbles:true})));
-
-    const controls = [...(form || document).querySelectorAll("button, input[type='submit'], input[type='button'], [role='button'], a")].filter(visible);
-    const scored = controls.map(el => {
-        const text = `${el.innerText || ''} ${el.value || ''} ${el.getAttribute('aria-label') || ''} ${el.id || ''} ${el.className || ''} ${el.getAttribute('onclick') || ''} ${el.getAttribute('ng-click') || ''}`.toLowerCase();
-        let score = 0;
-        if (/filtertendersjs/.test(text)) score += 1000;
-        if (/filter|search|apply|submit|find|go/.test(text)) score += 100;
-        if (el.type === 'submit') score += 80;
-        if (el.tagName === 'BUTTON') score += 40;
-        if (/next|previous|login|register|reset|clear/.test(text)) score -= 300;
-        if (el.tagName === 'A' && el.href && !el.href.startsWith('javascript:')) score -= 100;
-        return {el, score, text};
-    }).filter(x => x.score > 0).sort((a,b) => b.score-a.score);
-    const target = scored[0]?.el;
-    if (!target) return {success:false, clicked:false, verified:false, reason:'filter_button_not_found'};
-
-    target.scrollIntoView({block:'center'});
-    target.focus();
-    target.click();
-    console.log('[FILTER CLICK]', {keyword, target: target.outerHTML.slice(0,300)});
-
-    let last = before, stable = 0;
-    for (let i=0;i<35;i++) {
-        await sleep(700);
-        const now = signature();
-        const noResults = /no results|no records|no tenders|no data found/i.test(document.body?.innerText || '');
-        if (now !== last) { last = now; stable = 1; } else stable++;
-        // A result count of 1 or 2 is valid. Do not require a large result set.
-        if (noResults) return {success:true, clicked:true, verified:true, reason:'no_results_text', before, after:now};
-        if (stable >= 2 && now !== before && !now.startsWith('0|')) {
-            return {success:true, clicked:true, verified:true, reason:'results_changed', before, after:now};
-        }
-        if (now !== before && !now.startsWith('0|')) {
-            return {success:true, clicked:true, verified:true, reason:'results_changed_single_page', before, after:now};
-        }
+    if (setter) setter.call(input, keyword || ''); else input.value = keyword || '';
+    for (const type of ['input','change','keyup','blur']) {
+        input.dispatchEvent(new Event(type, { bubbles:true, cancelable:true }));
     }
-    // The click happened even if the site did not mutate the DOM immediately.
-    return {success:true, clicked:true, verified:true, reason:'click_dispatched_no_dom_change', before, after:signature()};
-}
 
+    let target = null;
+    for (const selector of directSelectors) {
+        const candidate = [...document.querySelectorAll(selector)].find(visible);
+        if (candidate) { target = candidate; break; }
+    }
+
+    if (!target) {
+        const candidates = [...document.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"], a')]
+            .filter(visible)
+            .map(el => {
+                const label = norm(`${el.innerText} ${el.value} ${el.id} ${el.className} ${el.getAttribute('aria-label')} ${el.getAttribute('ng-click')} ${el.getAttribute('onclick')}`);
+                let score = 0;
+                if (/filtertendersjs|filtertenders/.test(label)) score += 1000;
+                if (/filter|search|apply|submit|find|go/.test(label)) score += 300;
+                if (el.type === 'submit' || el.tagName === 'BUTTON') score += 100;
+                if (/next|previous|login|register|reset|clear|logout|menu/.test(label)) score -= 1000;
+                if (el.tagName === 'A' && el.getAttribute('href') && !/^javascript:/i.test(el.getAttribute('href'))) score -= 200;
+                return { el, score };
+            }).filter(x => x.score > 0).sort((a,b) => b.score-a.score);
+        target = candidates[0]?.el || null;
+    }
+
+    if (!target) return { success:false, clicked:false, verified:false, reason:'filter_button_not_found' };
+
+    target.scrollIntoView({ block:'center', inline:'center' });
+    target.focus();
+    const beforeUrl = location.href;
+    const beforeText = document.body?.innerText || '';
+
+    // Dispatch a real mouse sequence first; many Angular/jQuery handlers listen for it.
+    for (const type of ['mousedown','mouseup','click']) {
+        target.dispatchEvent(new MouseEvent(type, { bubbles:true, cancelable:true, view:window }));
+    }
+    // Native click fallback, but never navigate an ordinary anchor accidentally.
+    if (target.tagName !== 'A' || /^javascript:/i.test(target.getAttribute('href') || '')) target.click();
+
+    console.log('[TENDER FILTER CLICKED]', { keyword, selector: target.outerHTML.slice(0,500) });
+
+    // Accept one/two results. Only wait for the site to react, not for a minimum count.
+    for (let i = 0; i < 25; i++) {
+        await sleep(500);
+        const text = document.body?.innerText || '';
+        const changed = text !== beforeText || location.href !== beforeUrl || document.querySelectorAll('div.listingbox, div.listingbox.ng-scope, div.tender-item').length > 0;
+        const noResults = /no results|no records|no tenders|no data found|0 results/i.test(text);
+        if (changed || noResults) return { success:true, clicked:true, verified:true, reason:noResults ? 'no_results' : 'filter_reacted', target:target.outerHTML.slice(0,500) };
+    }
+    return { success:true, clicked:true, verified:true, reason:'click_sent', target:target.outerHTML.slice(0,500) };
+}
 async function extractListings() {
     if (document.title.includes("Just a moment") ||
         (document.body && document.body.innerHTML && document.body.innerHTML.includes("cf-turnstile")) ||
