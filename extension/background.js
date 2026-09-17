@@ -291,7 +291,23 @@ async function waitForTabComplete(tid, timeout = 120000) {
 }
 
 function googleSearchUrl(keyword, page) {
-    const query = `"${keyword.trim()}" tenders`;
+    // Backend may already send: "Data Enrichment" tenders.
+    // Do not wrap the complete query in another pair of quotes.
+    let query = String(keyword || "").trim();
+
+    if (!query) {
+        query = "tenders";
+    } else if (/^"[^"].*"\s+tenders$/i.test(query)) {
+        // Already correctly formatted: "data enrichment" tenders
+        query = query;
+    } else if (/^".*"$/s.test(query)) {
+        // Only the phrase is quoted: "data enrichment"
+        query = `${query} tenders`;
+    } else {
+        // Plain keyword: data enrichment -> "data enrichment" tenders
+        query = `"${query}" tenders`;
+    }
+
     return `https://www.google.com/search?q=${encodeURIComponent(query)}&start=${page * 10}&num=10`;
 }
 
