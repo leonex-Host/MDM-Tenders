@@ -110,7 +110,7 @@ function renderTopbar() {
                         <button class="bb-nav-item ${isActive('/dashboard')}" style="padding:6px 16px; font-weight:600; font-size:13px; border-radius:8px;" onclick="window.location.hash='#/dashboard'">Overview</button>
                         <button class="bb-nav-item ${isActive('/scrapers')}" style="padding:6px 16px; font-weight:600; font-size:13px; border-radius:8px;" onclick="window.location.hash='#/scrapers'">Scrapers</button>
                         <button class="bb-nav-item ${isActive('/users')}" style="padding:6px 16px; font-weight:600; font-size:13px; border-radius:8px;" onclick="window.location.hash='#/users'">Users</button>
-                        <button class="bb-nav-item ${isActive('/emails')}" style="padding:6px 16px; font-weight:600; font-size:13px; border-radius:8px;" onclick="window.location.hash='#/emails'">Emails</button>
+                        <button class="bb-nav-item ${isActive('/emails')}" style="padding:6px 16px; font-weight:600; font-size:13px; border-radius:8px;" onclick="window.location.hash='#/emails'">Email</button>
                         <button class="bb-nav-item ${isActive('/terminal')}" style="padding:6px 16px; font-weight:600; font-size:13px; border-radius:8px;" onclick="window.location.hash='#/terminal'">System Logs</button>
                     </div>
 
