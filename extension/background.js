@@ -290,7 +290,11 @@ async function waitUntilPageAvailable(tabId, options = {}) {
             console.error("[PAGE ERROR] Tab unavailable", e);
             return false;
         }
-        if (!tabInfo.url || !tabInfo.url.toLowerCase().includes("/tenders/advancesearch")) {
+        const currentTabUrl = (tabInfo.url || "").toLowerCase();
+        const expectedUrl = options.isGoogle
+            ? currentTabUrl.includes("google.com/search")
+            : (currentTabUrl.includes("/tenders/advancesearch") || currentTabUrl.includes("advancesearch"));
+        if (!expectedUrl) {
             logState(`[PAGE WAIT] Waiting for expected URL... (current: ${tabInfo.url || "unknown"})`);
             await sleep(1200);
             continue;
