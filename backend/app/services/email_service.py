@@ -19,7 +19,6 @@ from app.models import Tender, EmailRecipient, EmailLog, EmailSetting, GoogleRes
 
 logger = logging.getLogger("email_service")
 
-import requests
 
 class EmailService:
     @staticmethod
@@ -30,35 +29,40 @@ class EmailService:
         from_name: Optional[str] = None,
     ) -> Tuple[bool, Optional[str]]:
         """
-        Sends an email by routing through the external Node.js email-service.
+        Sends an email via Python's built-in smtplib using Gmail.
         """
         display_name = from_name or "Tender Intelligence"
+        from_formatted = f"{display_name} <{settings.SMTP_USER}>"
         
         try:
-            logger.info("Routing email to %s via Node.js microservice", to)
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = from_formatted
+            msg["To"] = to
+            msg.set_content("Please enable HTML to view this email.")
+            msg.add_alternative(html_content, subtype="html")
+
+            logger.info("Sending simple email to %s via SMTP (Port: %s)", to, settings.SMTP_PORT)
             
-            payload = {
-                "to": to,
-                "subject": subject,
-                "html": html_content,
-                "fromName": display_name
-            }
-            
-            url = f"{settings.MAILER_URL.rstrip('/')}/send"
-            response = requests.post(url, json=payload, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            if data.get("success"):
-                logger.info("Email sent successfully to %s via microservice", to)
-                return True, None
+            if int(settings.SMTP_PORT) == 465:
+                # Implicit SSL
+                with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+                    server.login(settings.SMTP_USER, settings.SMTP_PASS)
+                    server.send_message(msg)
             else:
-                err = f"Microservice error: {data.get('error', 'Unknown Error')}"
-                logger.error(err)
-                return False, err
+                # Explicit TLS (STARTTLS) - standard for port 587
+                with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+                    server.ehlo()
+                    server.starttls()
+                    server.ehlo()
+                    server.login(settings.SMTP_USER, settings.SMTP_PASS)
+                    server.send_message(msg)
                 
+            logger.info("Email sent successfully to %s", to)
+            return True, None
+            
         except Exception as e:
-            err = f"Failed to connect to email-service: {str(e)}"
+            err = f"SMTP Send Error: {str(e)}"
             logger.exception(err)
             return False, err[:500]
 
