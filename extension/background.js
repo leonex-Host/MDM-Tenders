@@ -2,21 +2,18 @@ let intervalId = null;
 let currentJob = null;
 let tabId = null;
 
-// Initialize fast polling
 async function initPolling() {
     if (intervalId) return;
     const conf = await chrome.storage.local.get(['apiUrl', 'apiKey']);
     if (conf.apiUrl && conf.apiKey) {
         console.log("[MDM Agent] Auto-started polling for jobs...");
-        intervalId = setInterval(pollForJobs, 3000); // 3 second polling
-        pollForJobs(); // run immediately
+        intervalId = setInterval(pollForJobs, 3000);
+        pollForJobs();
     }
 }
 
-// Start on script load
 initPolling();
 
-// Keep-alive for MV3 service worker sleep limits
 chrome.alarms.create("keepAlive", { periodInMinutes: 1 });
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "keepAlive") {
@@ -31,7 +28,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function pollForJobs() {
-    if (currentJob) return; // busy
+    if (currentJob) return;
 
     const conf = await chrome.storage.local.get(['apiUrl', 'apiKey']);
     if (!conf.apiUrl || !conf.apiKey) return;
@@ -66,56 +63,64 @@ async function startJob(job, conf) {
     const maxPages = job.max_pages || 7;
     let allTenders = [];
 
-    // Create ONE visible window/tab to reuse for this entire job
     const windowObj = await chrome.windows.create({ url: "about:blank", state: "normal" });
     tabId = windowObj.tabs[0].id;
 
+    const isGoogle = job.source === "google";
+
     for (const keyword of job.keywords) {
-        console.log(`[MDM Agent] Processing keyword: ${keyword}`);
+        console.log(`[MDM Agent] Processing keyword: ${keyword} [Source: ${job.source || "tenderontime"}]`);
 
         const escaped = encodeURIComponent(keyword.trim());
-        const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
+
+        const searchUrl = isGoogle
+            ? `https://www.google.com/search?q=${escaped}`
+            : `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
 
         console.log(`[NAVIGATE] ${searchUrl}`);
         await chrome.tabs.update(tabId, { url: searchUrl });
 
-        // Wait for page ONLY
         const pageReady = await waitUntilPageAvailable(tabId, { timeout: 120000 });
         if (!pageReady) {
-            console.log(`[KEYWORD STOPPED] Keyword ${keyword} page unavailable.`);
+            console.log(`[KEYWORD STOPPED] Keyword ${keyword} page/content-script unavailable.`);
             continue;
         }
 
-        // Click filter button
-        console.log("[FILTER] Clicking filter button");
-        const filterResult = await executeContentScript(tabId, "click_filter_button", { keyword });
+        // Google renders listings automatically on navigation, TenderOnTime requires a manual filter click
+        if (!isGoogle) {
+            console.log("[FILTER SEARCH] Requesting filter click with keyword:", keyword);
+            const filterResult = await executeContentScript(tabId, "click_filter_button", { keyword });
 
-        if (!filterResult || !filterResult.clicked) {
-            console.log(`[KEYWORD STOPPED] Keyword ${keyword} filter button was not clicked.`);
-            continue;
+            if (!filterResult || !filterResult.clicked) {
+                console.log(`[KEYWORD STOPPED] Keyword ${keyword} filter button was not clicked.`, filterResult);
+                continue;
+            }
+
+            if (filterResult.verified === false) {
+                console.log(`[KEYWORD WARNING] Filter might not have triggered properly:`, filterResult.reason);
+            }
         }
 
-        console.log("[MDM Agent] Filter clicked, waiting for exact listings...");
-
+        console.log("[LISTINGS WAIT] Waiting for exact listings...");
         let readyData = await waitUntilListingsReady(tabId, { timeout: 120000 });
+
         if (!readyData || readyData.length === 0) {
-            console.log(`[KEYWORD STOPPED] Keyword ${keyword} failed to load post-filter.`);
+            console.log(`[KEYWORD STOPPED] Keyword ${keyword} no listings appeared after filter.`);
             continue;
         }
 
-        console.log("[READY] Keyword page loaded successfully");
+        console.log("[LISTINGS READY] Keyword page loaded successfully");
 
         let allListings = [];
         let kwResults = [];
         let pageNum = 1;
         let visitedPageSignatures = new Set();
-        let listingData = readyData; // Start with phase 1 listings
+        let listingData = readyData;
 
         while (pageNum <= maxPages) {
             console.log(`[PAGE START] Collecting page ${pageNum}/${maxPages}`);
 
             if (pageNum > 1) {
-                // Wait to verify Cloudflare/lists didn't vanish after pagination
                 listingData = await waitUntilListingsReady(tabId, { timeout: 120000 });
                 if (!listingData || listingData.length === 0) {
                     console.log(`[MDM Agent] Timeout or empty on pagination load for page ${pageNum}`);
@@ -148,9 +153,9 @@ async function startJob(job, conf) {
                 break;
             }
 
-            console.log("[BEFORE NEXT] Requesting click_next_page");
+            console.log("[PAGINATION] Requesting next page");
             const nextResult = await executeContentScript(tabId, "click_next_page");
-            console.log("[NEXT CLICK] Result:", nextResult);
+            console.log("[PAGINATION] Next click result:", nextResult);
 
             if (!nextResult || !nextResult.clicked || !nextResult.changed) {
                 console.log(`[MDM Agent] Pagination stopped:`, nextResult ? nextResult.reason : "no_response");
@@ -169,7 +174,6 @@ async function startJob(job, conf) {
                 changed: nextResult.changed
             });
 
-            // If actual page exists in DOM output, strictly verify it equals expected page
             if (actualPage && parseInt(actualPage, 10) !== expectedPage) {
                 console.log(`[MDM Agent] Expected page ${expectedPage} but found page ${actualPage}. Halting transition.`);
                 break;
@@ -181,10 +185,8 @@ async function startJob(job, conf) {
 
         console.log(`[MDM Agent] Collected ${allListings.length} unique listings across ${pageNum} page(s)`);
 
-        // PHASE 2: Process detail pages only after pagination is complete
         for (let i = 0; i < allListings.length; i++) {
             const item = allListings[i];
-
             console.log(`[MDM Agent] Processing detail ${i + 1}/${allListings.length}`);
 
             if (!item.href) continue;
@@ -210,15 +212,14 @@ async function startJob(job, conf) {
                     'X-Extension-Key': conf.apiKey,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ source: "tenderontime", keyword: keyword, tenders: kwResults })
+                body: JSON.stringify({ source: job.source || "tenderontime", keyword: keyword, tenders: kwResults })
             });
             allTenders.push(...kwResults);
         }
 
-        await sleep(1500); // Short breather before next keyword
+        await sleep(1500);
     }
 
-    // Close the reusable tab/window
     await chrome.windows.remove(windowObj.id).catch(() => { });
 
     try {
@@ -257,20 +258,21 @@ async function waitUntilPageAvailable(tabId, options = {}) {
     }
 
     while (Date.now() - startTime < timeout) {
-        let listingData = await executeContentScript(tabId, "extract_listings");
+        let pageCheck = await executeContentScript(tabId, "check_page_available");
 
-        if (!listingData) {
+        if (!pageCheck) {
+            logState("[PAGE WAIT] Waiting for content script to respond...");
             await sleep(1000);
             continue;
         }
 
-        if (listingData.status === "cloudflare") {
-            logState("[WAIT][CLOUDFLARE] Cloudflare active. Waiting...");
+        if (pageCheck.cloudflareActive) {
+            logState("[CLOUDFLARE] Cloudflare active. Waiting...");
             await sleep(2000);
             continue;
         }
 
-        logState("[READY] Page is available (Cloudflare passed).");
+        logState("[PAGE READY] Page is available (Cloudflare passed).");
         return true;
     }
 
@@ -290,6 +292,8 @@ async function waitUntilListingsReady(tabId, options = {}) {
         }
     }
 
+    let noResultsCount = 0;
+
     while (Date.now() - startTime < timeout) {
         let listingData = await executeContentScript(tabId, "extract_listings");
 
@@ -299,18 +303,29 @@ async function waitUntilListingsReady(tabId, options = {}) {
         }
 
         if (listingData.status === "cloudflare") {
-            logState("[WAIT][CLOUDFLARE] Cloudflare active. Waiting...");
+            logState("[CLOUDFLARE] Cloudflare active. Waiting...");
             await sleep(2000);
             continue;
         }
 
         if (Array.isArray(listingData)) {
             if (listingData.length === 0) {
-                logState("[WAIT][LISTINGS] Waiting for listing elements...");
+
+                // We must also verify if the page legitimately says "No results" 
+                let pageCheck = await executeContentScript(tabId, "check_page_available");
+                if (pageCheck && pageCheck.hasNoResultsText) {
+                    noResultsCount++;
+                    if (noResultsCount >= 3) {
+                        logState("[READY] Verified empty 'no results' state.");
+                        return [];
+                    }
+                }
+
+                logState("[LISTINGS WAIT] Waiting for listing elements...");
                 await sleep(1000);
                 continue;
             } else {
-                logState(`[READY] Listings available (${listingData.length}).`);
+                logState(`[LISTINGS READY] Listings available (${listingData.length}).`);
                 return listingData;
             }
         }
@@ -325,7 +340,11 @@ function executeContentScript(tid, action, payload = null) {
     return new Promise((resolve) => {
         chrome.tabs.sendMessage(tid, { action, ...payload }, (response) => {
             if (chrome.runtime.lastError) {
-                // Expected during early page initialization; silence to prevent Extension Error badge
+                const message = chrome.runtime.lastError.message;
+                // Ignore disconnect errors as they just mean the page is reloading/navigating
+                if (!message.includes("Receiving end does not exist") && !message.includes("Could not establish connection")) {
+                    console.log(`[CONTENT SCRIPT ERROR] action=${action} e=${message}`);
+                }
                 resolve(null);
             } else {
                 resolve(response);

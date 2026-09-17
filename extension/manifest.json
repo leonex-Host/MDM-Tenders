@@ -17,6 +17,7 @@
     ],
     "host_permissions": [
         "https://www.tendersontime.com/*",
+        "https://www.google.com/*",
         "*://*.onrender.com/*",
         "*://localhost/*"
     ],
@@ -31,6 +32,16 @@
             ],
             "js": [
                 "content_scripts/tenderontime.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "https://www.google.com/search*",
+                "https://www.google.com/url*"
+            ],
+            "js": [
+                "content_scripts/google.js"
             ],
             "run_at": "document_end"
         }
