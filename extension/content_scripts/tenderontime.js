@@ -23,63 +23,68 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 function checkPageAvailable() {
     const title = document.title || "";
-    const html = (document.body && document.body.innerHTML) ? document.body.innerHTML : "";
-    const text = (document.body && document.body.innerText) ? document.body.innerText : "";
+    const html = document.documentElement?.innerHTML || "";
+    const text = document.body?.innerText || "";
+    const lowerText = text.toLowerCase();
 
-    const cloudflareActive = title.includes("Just a moment") ||
+    const cloudflareActive =
+        /just a moment|checking your browser|verify you are human/i.test(title + " " + text) ||
         html.includes("cf-turnstile") ||
-        text.includes("Cloudflare") ||
-        text.includes("Checking your browser") ||
-        text.includes("Verify you are human") ||
         html.includes("cf-chl") ||
         html.includes("challenge-platform");
 
-    const hasNoResultsText = text.toLowerCase().includes("no results found") ||
-        text.toLowerCase().includes("no records found") ||
-        text.toLowerCase().includes("0 results") ||
-        text.toLowerCase().includes("no data found") ||
-        text.toLowerCase().includes("no tenders found") ||
-        text.toLowerCase().includes("no records available");
+    const hasNoResultsText =
+        /no results found|no records found|0 results|no data found|no tenders found|no records available/i.test(lowerText);
 
-    const currentUrl = window.location.href.toLowerCase();
-    const isSearchPage = currentUrl.includes("/tenders/advancesearch") || currentUrl.includes("/advancesearch");
-    const forms = document.querySelectorAll("form");
-    let formReady = false;
-    let filterReady = false;
+    const url = window.location.href;
+    const isSearchPage = /\/tenders\/advancesearch\b|\/advancesearch\b/i.test(url);
 
-    if (isSearchPage) {
-        formReady = Array.from(forms).some(form => {
-            const r = form.getBoundingClientRect();
-            return r.width > 0 && r.height > 0 && !!form.querySelector("input, button, select");
+    const visible = (el) => {
+        if (!el) return false;
+        const r = el.getBoundingClientRect();
+        const s = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && s.display !== "none" &&
+            s.visibility !== "hidden" && s.opacity !== "0";
+    };
+
+    const forms = [...document.querySelectorAll("form")].filter(visible);
+    const searchForms = forms.filter(form =>
+        form.matches(".search, [class*='search'], [id*='search']") ||
+        form.querySelector("input[name='q'], input[name*='search'], input[placeholder*='search' i], input[placeholder*='keyword' i]")
+    );
+
+    const formPool = searchForms.length ? searchForms : forms;
+    const formReady = isSearchPage && formPool.some(form =>
+        visible(form) && form.querySelector("input, select, textarea, button")
+    );
+
+    const filterReady = formReady && formPool.some(form => {
+        const controls = [...form.querySelectorAll("button, input[type='submit'], input[type='button'], [role='button'], a")];
+        return controls.some(el => {
+            if (!visible(el) || el.disabled || el.getAttribute("aria-disabled") === "true") return false;
+            const label = `${el.innerText || ""} ${el.value || ""} ${el.getAttribute("aria-label") || ""} ${el.id || ""} ${el.className || ""}`.toLowerCase();
+            const isPagination = el.closest(".pagination") || /\b(next|previous|prev|page\s*\d+|login|sign in|register)\b/i.test(label);
+            if (isPagination) return false;
+            return el.type === "submit" ||
+                /search|filter|apply|submit|find|go|tender/i.test(label) ||
+                el.tagName === "BUTTON";
         });
-
-        const candidates = Array.from(document.querySelectorAll("button, input, a, [role='button'], [onclick], [ng-click]"));
-        filterReady = formReady && candidates.some(el => {
-            const elText = (el.innerText || el.value || el.getAttribute("aria-label") || "").trim().toLowerCase();
-            const elClasses = (el.className || "").toLowerCase();
-            const elId = (el.id || "").toLowerCase();
-            const elType = (el.getAttribute("type") || "").toLowerCase();
-            const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
-
-            // Simple fast checks to confirm at least one plausible button is available visually
-            if (disabled) return false;
-            return ["search", "filter", "go", "apply", "submit"].includes(elText) ||
-                elClasses.includes("search-btn") ||
-                (elType === "submit" && el.closest("form"));
-        });
-    }
+    });
 
     return {
         success: true,
-        pageAvailable: !cloudflareActive && isSearchPage && formReady && filterReady,
+        pageAvailable: !cloudflareActive && isSearchPage && document.readyState === "complete" && formReady && filterReady,
         formReady,
         filterReady,
         readyState: document.readyState,
         title,
-        url: window.location.href,
+        url,
         cloudflareActive,
         hasNoResultsText,
-        reason: formReady ? "advanced_search_form_ready" : "advanced_search_form_not_ready"
+        reason: cloudflareActive ? "cloudflare_active" :
+            !isSearchPage ? "not_search_page" :
+            !formReady ? "search_form_not_ready" :
+            !filterReady ? "filter_button_not_ready" : "advanced_search_form_ready"
     };
 }
 
@@ -171,7 +176,7 @@ async function clickFilterButton(keyword) {
     });
 
     if (keyword) {
-        const inputs = Array.from(document.querySelectorAll("input[type='text'], input[type='search'], input[name='search'], input[name='q']"));
+        const inputs = Array.from(document.querySelectorAll("form input:not([type='hidden']), .search input:not([type='hidden']), input[type='text'], input[type='search'], input[name='search'], input[name='q']"));
         for (const input of inputs) {
             const rect = input.getBoundingClientRect();
             // Loosening strict visibility requirement slightly for responsive designs where inputs might be initially collapsed
