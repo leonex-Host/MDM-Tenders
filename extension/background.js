@@ -101,31 +101,42 @@ async function startJob(job, conf) {
             }
         }
 
-        console.log("[LISTINGS WAIT] Waiting for exact listings...");
-        let readyData = await waitUntilListingsReady(tabId, { timeout: 120000 });
+        console.log("[LISTINGS WAIT] Waiting for search results...");
+        const result = await waitUntilListingsReady(tabId, keyword, { timeout: 120000 });
 
-        if (!readyData || readyData.length === 0) {
-            console.log(`[KEYWORD STOPPED] Keyword ${keyword} no listings appeared after filter.`);
+        if (result.status === "results") {
+            console.log(`[LISTINGS READY] ${result.listings.length} listings found for keyword: ${keyword}`);
+        } else if (result.status === "no_results") {
+            console.log(`[KEYWORD COMPLETE] ${keyword} returned confirmed no results`);
+            console.log("[KEYWORD NEXT] Moving to next keyword");
+            continue;
+        } else if (result.status === "timeout") {
+            console.warn(`[KEYWORD TIMEOUT] ${keyword} result state was not confirmed`);
+            continue;
+        } else if (result.status === "error") {
+            console.error(`[KEYWORD ERROR] ${keyword}: ${result.reason || "unknown error"}`);
+            continue;
+        } else {
+            console.warn(`[KEYWORD ERROR] ${keyword}: undefined status from waitUntilListingsReady`);
             continue;
         }
-
-        console.log("[LISTINGS READY] Keyword page loaded successfully");
 
         let allListings = [];
         let kwResults = [];
         let pageNum = 1;
         let visitedPageSignatures = new Set();
-        let listingData = readyData;
+        let listingData = result.listings;
 
         while (pageNum <= maxPages) {
             console.log(`[PAGE START] Collecting page ${pageNum}/${maxPages}`);
 
             if (pageNum > 1) {
-                listingData = await waitUntilListingsReady(tabId, { timeout: 120000 });
-                if (!listingData || listingData.length === 0) {
-                    console.log(`[MDM Agent] Timeout or empty on pagination load for page ${pageNum}`);
+                const pageResult = await waitUntilListingsReady(tabId, keyword, { timeout: 120000 });
+                if (pageResult.status !== "results") {
+                    console.log(`[MDM Agent] Pagination stopped on page ${pageNum}: status=${pageResult.status}`);
                     break;
                 }
+                listingData = pageResult.listings;
             }
 
             console.log(`[PAGE DATA] Page ${pageNum} contains ${listingData.length} listings`);
@@ -280,7 +291,7 @@ async function waitUntilPageAvailable(tabId, options = {}) {
     return false;
 }
 
-async function waitUntilListingsReady(tabId, options = {}) {
+async function waitUntilListingsReady(tabId, keyword, options = {}) {
     const timeout = options.timeout || 120000;
     const startTime = Date.now();
     let lastLog = "";
@@ -298,6 +309,7 @@ async function waitUntilListingsReady(tabId, options = {}) {
         let listingData = await executeContentScript(tabId, "extract_listings");
 
         if (!listingData) {
+            logState("[LISTINGS WAIT] Results are still loading. Waiting...");
             await sleep(1000);
             continue;
         }
@@ -316,24 +328,26 @@ async function waitUntilListingsReady(tabId, options = {}) {
                 if (pageCheck && pageCheck.hasNoResultsText) {
                     noResultsCount++;
                     if (noResultsCount >= 3) {
-                        logState("[READY] Verified empty 'no results' state.");
-                        return [];
+                        console.log(`[LISTINGS RESULT] Confirmed no-results state for keyword: ${keyword || 'unknown'}`);
+                        return { ready: true, status: "no_results", noResults: true, listings: [] };
                     }
+                } else {
+                    noResultsCount = 0; // Reset if text disappears
                 }
 
-                logState("[LISTINGS WAIT] Waiting for listing elements...");
+                logState("[LISTINGS CHECK] No final no-results message yet. Continuing to wait...");
                 await sleep(1000);
+                logState("[LISTINGS RETRY] Checking result state again...");
                 continue;
             } else {
-                logState(`[LISTINGS READY] Listings available (${listingData.length}).`);
-                return listingData;
+                console.log(`[LISTINGS CHECK] Current listing count: ${listingData.length}`);
+                return { ready: true, status: "results", noResults: false, listings: listingData };
             }
         }
         await sleep(1000);
     }
 
-    console.log("[TIMEOUT] Timed out waiting for listings.");
-    return null;
+    return { ready: false, status: "timeout", noResults: false, listings: [], reason: "result_state_not_confirmed" };
 }
 
 function executeContentScript(tid, action, payload = null) {
@@ -341,10 +355,16 @@ function executeContentScript(tid, action, payload = null) {
         chrome.tabs.sendMessage(tid, { action, ...payload }, (response) => {
             if (chrome.runtime.lastError) {
                 const message = chrome.runtime.lastError.message;
-                // Ignore disconnect errors as they just mean the page is reloading/navigating
-                if (!message.includes("Receiving end does not exist") && !message.includes("Could not establish connection")) {
-                    console.log(`[CONTENT SCRIPT ERROR] action=${action} e=${message}`);
+                const isNavigating = message.includes("Receiving end does not exist") || message.includes("Could not establish connection");
+
+                if (isNavigating) {
+                    console.log(`[CONTENT SCRIPT ERROR] action=${action} tabId=${tid} status=navigating_or_unavailable e=${message}`);
+                } else {
+                    console.log(`[CONTENT SCRIPT ERROR] action=${action} tabId=${tid} status=error payload=${JSON.stringify(payload)} e=${message}`);
                 }
+                resolve(null);
+            } else if (response === undefined) {
+                console.log(`[CONTENT SCRIPT ERROR] action=${action} tabId=${tid} status=no_response`);
                 resolve(null);
             } else {
                 resolve(response);

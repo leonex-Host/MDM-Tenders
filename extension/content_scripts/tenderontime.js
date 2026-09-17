@@ -31,10 +31,15 @@ function checkPageAvailable() {
         text.includes("Cloudflare") ||
         text.includes("Checking your browser") ||
         text.includes("Verify you are human") ||
-        html.includes("cf-chl");
+        html.includes("cf-chl") ||
+        html.includes("challenge-platform");
 
     const hasNoResultsText = text.toLowerCase().includes("no results found") ||
-        text.toLowerCase().includes("no records found");
+        text.toLowerCase().includes("no records found") ||
+        text.toLowerCase().includes("0 results") ||
+        text.toLowerCase().includes("no data found") ||
+        text.toLowerCase().includes("no tenders found") ||
+        text.toLowerCase().includes("no records available");
 
     return {
         success: true,
@@ -102,6 +107,8 @@ async function clickFilterButton(keyword) {
         // Penalities
         if (classes.includes("pagination") || el.closest(".pagination")) score -= 100;
         if (el.tagName === "A" && el.href && !el.href.includes("javascript")) score -= 50; // Navigation links
+        if (text.includes("next") || text.includes("previous") || text.includes("page")) score -= 100;
+        if (id.includes("login") || classes.includes("login") || id.includes("header") || classes.includes("header")) score -= 100;
 
         if (score > 0) {
             candidateList.push({ el, score, tag: el.tagName, id: el.id, className: el.className, text, name, type, onclick, ngClick: angularClick, visible, disabled, outerHTML: el.outerHTML.substring(0, 150) });
@@ -117,7 +124,7 @@ async function clickFilterButton(keyword) {
 
     if (candidateList.length === 0) {
         console.error("[FILTER ERROR] Filter button was not found or clickable");
-        return { clicked: false, reason: "filter_button_not_found" };
+        return { success: false, clicked: false, verified: false, reason: "filter_button_not_found" };
     }
 
     const bestFilterInfo = candidateList[0];
@@ -167,13 +174,14 @@ async function clickFilterButton(keyword) {
                 console.warn("[FILTER INPUT] WARNING: Input value did not stick.");
             }
         } else {
-            console.warn("[FILTER INPUT] WARNING: No valid keyword search input found on page.");
+            console.error("[FILTER ERROR] WARNING: No valid keyword search input found on page.");
+            return { success: false, clicked: false, verified: false, reason: "search_input_not_found" };
         }
     }
 
     button.scrollIntoView({ behavior: "instant", block: "center" });
 
-    console.log("[FILTER CLICK] Dispatching mouse events to Filter button");
+    console.log(`[FILTER CLICK] Filter clicked for keyword: ${keyword || 'none'}`);
     button.focus();
     button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
     button.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
@@ -232,17 +240,28 @@ async function clickFilterButton(keyword) {
     const afterListingCount = afterSignature.split('|')[0];
 
     return {
+        success: true,
         clicked: true,
         verified,
         reason,
-        target: bestFilterInfo.tag,
+        target: {
+            tag: bestFilterInfo.tag,
+            id: bestFilterInfo.id,
+            className: bestFilterInfo.className,
+            text: bestFilterInfo.text,
+            onclick: bestFilterInfo.onclick
+        },
         keyword,
-        beforeUrl,
-        afterUrl: window.location.href,
-        beforeListingCount,
-        afterListingCount,
-        beforeSignature,
-        afterSignature
+        before: {
+            url: beforeUrl,
+            listingCount: beforeListingCount,
+            signature: beforeSignature
+        },
+        after: {
+            url: window.location.href,
+            listingCount: afterListingCount,
+            signature: afterSignature
+        }
     };
 }
 
