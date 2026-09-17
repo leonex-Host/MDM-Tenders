@@ -66,8 +66,8 @@ class ScraperManager:
             candidates = []
             if use_real_browser:
                 candidates = [
-                    {"channel": "chrome", "args": stealth_args,  "user_agent": None},
                     {"channel": "msedge", "args": stealth_args,  "user_agent": None},
+                    {"channel": "chrome", "args": stealth_args,  "user_agent": None},
                     {"channel": None,     "args": headless_args, "user_agent": fallback_ua},
                 ]
             else:
