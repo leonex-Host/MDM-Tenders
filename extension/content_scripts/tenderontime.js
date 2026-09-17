@@ -7,6 +7,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         extractDetails(request.keyword).then(sendResponse);
         return true;
     }
+    else if (request.action === "click_next_page") {
+        clickNextPage().then(sendResponse);
+        return true;
+    }
 });
 
 async function extractListings() {
@@ -25,13 +29,13 @@ async function extractListings() {
         await new Promise(r => setTimeout(r, 2000)); // wait for ajax reload
     }
 
-    const items = document.querySelectorAll("div.listingbox, div.tender-item");
+    const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
 
     items.forEach(item => {
         try {
             let title = "", href = "", deadline = "", tot_ref = "", country = "";
 
-            const linkEl = item.querySelector("a.truncatetext");
+            const linkEl = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn");
             if (linkEl) {
                 title = linkEl.innerText.trim();
                 href = Object.assign(document.createElement('a'), { href: linkEl.getAttribute('href') }).href;
@@ -102,4 +106,56 @@ async function extractDetails(keyword) {
         description: descriptionSnippet,
         posting_date: postingDate
     };
+}
+
+function getListingSignature() {
+    const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
+
+    return [...items]
+        .slice(0, 5)
+        .map(item => {
+            const link = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn");
+            return link ? (link.href || link.getAttribute("href") || "") : item.innerText.slice(0, 100);
+        })
+        .join("|");
+}
+
+async function clickNextPage() {
+    // 1. Look for next button
+    const btn = document.querySelector("li.nextclass a, li.next a, a[rel='next'], a.next, button.next");
+    if (!btn) {
+        return { clicked: false, reason: "next_button_not_found" };
+    }
+
+    // 2. Check disabled
+    if (btn.disabled || btn.classList.contains("disabled") || btn.closest("li.disabled, li.inactive")) {
+        return { clicked: false, reason: "next_button_disabled" };
+    }
+
+    // 3. Scroll into view
+    btn.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    // 4. Get signature before click
+    const beforeSig = getListingSignature();
+
+    // 5. Click
+    btn.click();
+
+    // 6. Wait for signature change
+    for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 500));
+
+        if (document.title.includes("Just a moment") ||
+            (document.body && document.body.innerHTML && document.body.innerHTML.includes("cf-turnstile")) ||
+            (document.body && document.body.innerText && document.body.innerText.includes("Cloudflare"))) {
+            return { clicked: true, changed: true }; // Hit cloudflare loading
+        }
+
+        const afterSig = getListingSignature();
+        if (afterSig !== beforeSig) {
+            return { clicked: true, changed: true };
+        }
+    }
+
+    return { clicked: true, changed: false, reason: "timeout_waiting_for_change" };
 }
