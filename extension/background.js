@@ -50,6 +50,9 @@ async function pollForJobs() {
 }
 
 async function startJob(job, conf) {
+    if ((job.source || "").toLowerCase() === "google") {
+        return startGoogleJob(job, conf);
+    }
     console.log("[MDM Agent] Picking up job:", job.job_id);
     currentJob = job;
 
@@ -268,6 +271,108 @@ async function startJob(job, conf) {
     tabId = null;
 }
 
+
+async function startGoogleJob(job, conf) {
+    console.log("[MDM Google] Starting strict two-phase workflow:", job.job_id);
+    currentJob = job;
+    const maxPages = Math.min(Number(job.max_pages || 7), 7);
+    const keywords = (job.keywords || []).map(String).map(x => x.trim()).filter(Boolean);
+    let windowObj = null;
+    const allMap = new Map();
+    const filtered = [];
+    try {
+        await fetch(`${conf.apiUrl}/api/extension/jobs/${job.job_id}/start`, {
+            method: "POST", headers: { "X-Extension-Key": conf.apiKey }
+        });
+        windowObj = await chrome.windows.create({ url: "about:blank", state: "normal" });
+        tabId = windowObj.tabs[0].id;
+
+        // PHASE 1: finish every page for every keyword. Never open result links here.
+        for (const keyword of keywords) {
+            for (let page = 0; page < maxPages; page++) {
+                const query = `"${keyword}" tenders`;
+                const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&start=${page * 10}`;
+                console.log(`[MDM Google][ALL] ${keyword} page ${page + 1}/${maxPages}`);
+                await chrome.tabs.update(tabId, { url });
+                if (!await waitUntilPageAvailable(tabId, { timeout: 120000, isGoogle: true })) continue;
+                const data = await waitUntilListingsReady(tabId, keyword, { timeout: 120000 });
+                if (data.status !== "results") continue;
+                for (const item of data.listings) {
+                    const key = item.href;
+                    if (!key) continue;
+                    if (!allMap.has(key)) allMap.set(key, {
+                        ...item, source: "google", keyword,
+                        matched_keywords: [keyword],
+                        search_query: query, google_page: page + 1
+                    });
+                    else {
+                        const old = allMap.get(key);
+                        old.matched_keywords = [...new Set([...(old.matched_keywords || []), keyword])];
+                    }
+                }
+            }
+        }
+
+        const allResults = [...allMap.values()];
+        console.log(`[MDM Google][ALL COMPLETE] ${allResults.length} unique URLs`);
+
+        // Save ALL separately before detail checking.
+        await uploadGoogle(conf, job, "all", allResults);
+
+        // PHASE 2: only now visit each unique URL and create FILTERED.
+        for (let i = 0; i < allResults.length; i++) {
+            const item = allResults[i];
+            console.log(`[MDM Google][FILTERED] Checking ${i + 1}/${allResults.length}: ${item.href}`);
+            await chrome.tabs.update(tabId, { url: item.href });
+            await waitForTabComplete(tabId, 120000);
+            await sleep(800);
+            const detail = await executeContentScript(tabId, "extract_details", { keywords: item.matched_keywords || [item.keyword] });
+            if (detail?.found) filtered.push({ ...item, ...detail, result_type: "filtered" });
+        }
+        await uploadGoogle(conf, job, "filtered", filtered);
+
+        await fetch(`${conf.apiUrl}/api/extension/jobs/${job.job_id}/complete`, {
+            method: "POST",
+            headers: { "X-Extension-Key": conf.apiKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "completed", summary: { total_all: allResults.length, total_filtered: filtered.length } })
+        });
+    } catch (e) {
+        console.error("[MDM Google] Job failed", e);
+        try { await fetch(`${conf.apiUrl}/api/extension/jobs/${job.job_id}/complete`, {
+            method: "POST", headers: { "X-Extension-Key": conf.apiKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "failed", summary: { error: String(e) } })
+        }); } catch {}
+    } finally {
+        if (windowObj) await chrome.windows.remove(windowObj.id).catch(() => {});
+        currentJob = null; tabId = null;
+    }
+}
+
+async function uploadGoogle(conf, job, resultType, results) {
+    if (!results.length) return;
+    const res = await fetch(`${conf.apiUrl}/api/extension/upload`, {
+        method: "POST",
+        headers: { "X-Extension-Key": conf.apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+            source: "google", keyword: "__ALL__", result_type: resultType,
+            tenders: results.map(x => ({ ...x, result_type: resultType }))
+        })
+    });
+    if (!res.ok) throw new Error(`Upload ${resultType} failed: HTTP ${res.status}`);
+}
+
+async function waitForTabComplete(tid, timeout = 120000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+        try {
+            const t = await chrome.tabs.get(tid);
+            if (t.status === "complete") return true;
+        } catch { return false; }
+        await sleep(700);
+    }
+    return false;
+}
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -290,11 +395,7 @@ async function waitUntilPageAvailable(tabId, options = {}) {
             console.error("[PAGE ERROR] Tab unavailable", e);
             return false;
         }
-        const currentTabUrl = (tabInfo.url || "").toLowerCase();
-        const expectedUrl = options.isGoogle
-            ? currentTabUrl.includes("google.com/search")
-            : (currentTabUrl.includes("/tenders/advancesearch") || currentTabUrl.includes("advancesearch"));
-        if (!expectedUrl) {
+        if (!tabInfo.url || !tabInfo.url.toLowerCase().includes("/tenders/advancesearch")) {
             logState(`[PAGE WAIT] Waiting for expected URL... (current: ${tabInfo.url || "unknown"})`);
             await sleep(1200);
             continue;

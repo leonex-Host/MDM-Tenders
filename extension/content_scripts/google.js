@@ -1,48 +1,87 @@
-(() => {
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const bodyText = () => document.body?.innerText || "";
-  const blocked = () => {
-    const t = `${document.title}\n${bodyText()}`.toLowerCase();
-    return /unusual traffic|our systems have detected|captcha|not a robot|sorry\.google\.com|verify you are human/.test(t);
-  };
-  const isGoogleInternal = href => {
-    try {
-      const u = new URL(href, location.href);
-      return u.hostname.endsWith('google.com') || u.hostname.endsWith('google.co.in') || u.protocol === 'javascript:';
-    } catch { return true; }
-  };
-  const resultNodes = () => [...document.querySelectorAll('div.MjjYud, div.g, div.Gx5Zad, div.xpd')];
-  const getResults = () => {
-    const out = [], seen = new Set();
-    for (const node of resultNodes()) {
-      const h3 = node.querySelector('h3');
-      const a = h3?.closest('a') || node.querySelector('a[href]');
-      if (!h3 || !a) continue;
-      const href = a.href;
-      if (!href || isGoogleInternal(href) || seen.has(href)) continue;
-      seen.add(href);
-      const snippet = node.querySelector('.VwiC3b, .yXK7lf, .IsZvec, .st, [data-sncf], div[style*="line-clamp"]');
-      out.push({ title: h3.innerText.trim(), href, summary: snippet?.innerText?.trim() || node.innerText.replace(h3.innerText, '').trim().slice(0, 1000) });
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "check_page_available") {
+        sendResponse(checkPageAvailable());
+        return true;
     }
-    return out;
-  };
-  const signature = () => getResults().slice(0, 10).map(x => x.href).join('|');
-  function checkPageAvailable() {
-    const t = bodyText().toLowerCase();
-    return { success:true, pageAvailable:!blocked(), readyState:document.readyState, title:document.title, url:location.href, cloudflareActive:blocked(), hasNoResultsText:/did not match any documents|no results found/.test(t), resultCount:getResults().length };
-  }
-  async function clickNextPage() {
-    const btn = document.querySelector('a#pnnext, a[aria-label="Next page"], a[aria-label="Next"]');
-    if (!btn) return {clicked:false, changed:false, reason:'next_button_not_found'};
-    const before = signature(); btn.scrollIntoView({block:'center'}); btn.click();
-    for (let i=0;i<40;i++) { await sleep(500); if (blocked()) return {clicked:true,changed:false,reason:'blocked'}; const after=signature(); if(after && after!==before) return {clicked:true,changed:true,beforeSignature:before,afterSignature:after}; }
-    return {clicked:true,changed:false,reason:'new_page_did_not_stabilize',beforeSignature:before};
-  }
-  async function extractDetails(keyword) { const text=bodyText(); return {found: text.toLowerCase().includes(String(keyword||'').toLowerCase()), full_text:text, full_text_sample:text.slice(0,2000)}; }
-  chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
-    if(req.action==='check_page_available') sendResponse(checkPageAvailable());
-    else if(req.action==='extract_listings') sendResponse(blocked()?{status:'cloudflare'}:getResults());
-    else if(req.action==='click_next_page') { clickNextPage().then(sendResponse); return true; }
-    else if(req.action==='extract_details') { extractDetails(req.keyword).then(sendResponse); return true; }
-  });
-})();
+    if (request.action === "extract_listings") {
+        sendResponse(extractListings());
+        return true;
+    }
+    if (request.action === "extract_details") {
+        sendResponse(extractDetails(request.keywords || [request.keyword]));
+        return true;
+    }
+});
+
+function pageText() {
+    return (document.body?.innerText || "").replace(/\s+/g, " ").trim();
+}
+
+function checkPageAvailable() {
+    const title = document.title || "";
+    const text = pageText();
+    const html = document.documentElement?.innerHTML || "";
+    const blocked = /unusual traffic|verify you are human|captcha|our systems have detected/i.test(text + " " + title) ||
+        /g-recaptcha|recaptcha/i.test(html);
+    return {
+        success: true,
+        pageAvailable: document.readyState === "complete",
+        readyState: document.readyState,
+        title,
+        url: location.href,
+        cloudflareActive: blocked,
+        hasNoResultsText: /did not match any documents|no results found/i.test(text)
+    };
+}
+
+function canonicalize(url) {
+    try {
+        const u = new URL(url);
+        if (!/^https?:$/.test(u.protocol)) return null;
+        u.hash = "";
+        ["utm_source","utm_medium","utm_campaign","utm_term","utm_content","gclid","fbclid"].forEach(k => u.searchParams.delete(k));
+        return u.href;
+    } catch { return null; }
+}
+
+function extractListings() {
+    const check = checkPageAvailable();
+    if (check.cloudflareActive) return { status: "cloudflare" };
+    const selectors = [
+        "div.MjjYud", "div.tF2Cxc", "div.g", "div.xpd",
+        "div[data-snhf]", "div[data-ved]"
+    ];
+    const nodes = [...new Set(selectors.flatMap(s => [...document.querySelectorAll(s)]))];
+    const listings = [];
+    const seen = new Set();
+
+    for (const node of nodes) {
+        const h3 = node.querySelector("h3");
+        if (!h3) continue;
+        const a = h3.closest("a") || node.querySelector("a[href]");
+        if (!a) continue;
+        const href = canonicalize(a.href);
+        if (!href || /(^|\.)google\.[^/]+$/i.test(new URL(href).hostname)) continue;
+        const title = h3.innerText.trim();
+        if (!title || seen.has(href)) continue;
+        seen.add(href);
+        const snippet = node.querySelector(".VwiC3b, .IsZvec, .yXK7lf, [data-sncf], div[style*='line-clamp']")?.innerText?.trim() || "";
+        listings.push({ title, href, summary: snippet });
+    }
+    return listings;
+}
+
+function extractDetails(keywords = []) {
+    const text = pageText();
+    const lower = text.toLowerCase();
+    const usable = [...new Set((keywords || []).filter(Boolean).map(x => String(x).trim()).filter(Boolean))];
+    const matched = usable.filter(k => lower.includes(k.toLowerCase()));
+    return {
+        found: matched.length > 0,
+        matched_keywords: matched,
+        keyword_found_on_page: matched.length > 0,
+        page_excerpt: text.substring(0, 1000),
+        full_text_sample: text.substring(0, 1000),
+        checked_url: location.href
+    };
+}

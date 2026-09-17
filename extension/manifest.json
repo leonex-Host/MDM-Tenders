@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MDM Extension",
-  "version": "1.2.0",
+  "version": "1.0.0",
   "icons": {
     "16": "icons/icon.png",
     "48": "icons/icon.png",
@@ -19,9 +19,7 @@
     "https://www.tendersontime.com/*",
     "https://www.google.com/*",
     "*://*.onrender.com/*",
-    "*://localhost/*",
-    "https://*/*",
-    "http://*/*"
+    "*://localhost/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -49,16 +47,11 @@
     },
     {
       "matches": [
-        "https://*/*",
-        "http://*/*"
-      ],
-      "exclude_matches": [
-        "https://www.google.com/search*",
-        "https://www.google.com/url*",
-        "https://www.tendersontime.com/*"
+        "http://*/*",
+        "https://*/*"
       ],
       "js": [
-        "content_scripts/detail.js"
+        "content_scripts/google.js"
       ],
       "run_at": "document_end"
     }
