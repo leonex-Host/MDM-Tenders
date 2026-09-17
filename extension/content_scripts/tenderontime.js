@@ -35,21 +35,19 @@ async function clickFilterButton(keyword) {
     while (Date.now() - startedAt < timeoutMs) {
         const candidates = Array.from(
             document.querySelectorAll(
-                "button, input[type='button'], input[type='submit'], a"
+                "button, input[type='button'], input[type='submit']"
             )
         );
 
-        const button = candidates.find(el => {
-            const text = (
-                el.innerText ||
-                el.value ||
-                el.getAttribute("aria-label") ||
-                ""
-            ).trim().toLowerCase();
+        let bestButton = null;
 
-            const onclick = (
-                el.getAttribute("onclick") || ""
-            ).toLowerCase();
+        candidates.forEach(el => {
+            const text = (el.innerText || el.value || el.getAttribute("aria-label") || "").trim().toLowerCase();
+            const onclick = (el.getAttribute("onclick") || "").toLowerCase();
+            const angularClick = (el.getAttribute("ng-click") || "").toLowerCase();
+            const classes = (el.className || "").toLowerCase();
+            const type = (el.getAttribute("type") || "").toLowerCase();
+            const title = (el.getAttribute("title") || "").toLowerCase();
 
             const rect = el.getBoundingClientRect();
             const style = window.getComputedStyle(el);
@@ -60,39 +58,50 @@ async function clickFilterButton(keyword) {
                 style.display !== "none" &&
                 style.visibility !== "hidden";
 
-            const disabled =
-                el.disabled ||
-                el.getAttribute("aria-disabled") === "true";
+            const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
 
-            const angularClick = (el.getAttribute("ng-click") || "").toLowerCase();
-            const classes = (el.className || "").toLowerCase();
-            const type = (el.getAttribute("type") || "").toLowerCase();
-            const title = (el.getAttribute("title") || "").toLowerCase();
-
-            // Be careful not to click unrelated elements. Typical targets:
-            const isFilter =
-                text === "filter" ||
-                text === "search" ||
-                text.includes("filter") ||
-                text.includes("search") ||
-                onclick.includes("filter") ||
-                onclick.includes("search") ||
-                angularClick.includes("filter") ||
-                angularClick.includes("search") ||
-                classes.includes("search") ||
-                classes.includes("filter") ||
-                title.includes("search") ||
-                type === "submit";
-
-            // Verify it is inside the header/filter wrapper if generic "search" text to avoid breaking.
-            if (text === "search" && el.tagName !== "BUTTON" && el.tagName !== "INPUT" && !classes.includes("btn")) {
-                return false;
-            }
-
-            return isFilter && visible && !disabled;
+            console.log("[FILTER CANDIDATE]", {
+                tag: el.tagName,
+                id: el.id,
+                className: el.className,
+                text: el.innerText || el.value,
+                name: el.getAttribute("name"),
+                type: el.getAttribute("type"),
+                onclick: el.getAttribute("onclick"),
+                ngClick: el.getAttribute("ng-click"),
+                disabled,
+                visible,
+                outerHTML: el.outerHTML.substring(0, 150)
+            });
         });
 
-        if (button) {
+        // Strategy 1: Exact selector if it's there and visible
+        let exactBtn = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
+
+        if (exactBtn && exactBtn.offsetWidth > 0 && exactBtn.offsetHeight > 0 && !exactBtn.disabled) {
+            bestButton = exactBtn;
+        } else {
+            // Strategy 2: Rely heavily on specific search/filter invocation logic
+            bestButton = candidates.find(el => {
+                const onclick = (el.getAttribute("onclick") || "").toLowerCase();
+                const text = (el.innerText || el.value || "").trim().toLowerCase();
+                const visible = el.offsetWidth > 0 && el.offsetHeight > 0;
+                const disabled = el.disabled;
+                const type = (el.getAttribute("type") || "").toLowerCase();
+                const searchBtnClass = (el.className || "").toLowerCase().includes("search-btn");
+
+                if (!visible || disabled) return false;
+
+                // Only trust highly suggestive execution hooks OR exact search classes combined with search text
+                if (onclick.includes("filter") || onclick.includes("search")) return true;
+                if ((text === "search" || text === "filter" || text === "go") && (searchBtnClass || type === "submit")) return true;
+
+                return false;
+            });
+        }
+
+        if (bestButton) {
+            const button = bestButton;
             button.scrollIntoView({
                 behavior: "instant",
                 block: "center"

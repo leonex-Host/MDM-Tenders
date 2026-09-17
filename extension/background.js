@@ -79,26 +79,30 @@ async function startJob(job, conf) {
         console.log(`[NAVIGATE] ${searchUrl}`);
         await chrome.tabs.update(tabId, { url: searchUrl });
 
-        // Wait for page
-        let readyData = await waitUntilListingsReady(tabId, { timeout: 120000 });
-        if (!readyData || readyData.length === 0) {
-            console.log(`[KEYWORD STOPPED] Keyword ${keyword} failed to load initially.`);
-            continue; // Stop this keyword safely
+        // Wait for page ONLY
+        const pageReady = await waitUntilPageAvailable(tabId, { timeout: 120000 });
+        if (!pageReady) {
+            console.log(`[KEYWORD STOPPED] Keyword ${keyword} page unavailable.`);
+            continue;
         }
 
-        // Click filter only once, if required
+        // Click filter button
         console.log("[FILTER] Clicking filter button");
         const filterResult = await executeContentScript(tabId, "click_filter_button", { keyword });
 
-        if (filterResult && filterResult.clicked) {
-            console.log("[MDM Agent] Filter clicked, waiting for exact listings...");
-            // Re-wait since page might reload/refresh
-            readyData = await waitUntilListingsReady(tabId, { timeout: 120000 });
-            if (!readyData || readyData.length === 0) {
-                console.log(`[KEYWORD STOPPED] Keyword ${keyword} failed to load post-filter.`);
-                continue;
-            }
+        if (!filterResult || !filterResult.clicked) {
+            console.log(`[KEYWORD STOPPED] Keyword ${keyword} filter button was not clicked.`);
+            continue;
         }
+
+        console.log("[MDM Agent] Filter clicked, waiting for exact listings...");
+
+        let readyData = await waitUntilListingsReady(tabId, { timeout: 120000 });
+        if (!readyData || readyData.length === 0) {
+            console.log(`[KEYWORD STOPPED] Keyword ${keyword} failed to load post-filter.`);
+            continue;
+        }
+
         console.log("[READY] Keyword page loaded successfully");
 
         let allListings = [];
@@ -238,6 +242,74 @@ async function startJob(job, conf) {
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitUntilPageAvailable(tabId, options = {}) {
+    const timeout = options.timeout || 120000;
+    const startTime = Date.now();
+    let lastLog = "";
+
+    function logState(state) {
+        if (state !== lastLog) {
+            console.log(state);
+            lastLog = state;
+        }
+    }
+
+    while (Date.now() - startTime < timeout) {
+        let listingData = await executeContentScript(tabId, "extract_listings");
+
+        if (!listingData) {
+            await sleep(1000);
+            continue;
+        }
+
+        if (listingData.status === "cloudflare") {
+            logState("[WAIT][CLOUDFLARE] Cloudflare active. Waiting...");
+            await sleep(2000);
+            continue;
+        }
+
+        logState("[READY] Page is available (Cloudflare passed).");
+        return true;
+    }
+
+    console.log("[TIMEOUT] Timed out waiting for page to become available.");
+    return false;
+}
+
+async function waitUntilPageAvailable(tabId, options = {}) {
+    const timeout = options.timeout || 120000;
+    const startTime = Date.now();
+    let lastLog = "";
+
+    function logState(state) {
+        if (state !== lastLog) {
+            console.log(state);
+            lastLog = state;
+        }
+    }
+
+    while (Date.now() - startTime < timeout) {
+        let listingData = await executeContentScript(tabId, "extract_listings");
+
+        if (!listingData) {
+            await sleep(1000);
+            continue;
+        }
+
+        if (listingData.status === "cloudflare") {
+            logState("[WAIT][CLOUDFLARE] Cloudflare active. Waiting...");
+            await sleep(2000);
+            continue;
+        }
+
+        logState("[READY] Page is available (Cloudflare passed).");
+        return true;
+    }
+
+    console.log("[TIMEOUT] Timed out waiting for page to become available.");
+    return false;
 }
 
 async function waitUntilListingsReady(tabId, options = {}) {
