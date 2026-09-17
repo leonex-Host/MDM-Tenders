@@ -278,40 +278,6 @@ async function waitUntilPageAvailable(tabId, options = {}) {
     return false;
 }
 
-async function waitUntilPageAvailable(tabId, options = {}) {
-    const timeout = options.timeout || 120000;
-    const startTime = Date.now();
-    let lastLog = "";
-
-    function logState(state) {
-        if (state !== lastLog) {
-            console.log(state);
-            lastLog = state;
-        }
-    }
-
-    while (Date.now() - startTime < timeout) {
-        let listingData = await executeContentScript(tabId, "extract_listings");
-
-        if (!listingData) {
-            await sleep(1000);
-            continue;
-        }
-
-        if (listingData.status === "cloudflare") {
-            logState("[WAIT][CLOUDFLARE] Cloudflare active. Waiting...");
-            await sleep(2000);
-            continue;
-        }
-
-        logState("[READY] Page is available (Cloudflare passed).");
-        return true;
-    }
-
-    console.log("[TIMEOUT] Timed out waiting for page to become available.");
-    return false;
-}
-
 async function waitUntilListingsReady(tabId, options = {}) {
     const timeout = options.timeout || 120000;
     const startTime = Date.now();
