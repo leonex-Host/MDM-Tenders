@@ -5,9 +5,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const resumeBtn = document.getElementById('resume_btn');
     const abortBtn = document.getElementById('abort_btn');
     const logs = document.getElementById('logs');
-    const dot = document.getElementById('dot');
+    const statusIndicator = document.getElementById('status_indicator');
+    const statusText = document.getElementById('status_text');
 
-    function log(msg) { logs.innerText = msg; }
+    // UI Panels
+    const metricsPanel = document.getElementById('metrics_panel');
+    const configPanel = document.getElementById('config_panel');
+
+    // Metrics fields
+    const mSource = document.getElementById('m_source');
+    const mExtracted = document.getElementById('m_extracted');
+    const mPhaseKwd = document.getElementById('m_phase_kwd');
+    const logTime = document.getElementById('log_time');
+
+    function log(msg) {
+        logs.innerText = msg;
+        const now = new Date();
+        logTime.innerText = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    }
 
     chrome.storage.local.get(['apiUrl', 'apiKey'], (res) => {
         if (res.apiUrl) apiUrlInput.value = res.apiUrl;
@@ -18,16 +33,20 @@ document.addEventListener('DOMContentLoaded', () => {
     saveBtn.addEventListener('click', () => {
         const apiUrl = apiUrlInput.value.trim().replace(/\/$/, "");
         const apiKey = apiKeyInput.value.trim();
+        saveBtn.innerHTML = "Linking...";
         chrome.storage.local.set({ apiUrl, apiKey }, () => {
-            log('Settings saved.');
+            log('Secure credentials saved.');
             checkConnection();
+            setTimeout(() => {
+                saveBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Authenticate & Link`;
+            }, 1000);
         });
     });
 
     resumeBtn.addEventListener('click', () => {
         chrome.runtime.sendMessage({ action: "resume_manual" }, (res) => {
             if (res?.resumed) {
-                log("Resumed workflow.");
+                log("Resuming blocked security challenge...");
                 resumeBtn.style.display = 'none';
                 pollStatus();
             }
@@ -36,12 +55,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (abortBtn) {
         abortBtn.addEventListener('click', () => {
-            if (confirm("Are you sure you want to abort the current job on this laptop?")) {
-                abortBtn.innerHTML = "Aborting...";
+            if (confirm("EMERGENCY ABORT: Are you sure you want to instantly terminate the running scrape job strictly on this laptop?")) {
+                abortBtn.innerHTML = "Aborting Local Loop...";
                 abortBtn.disabled = true;
                 chrome.runtime.sendMessage({ action: "abort_manual" }, (res) => {
-                    log("Job Aborted cleanly.");
-                    setTimeout(() => window.close(), 1000);
+                    log("Job Aborted cleanly. Render backend notified.");
+                    setTimeout(() => window.close(), 1200);
                 });
             }
         });
@@ -50,26 +69,29 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkConnection() {
         chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
             if (!c.apiUrl || !c.apiKey) {
-                log('Please enter API URL and Key.');
+                log('Standby: Awaiting Render Hub credentials.');
                 return;
             }
-            log('Connecting to cloud API...');
+            log('Handshaking with MDM Render Server...');
             try {
                 const res = await fetch(`${c.apiUrl}/api/extension/config`, {
                     headers: { 'X-Extension-Key': c.apiKey }
                 });
                 if (res.ok) {
-                    dot.classList.add('status-connected');
-                    log(`Connected!`);
+                    statusIndicator.classList.add('status-connected');
+                    statusText.innerText = 'Synchronized';
+                    log(`Telemetry link established securely.`);
                     chrome.runtime.sendMessage({ action: "start_polling" });
                     pollStatus();
                 } else {
-                    dot.classList.remove('status-connected');
-                    log(`Error: Cloud refused connection (HTTP ${res.status})`);
+                    statusIndicator.classList.remove('status-connected');
+                    statusText.innerText = 'Denied';
+                    log(`Auth Failed: Edge server rejected key (HTTP ${res.status})`);
                 }
             } catch (err) {
-                dot.classList.remove('status-connected');
-                log('Error: Cannot reach API. Server offline?');
+                statusIndicator.classList.remove('status-connected');
+                statusText.innerText = 'Offline';
+                log('Fatal: Cannot reach Render Hub. Check network.');
             }
         });
     }
@@ -77,29 +99,49 @@ document.addEventListener('DOMContentLoaded', () => {
     function pollStatus() {
         chrome.storage.local.get(['extensionState', 'activeJob'], (res) => {
             const extState = res.extensionState || { blocked: false };
-            if (extState.blocked) {
-                log(`PAUSED: ${extState.blockReason || 'Authentication or Manual Action Required'}. Please resolve and click Resume.`);
-                resumeBtn.style.display = 'block';
-                return;
-            }
 
             if (res && res.activeJob) {
                 const j = res.activeJob;
-                resumeBtn.style.display = 'none';
-                abortBtn.style.display = 'block';
-                log(`Job ${j.job_id} | ${j.source} | Phase: ${j.phase || 'N/A'}\nKeyword: ${j.keyword || '...'}`);
+                // Job is actively bound to this laptop
+                metricsPanel.style.display = 'block';
+                configPanel.style.display = 'none';
+
+                mSource.innerText = String(j.source).toUpperCase();
+                mExtracted.innerText = (j.resultsCollected || 0).toLocaleString();
+
+                const ph = String(j.phase || 'N/A').toUpperCase();
+                const kw = j.keyword || '...';
+                mPhaseKwd.innerText = `${ph} / [${kw}]`;
+
+                if (extState.blocked) {
+                    log(`HALTED: ${extState.blockReason || 'Manual Action Required'}. Solve challenge then click Resume.`);
+                    metricsPanel.style.borderColor = 'rgba(245, 158, 11, 0.4)'; // Warning color
+                    resumeBtn.style.display = 'flex';
+                    abortBtn.style.display = 'flex';
+                } else {
+                    resumeBtn.style.display = 'none';
+                    abortBtn.style.display = 'flex';
+                    metricsPanel.style.borderColor = 'rgba(16, 185, 129, 0.3)'; // Success color
+                    log(`Engine Live: Synchronizing batch payload [${j.job_id}]`);
+                }
             } else {
+                // No active job
+                metricsPanel.style.display = 'none';
+                configPanel.style.display = 'block';
                 resumeBtn.style.display = 'none';
                 abortBtn.style.display = 'none';
-                log(`Connected and Waiting for jobs...`);
+
+                if (statusIndicator.classList.contains('status-connected')) {
+                    log(`Polling queue every 5s...`);
+                }
             }
         });
     }
 
-    // Auto-update UI every 2 seconds
+    // Auto-update UI every 1.5 seconds for live feel
     setInterval(() => {
-        if (dot.classList.contains('status-connected')) {
+        if (statusIndicator.classList.contains('status-connected')) {
             pollStatus();
         }
-    }, 2000);
+    }, 1500);
 });
