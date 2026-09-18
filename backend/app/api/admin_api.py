@@ -131,29 +131,50 @@ def start_scraper(
             return sync_google(headless=headless)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    elif source == "tenderontime" and __import__("os").environ.get("RENDER") is not None:
+            
+    import os
+    source_normalized = str(source or "").strip().lower()
+    EXTENSION_SOURCES = {"tenderontime", "tender247", "tenderdetail", "gem", "biddetail"}
+    execution_mode = os.getenv("SCRAPER_EXECUTION_MODE", "extension").strip().lower()
+
+    if source_normalized in EXTENSION_SOURCES and (execution_mode == "extension" or os.getenv("RENDER") is not None):
         from app.api.extension_api import _pending_jobs
         
         db_s = SessionLocal()
         try:
             # Tell UI it is running
-            log = CrawlLog(source=source, keyword="Extension Triggered", status="running")
+            log = CrawlLog(source=source_normalized, keyword="Extension Triggered", status="running")
             db_s.add(log)
             db_s.commit()
         finally:
             db_s.close()
             
         import uuid
+        job_id = str(uuid.uuid4())[:8]
         job = {
-            "job_id": str(uuid.uuid4())[:8],
-            "source": source,
-            "status": "pending",
+            "job_id": job_id,
+            "source": source_normalized,
+            "status": "queued",
+            "target_url": "", # Generic placeholder, some extensions build their own
             "keywords": settings.SEARCH_KEYWORDS,
             "max_pages": getattr(settings, "MAX_PAGES", 5),
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        
+        if not job.get("job_id"):
+            logger.error("[ExtensionQueue] Refusing job without job_id: %s", {"source": source_normalized, "keys": list(job.keys())})
+            return {"success": False, "error": "Generated job has no job_id"}
+            
+        logger.info("[ExtensionQueue] queued job_id=%s source=%s", job_id, source_normalized)
         _pending_jobs.append(job)
-        return {"status": "started", "message": "Queued for Chrome Extension"}
+        
+        return {
+            "success": True,
+            "mode": "extension",
+            "job_id": job_id,
+            "source": source_normalized,
+            "status": "queued"
+        }
     else:
         import threading
         from app.services.scraper_service import run_all_scrapers
