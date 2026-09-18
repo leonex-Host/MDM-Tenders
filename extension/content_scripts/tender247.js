@@ -6,8 +6,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "click_next") {
         const els = [...document.querySelectorAll("a")].filter(a => a.innerText.includes("Next") || a.innerText.includes('›'));
         const next = els.find(el => el.offsetWidth > 0 && el.offsetHeight > 0);
-        if (next) { next.click(); sendResponse({ clicked: true }); }
-        else sendResponse({ clicked: false });
+        if (next) {
+            sendResponse({ clicked: true });
+            setTimeout(() => next.click(), 50);
+        } else {
+            sendResponse({ clicked: false });
+        }
         return true;
     } else if (request.action === "extract_details") {
         try {

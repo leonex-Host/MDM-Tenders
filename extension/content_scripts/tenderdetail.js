@@ -9,8 +9,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 if (next15) next15.click();
                 setTimeout(() => {
                     const btn = document.getElementById("btnFilterTender") || document.querySelector("input[value='SEARCH']");
-                    if (btn) btn.click();
                     sendResponse({ done: true });
+                    if (btn) {
+                        setTimeout(() => btn.click(), 50);
+                    }
                 }, 1000);
             }, 500);
         } catch (e) { sendResponse({ done: false }); }
@@ -37,8 +39,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "click_next") {
         const els = [...document.querySelectorAll("a")];
         const next = els.find(el => (el.innerText.includes("Next") || el.innerText.includes("›")) && el.offsetWidth > 0);
-        if (next) { next.click(); sendResponse({ clicked: true }); }
-        else sendResponse({ clicked: false });
+        if (next) {
+            sendResponse({ clicked: true });
+            setTimeout(() => next.click(), 50);
+        } else {
+            sendResponse({ clicked: false });
+        }
         return true;
     } else if (request.action === "extract_details") {
         try {
