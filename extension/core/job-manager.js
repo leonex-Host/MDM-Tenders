@@ -52,8 +52,16 @@ async function processJobLogic() {
             console.log("Job paused for manual action. Use popup to resume.");
             return;
         }
-        console.log("Resuming active job:", job.job_id);
-    } else {
+        if (!job.job_id && !job.source) {
+            console.error("Corrupted activeJob detected. Purging state.");
+            await chrome.storage.local.remove(['activeJob']);
+            job = null;
+        } else {
+            console.log("Resuming active job:", job.job_id);
+        }
+    }
+
+    if (!job) {
         const data = await fetchJobs();
         let fetchedList = [];
         if (Array.isArray(data)) fetchedList = data;

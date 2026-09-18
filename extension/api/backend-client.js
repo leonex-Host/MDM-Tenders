@@ -13,13 +13,19 @@ export async function fetchJobs() {
         const res = await fetch(`${creds.apiUrl}/api/extension/jobs`, {
             headers: { 'X-Extension-Key': creds.apiKey }
         });
+
+        console.log(`[Diagnostic] API URL: ${creds.apiUrl} | Key Length: ${creds.apiKey?.length || 0} | Status: ${res.status}`);
+
         if (res.status === 403 || res.status === 401) {
             await setManualActionRequired("API KEY REJECTED. Update extension settings.", "");
             return null;
         }
         if (!res.ok) return null;
         return await res.json();
-    } catch (e) { return null; }
+    } catch (e) {
+        console.error(`[Diagnostic] Fetch error: ${e.message}`);
+        return null;
+    }
 }
 
 export async function startJobOnServer(jobId) {
