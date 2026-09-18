@@ -1,0 +1,4 @@
+export const CONFIG = {
+    POLL_INTERVAL_MS: 3000,
+    TAB_TIMEOUT_MS: 120000,
+};

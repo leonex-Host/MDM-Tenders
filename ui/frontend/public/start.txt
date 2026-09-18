@@ -1,0 +1,178 @@
+============================================
+  TENDER INTELLIGENCE PLATFORM — START GUIDE
+============================================
+
+PREREQUISITES:
+  - Python 3.10+
+  - PostgreSQL running on localhost:5432
+  - Redis running on localhost:6379 (optional)
+  - Chrome browser installed (for Selenium scrapers)
+
+============================================
+1. CREATE POSTGRESQL DATABASE
+============================================
+
+  Open pgAdmin or psql and run:
+
+    CREATE DATABASE tenderdb;
+
+  (Or use your own DB name — just update .env accordingly)
+
+============================================
+2. SETUP BACKEND
+============================================
+
+  cd backend
+
+  # Install all dependencies
+  pip install -r requirements.txt
+
+  # Copy and edit .env (already created — check values)
+  # Edit DATABASE_URL if your postgres user/password differs
+
+============================================
+3. INITIALIZE / RESET DATABASE
+============================================
+
+  cd backend
+
+  # Create tables (first time):
+  python scripts/init_db.py
+
+  # Reset database (clear all tenders + logs):
+  curl -X POST http://localhost:8000/api/reset-db
+
+  # Or via Python:
+  python -c "from app.database import engine; from app.models import Base; Base.metadata.drop_all(engine); Base.metadata.create_all(engine); print('DB reset done')"
+
+============================================
+4. RUN BACKEND (FastAPI)
+============================================
+
+  cd backend
+  python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  python app/api/google.py
+
+
+  API will be live at: http://localhost:8000
+  Docs at:             http://localhost:8000/docs
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+============================================
+5. RUN FRONTEND
+============================================
+
+  cd frontend
+  python serve.py
+
+  Open browser: http://localhost:8080
+
+============================================
+6. API ENDPOINTS
+============================================
+
+  GET  /api/tenders?source=gem&limit=100&offset=0   — Paginated tender list (max 10000)
+  GET  /api/tenders/{uuid}                           — Single tender by ID
+  GET  /api/search?source=gem                        — Trigger background scrape
+  GET  /api/sources                                  — List available sources
+  GET  /api/stats                                    — Dashboard statistics
+  GET  /api/export?source=gem                        — Download Excel file
+  POST /api/reset-db                                 — Clear all data (destructive)
+
+  Sources: gem | tender247 | tenderdetail | tenderontime | biddetail
+
+============================================
+7. SCRAPER PIPELINE (5 Active Scrapers)
+============================================
+
+  All 5 scrapers are registered and active:
+
+  1. GEM (gem)              — bidplus.gem.gov.in
+  2. Tender247 (tender247)  — tender247.com
+  3. TenderDetail (tenderdetail) — tenderdetail.com
+  4. TenderOnTime (tenderontime) — tendersontime.com
+  5. BidDetail (biddetail)  — biddetail.com
+
+  Trigger all scrapers:
+    curl http://localhost:8000/api/search
+
+  Trigger single scraper:
+    curl http://localhost:8000/api/search?source=gem
+
+  Keywords are configured in: app/config.py (SEARCH_KEYWORDS)
+
+============================================
+8. QUICK TEST
+============================================
+
+  # After backend is running, test endpoints:
+  curl http://localhost:8000/health
+  curl http://localhost:8000/api/stats
+  curl http://localhost:8000/api/tenders
+  curl http://localhost:8000/api/sources
+
+============================================
+9. DOCKER (optional)
+============================================
+
+  cd backend
+  docker-compose up --build
+
+============================================
+10. AI CHATBOT & OLLAMA (phi3:mini)
+============================================
+
+The Leonex AI Chatbot relies on the local Ollama engine running phi3:mini.
+If the chatbot says "My AI engine is currently offline", follow these steps:
+
+  A) START THE OLLAMA ENGINE (Hidden in background)
+  Run this in PowerShell to start the Ollama server:
+    Start-Process -WindowStyle Hidden -FilePath "ollama" -ArgumentList "serve"
+
+  B) WARM UP THE MODEL (Pre-load into RAM)
+  The first message takes ~60-120 seconds because the 2.2GB model loads into memory.
+  Run this in your terminal to pre-load it immediately:
+    ollama run phi3:mini "Hello"
+
+  C) VERIFY BACKEND CONNECTION
+  Once Ollama is running, check if the backend sees it:
+    curl http://localhost:8000/api/ai/health
+  Expected Output: {"ollama_connected": true, "model": "phi3:mini", "status": "online"}
+
+  Note: The backend explicitly connects to http://127.0.0.1:11434 to avoid Windows 
+  localhost IPv6 binding bugs. No Docker/CORS configuration is needed for the local setup.
+
+============================================
+11. ADMIN PORTAL & VISIBLE BROWSER (NEW)
+============================================
+
+The Admin Portal (on GitHub Pages) can now control your local laptop to open
+visible Chrome tabs while still reading live data from the Render server.
+
+  URL: https://harishhckr.github.io/MDM-Tenders/admin/
+
+  A) START LOCAL BACKEND (REQUIRED FOR VISIBLE TABS)
+    
+ cd backend
+     ..\venv\Scripts\python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+     
+https://harishhckr.github.io/MDM-Tenders/#/portal
+
+  B) HYBRID MODE SETUP (HOW IT WORKS)
+     1. Open the Admin Portal link above.
+     2. Top Bar: Set "RENDER / LOCAL" toggle to RENDER (Orange).
+        -> This lets you see the live data from the Render Cloud.
+     3. Top Bar: Set "VISIBLE BROWSER" toggle to ON.
+        -> This tells the UI to send "Scrape" commands to your LAPTOP.
+
+  C) TRIGGER VISIBLE SCRAPING
+     - Go to the "Scrapers" page.
+     - Click "Initialize Engine".
+     - A visible Chrome window will pop open on your laptop!
+     - The scraper will push results directly to the Render Database.
+
+  NOTE: If the data does not load or the button doesn't work, click the red
+  "Not Loading?" button in the top bar and follow the 4 steps to "Allow
+  Insecure Content" in Chrome Site Settings.
+
+============================================

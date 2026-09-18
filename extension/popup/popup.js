@@ -2,14 +2,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiUrlInput = document.getElementById('api_url');
     const apiKeyInput = document.getElementById('api_key');
     const saveBtn = document.getElementById('save_btn');
+    const resumeBtn = document.getElementById('resume_btn');
     const logs = document.getElementById('logs');
     const dot = document.getElementById('dot');
 
-    function log(msg) {
-        logs.innerText = msg;
-    }
+    function log(msg) { logs.innerText = msg; }
 
-    // Load existing config
     chrome.storage.local.get(['apiUrl', 'apiKey'], (res) => {
         if (res.apiUrl) apiUrlInput.value = res.apiUrl;
         if (res.apiKey) apiKeyInput.value = res.apiKey;
@@ -17,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     saveBtn.addEventListener('click', () => {
-        const apiUrl = apiUrlInput.value.trim().replace(/\/$/, ""); // remove trailing slash
+        const apiUrl = apiUrlInput.value.trim().replace(/\/$/, "");
         const apiKey = apiKeyInput.value.trim();
         chrome.storage.local.set({ apiUrl, apiKey }, () => {
             log('Settings saved.');
@@ -25,21 +23,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    resumeBtn.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ action: "resume_manual" }, (res) => {
+            if (res?.resumed) {
+                log("Resumed workflow.");
+                resumeBtn.style.display = 'none';
+                pollStatus();
+            }
+        });
+    });
+
     async function checkConnection() {
         chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
-            if (!c.apiUrl || !c.apiKey) return;
+            if (!c.apiUrl || !c.apiKey) {
+                log('Please enter API URL and Key.');
+                return;
+            }
             log('Connecting to cloud API...');
             try {
                 const res = await fetch(`${c.apiUrl}/api/extension/config`, {
                     headers: { 'X-Extension-Key': c.apiKey }
                 });
                 if (res.ok) {
-                    const data = await res.json();
                     dot.classList.add('status-connected');
-                    log(`Connected! Registered ${data.keywords?.length || 0} keywords.`);
-
-                    // Signal background worker to start polling
+                    log(`Connected!`);
                     chrome.runtime.sendMessage({ action: "start_polling" });
+                    pollStatus();
                 } else {
                     dot.classList.remove('status-connected');
                     log(`Error: Cloud refused connection (HTTP ${res.status})`);
@@ -50,4 +59,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    function pollStatus() {
+        chrome.runtime.sendMessage({ action: "get_status" }, (res) => {
+            if (res && res.job) {
+                const j = res.job;
+                if (j.status === "manual_action_required") {
+                    log(`PAUSED: ${j.manualReason || 'Challenge detected'}. Please solve it on the active tab and click Resume.`);
+                    resumeBtn.style.display = 'block';
+                } else {
+                    resumeBtn.style.display = 'none';
+                    log(`Job ${j.job_id} | ${j.source} | Phase: ${j.phase || 'N/A'}\nKeyword: ${j.keyword || '...'}`);
+                }
+            } else {
+                resumeBtn.style.display = 'none';
+                log(`Connected and Waiting for jobs...`);
+            }
+        });
+    }
+
+    // Auto-update UI every 2 seconds
+    setInterval(() => {
+        if (dot.classList.contains('status-connected')) {
+            pollStatus();
+        }
+    }, 2000);
 });

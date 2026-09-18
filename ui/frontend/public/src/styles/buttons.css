@@ -1,0 +1,150 @@
+/* ============================================
+   LEONEX — Buttons
+   ============================================ */
+
+.btn-primary {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--r-btn);
+  background: #FFFFFF;
+  color: #000000;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease), opacity var(--duration-fast) var(--ease);
+  white-space: nowrap;
+}
+.btn-primary:hover {
+  background: #E5E7EB;
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  background: #D1D5DB;
+  transform: scale(0.97);
+}
+
+[data-theme="light"] .btn-primary {
+  background: #000000;
+  color: #FFFFFF;
+}
+[data-theme="light"] .btn-primary:hover { background: #222222; }
+[data-theme="light"] .btn-primary:active { background: #333333; }
+
+.btn-secondary {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--r-btn);
+  background: #000000;
+  color: var(--text-primary);
+  border: 1px solid rgba(255,255,255,0.15);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease), border-color var(--duration-fast) var(--ease);
+  white-space: nowrap;
+  min-width: fit-content;
+}
+.btn-secondary:hover { background: #111111; border-color: rgba(255,255,255,0.25); }
+[data-theme="light"] .btn-secondary { background: #FFFFFF; border: 1px solid rgba(0,0,0,0.1); }
+[data-theme="light"] .btn-secondary:hover { background: #F3F4F6; border-color: rgba(0,0,0,0.15); }
+.btn-secondary:active { transform: scale(0.97); }
+
+.btn-ghost {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--r-btn);
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+}
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-ghost.active { color: var(--accent-purple); background: var(--accent-purple-dim); }
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-btn);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+  flex-shrink: 0;
+}
+.btn-icon a { color: inherit; display: flex; }
+.btn-icon:hover { color: var(--text-primary); background: var(--bg-hover); }
+.btn-icon:active { transform: scale(0.9); }
+
+.bookmark-btn.active {
+  color: #10b981; /* Premium Emerald */
+}
+.bookmark-btn.active svg {
+  fill: #10b981;
+}
+
+.btn-icon--sm { width: 28px; height: 28px; border-radius: var(--r-sm); }
+
+.btn-primary:disabled, .btn-secondary:disabled, .btn-ghost:disabled {
+  opacity: 0.4; cursor: not-allowed; pointer-events: none;
+}
+
+/* AI buttons */
+.btn-ai-primary {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-btn);
+  background: #FFFFFF;
+  color: #4F46E5;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--duration) var(--ease);
+}
+.btn-ai-primary:hover { background: #F0EEFF; transform: translateY(-1px); }
+
+.btn-ai-secondary {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-btn);
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--duration) var(--ease);
+}
+.btn-ai-secondary:hover { background: rgba(255,255,255,0.15); }

@@ -18,6 +18,10 @@
     "host_permissions": [
         "https://www.tendersontime.com/*",
         "https://www.google.com/*",
+        "*://*.tender247.com/*",
+        "*://*.biddetail.com/*",
+        "*://*.tenderdetail.com/*",
+        "*://gem.gov.in/*",
         "*://*.onrender.com/*",
         "*://localhost/*"
     ],
@@ -42,6 +46,43 @@
             ],
             "js": [
                 "content_scripts/google.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "*://*.tender247.com/*"
+            ],
+            "js": [
+                "content_scripts/tender247.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "*://*.biddetail.com/*"
+            ],
+            "js": [
+                "content_scripts/biddetail.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "*://*.tenderdetail.com/*"
+            ],
+            "js": [
+                "content_scripts/tenderdetail.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "*://gem.gov.in/*",
+                "*://bidplus.gem.gov.in/*"
+            ],
+            "js": [
+                "content_scripts/gem.js"
             ],
             "run_at": "document_end"
         }
