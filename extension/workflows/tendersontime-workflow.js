@@ -128,14 +128,10 @@ export async function runTendersOnTimeWorkflow(job) {
                 let filterResult = null;
                 for (let i = 0; i < 3; i++) {
                     filterResult = await executeContentScript(tabInfo.tabId, "click_filter_button", { keyword });
-                    // If filterResult is null, the port dropped precisely because the page is reloading/navigating due to click!
-                    if (filterResult === null || (filterResult && filterResult.clicked && filterResult.verified)) {
-                        filterResult = { clicked: true, verified: true };
-                        break;
-                    }
+                    if (filterResult?.clicked && filterResult?.verified) break;
                     await sleep(1500);
                 }
-                if (!filterResult || !filterResult.clicked) continue;
+                if (!filterResult?.clicked) continue;
 
                 await updateJobState({ phase: 'list_collection' });
 

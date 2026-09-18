@@ -156,16 +156,8 @@ async function clickFilterButton(keyword) {
         target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
     }
 
-    // Native click without restrictive anchor protections. 
-    try {
-        if (!target.disabled) target.click();
-    } catch (e) { }
-
-    // Fallback: If it's in a form, trigger submit just in case
-    try {
-        const form = input.closest('form');
-        if (form && target.type !== 'button') form.requestSubmit();
-    } catch (e) { }
+    // Native click fallback, but never navigate an ordinary anchor accidentally.
+    if (target.tagName !== 'A' || /^javascript:/i.test(target.getAttribute('href') || '')) target.click();
 
     console.log('[TENDER FILTER CLICKED]', { keyword, selector: target.outerHTML.slice(0, 500) });
 
