@@ -154,7 +154,7 @@ def start_scraper(
         job = {
             "job_id": job_id,
             "source": source_normalized,
-            "status": "queued",
+            "status": "pending",
             "target_url": "", # Generic placeholder, some extensions build their own
             "keywords": settings.SEARCH_KEYWORDS,
             "max_pages": getattr(settings, "MAX_PAGES", 5),
