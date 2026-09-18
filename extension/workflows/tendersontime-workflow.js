@@ -78,11 +78,22 @@ export async function runTendersOnTimeWorkflow(job) {
     let allMatchesCount = job.resultsCollected || 0;
 
     let tabInfo = { tabId: job.tabId, windowId: job.windowId };
-    if (!job.tabId || !job.windowId) {
-        tabInfo = await createJobTab(job);
-        await updateJobState({ tabId: tabInfo.tabId, windowId: tabInfo.windowId });
-    }
+    try {
+        if (!job.tabId || !job.windowId) {
+            tabInfo = await createJobTab(job);
+            await updateJobState({ tabId: tabInfo.tabId, windowId: tabInfo.windowId });
+        } else {
+            // Re-verify if tab exists after resume
+            try {
+                await chrome.tabs.get(tabInfo.tabId);
+            } catch (e) {
+                tabInfo = await createJobTab(job);
+                await updateJobState({ tabId: tabInfo.tabId, windowId: tabInfo.windowId });
+            }
+        }
+    } catch (e) { throw e; }
 
+    let challengePaused = false;
     try {
         for (; kwIndex < keywords.length; kwIndex++) {
             const keyword = keywords[kwIndex];
@@ -212,8 +223,13 @@ export async function runTendersOnTimeWorkflow(job) {
 
         await finishJob(allMatchesCount, {});
 
+    } catch (e) {
+        if (e && e.message === "CHALLENGE_PAUSED") challengePaused = true;
+        throw e;
     } finally {
-        await closeJobTab(tabInfo.windowId);
-        await updateJobState({ tabId: null, windowId: null });
+        if (!challengePaused) {
+            await closeJobTab(tabInfo.windowId);
+            await updateJobState({ tabId: null, windowId: null });
+        }
     }
 }
