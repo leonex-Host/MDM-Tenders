@@ -68,7 +68,7 @@ export function executeContentScript(tabId, action, payload = null) {
     return new Promise((resolve) => {
         chrome.tabs.sendMessage(tabId, { action, ...payload }, (response) => {
             if (chrome.runtime.lastError) {
-                console.error(`[BidDetailTrace] content script injection error for "${action}":`, chrome.runtime.lastError.message);
+                console.warn(`[BidDetailTrace] content script injection warning for "${action}":`, chrome.runtime.lastError.message);
                 resolve(null);
             } else {
                 resolve(response);
