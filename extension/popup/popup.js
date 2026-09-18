@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiKeyInput = document.getElementById('api_key');
     const saveBtn = document.getElementById('save_btn');
     const resumeBtn = document.getElementById('resume_btn');
+    const abortBtn = document.getElementById('abort_btn');
     const logs = document.getElementById('logs');
     const dot = document.getElementById('dot');
 
@@ -32,6 +33,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    if (abortBtn) {
+        abortBtn.addEventListener('click', () => {
+            if (confirm("Are you sure you want to abort the current job on this laptop?")) {
+                abortBtn.innerHTML = "Aborting...";
+                abortBtn.disabled = true;
+                chrome.runtime.sendMessage({ action: "abort_manual" }, (res) => {
+                    log("Job Aborted cleanly.");
+                    setTimeout(() => window.close(), 1000);
+                });
+            }
+        });
+    }
 
     async function checkConnection() {
         chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
@@ -72,9 +86,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res && res.activeJob) {
                 const j = res.activeJob;
                 resumeBtn.style.display = 'none';
+                abortBtn.style.display = 'block';
                 log(`Job ${j.job_id} | ${j.source} | Phase: ${j.phase || 'N/A'}\nKeyword: ${j.keyword || '...'}`);
             } else {
                 resumeBtn.style.display = 'none';
+                abortBtn.style.display = 'none';
                 log(`Connected and Waiting for jobs...`);
             }
         });
