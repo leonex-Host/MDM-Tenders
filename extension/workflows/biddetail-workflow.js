@@ -36,7 +36,16 @@ export async function runBidDetailWorkflow(job) {
                 if (pageNum === 1 && !job.pausedUrl) {
                     await navigateAndWait(tabInfo.tabId, searchUrl);
                     await sleep(3000);
-                    await executeContentScript(tabInfo.tabId, "setup_search");
+                    const sr = await executeContentScript(tabInfo.tabId, "setup_search");
+                    if (sr && sr.done) {
+                        if (sr.next15Id) {
+                            await chrome.scripting.executeScript({ target: { tabId: tabInfo.tabId }, world: "MAIN", func: (id) => { const el = document.getElementById(id); if (el) el.click(); }, args: [sr.next15Id] }).catch(() => { });
+                            await sleep(1000);
+                        }
+                        if (sr.searchBtnId) {
+                            await chrome.scripting.executeScript({ target: { tabId: tabInfo.tabId }, world: "MAIN", func: (id) => { const el = document.getElementById(id); if (el) el.click(); }, args: [sr.searchBtnId] }).catch(() => { });
+                        }
+                    }
                     await sleep(4000);
                 } else if (job.pausedUrl) {
                     await navigateAndWait(tabInfo.tabId, job.pausedUrl);
@@ -58,6 +67,15 @@ export async function runBidDetailWorkflow(job) {
 
                     const nr = await executeContentScript(tabInfo.tabId, "click_next");
                     if (!nr || !nr.clicked) break;
+
+                    if (nr.clickId) {
+                        await chrome.scripting.executeScript({
+                            target: { tabId: tabInfo.tabId },
+                            world: "MAIN",
+                            func: (id) => { const el = document.getElementById(id); if (el) el.click(); },
+                            args: [nr.clickId]
+                        }).catch(() => { });
+                    }
 
                     await sleep(4000);
                     pageNum++;

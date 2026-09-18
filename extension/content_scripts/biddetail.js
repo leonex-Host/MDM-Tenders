@@ -6,13 +6,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             setTimeout(() => {
                 const els = [...document.querySelectorAll("a, li, span, div")];
                 const next15 = els.find(e => e.innerText && e.innerText.includes("Next 15 Days") && e.offsetWidth > 0);
-                if (next15) next15.click();
+                if (next15) {
+                    if (!next15.id) next15.id = "mdm-next15-" + Date.now();
+                }
                 setTimeout(() => {
                     const btn = document.getElementById("btnFilterTender") || document.querySelector("input[value='SEARCH']");
-                    sendResponse({ done: true });
-                    if (btn) {
-                        setTimeout(() => btn.click(), 50);
-                    }
+                    if (btn && !btn.id) btn.id = "mdm-searchbtn-" + Date.now();
+                    sendResponse({ done: true, next15Id: next15 ? next15.id : null, searchBtnId: btn ? btn.id : null });
                 }, 1000);
             }, 500);
         } catch (e) { sendResponse({ done: false }); }
@@ -49,8 +49,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const els = [...document.querySelectorAll("a.pagination-next, a.next, a")];
         const next = els.find(el => el.innerText.includes("Next") && el.offsetWidth > 0 && el.offsetHeight > 0 && !el.disabled);
         if (next) {
-            sendResponse({ clicked: true });
-            setTimeout(() => next.click(), 50);
+            if (!next.id) next.id = "mdm-next-" + Date.now();
+            sendResponse({ clicked: true, clickId: next.id });
         } else {
             sendResponse({ clicked: false });
         }
