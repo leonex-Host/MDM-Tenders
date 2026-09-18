@@ -10,8 +10,13 @@ export async function runBidDetailWorkflow(job) {
     let allMatchesCount = job.resultsCollected || 0;
     let tabInfo = { tabId: job.tabId, windowId: job.windowId };
 
+    console.log(`[BidDetailTrace] source detected: ${job.source || 'undefined'}`);
+    console.log(`[BidDetailTrace] job ID: ${job.job_id || 'undefined'}`);
+    console.log(`[BidDetailTrace] job status: ${job.status || 'undefined'}`);
+    console.log(`[BidDetailTrace] selected job:`, job);
+
     if (!job.tabId || !job.windowId) {
-        tabInfo = await createJobTab();
+        tabInfo = await createJobTab(job);
         await updateJobState({ tabId: tabInfo.tabId, windowId: tabInfo.windowId });
     }
 
@@ -78,6 +83,7 @@ export async function runBidDetailWorkflow(job) {
                     if (details) {
                         const brief = details.brief || item.description || "";
                         const combinedCheck = (brief + " " + JSON.stringify(details.meta)).toLowerCase();
+                        console.log(`[BidDetailTrace] extracted detail URL: ${item.href}`);
 
                         if (combinedCheck.includes(phrase)) {
                             kwResults.push({

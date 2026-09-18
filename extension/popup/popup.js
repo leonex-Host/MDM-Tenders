@@ -61,16 +61,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function pollStatus() {
-        chrome.runtime.sendMessage({ action: "get_status" }, (res) => {
-            if (res && res.job) {
-                const j = res.job;
-                if (j.status === "manual_action_required") {
-                    log(`PAUSED: ${j.manualReason || 'Challenge detected'}. Please solve it on the active tab and click Resume.`);
-                    resumeBtn.style.display = 'block';
-                } else {
-                    resumeBtn.style.display = 'none';
-                    log(`Job ${j.job_id} | ${j.source} | Phase: ${j.phase || 'N/A'}\nKeyword: ${j.keyword || '...'}`);
-                }
+        chrome.storage.local.get(['extensionState', 'activeJob'], (res) => {
+            const extState = res.extensionState || { blocked: false };
+            if (extState.blocked) {
+                log(`PAUSED: ${extState.blockReason || 'Authentication or Manual Action Required'}. Please resolve and click Resume.`);
+                resumeBtn.style.display = 'block';
+                return;
+            }
+
+            if (res && res.activeJob) {
+                const j = res.activeJob;
+                resumeBtn.style.display = 'none';
+                log(`Job ${j.job_id} | ${j.source} | Phase: ${j.phase || 'N/A'}\nKeyword: ${j.keyword || '...'}`);
             } else {
                 resumeBtn.style.display = 'none';
                 log(`Connected and Waiting for jobs...`);

@@ -10,20 +10,31 @@ export async function fetchJobs() {
     const creds = await getCredentials();
     if (!creds) return null;
     try {
+        console.log(`[BidDetailTrace] polling started`);
+        console.log(`[BidDetailTrace] request method: GET`);
+        console.log(`[BidDetailTrace] request endpoint: ${creds.apiUrl}/api/extension/jobs`);
+
         const res = await fetch(`${creds.apiUrl}/api/extension/jobs`, {
             headers: { 'X-Extension-Key': creds.apiKey }
         });
 
         console.log(`[Diagnostic] API URL: ${creds.apiUrl} | Key Length: ${creds.apiKey?.length || 0} | Status: ${res.status}`);
+        console.log(`[BidDetailTrace] response status: ${res.status}`);
 
         if (res.status === 403 || res.status === 401) {
+            console.error(`[BidDetailTrace] final error: Authentication blocked (HTTP ${res.status})`);
             await setManualActionRequired("API KEY REJECTED. Update extension settings.", "");
             return null;
         }
-        if (!res.ok) return null;
-        return await res.json();
+        if (!res.ok) {
+            console.error(`[BidDetailTrace] final error: Server returned HTTP ${res.status}`);
+            return null;
+        }
+        const data = await res.json();
+        console.log(`[BidDetailTrace] received jobs: ${JSON.stringify(data.jobs || data).substring(0, 300)}`);
+        return data;
     } catch (e) {
-        console.error(`[Diagnostic] Fetch error: ${e.message}`);
+        console.error(`[BidDetailTrace] final error: ${e.message}`);
         return null;
     }
 }
@@ -32,12 +43,20 @@ export async function startJobOnServer(jobId) {
     const creds = await getCredentials();
     if (!creds) return false;
     try {
+        console.log(`[BidDetailTrace] start endpoint: POST ${creds.apiUrl}/api/extension/jobs/${jobId}/start`);
         const res = await fetch(`${creds.apiUrl}/api/extension/jobs/${jobId}/start`, {
             method: 'POST',
             headers: { 'X-Extension-Key': creds.apiKey }
         });
+        console.log(`[BidDetailTrace] start response status: ${res.status}`);
+        if (!res.ok) {
+            console.error(`[BidDetailTrace] final error: Start failed HTTP ${res.status}`);
+        }
         return res.ok;
-    } catch (e) { return false; }
+    } catch (e) {
+        console.error(`[BidDetailTrace] final error: ${e.message}`);
+        return false;
+    }
 }
 
 export async function uploadResults(payload) {

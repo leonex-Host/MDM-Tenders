@@ -79,7 +79,7 @@ export async function runTendersOnTimeWorkflow(job) {
 
     let tabInfo = { tabId: job.tabId, windowId: job.windowId };
     if (!job.tabId || !job.windowId) {
-        tabInfo = await createJobTab();
+        tabInfo = await createJobTab(job);
         await updateJobState({ tabId: tabInfo.tabId, windowId: tabInfo.windowId });
     }
 
