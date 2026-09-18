@@ -28,10 +28,8 @@ function checkPageAvailable() {
     const lowerText = text.toLowerCase();
 
     const cloudflareActive =
-        /just a moment|checking your browser|verify you are human/i.test(title + " " + text) ||
-        html.includes("cf-turnstile") ||
-        html.includes("cf-chl") ||
-        html.includes("challenge-platform");
+        (title.includes("Just a moment") || title.includes("Checking your browser")) ||
+        (text.includes("verify you are human") || text.includes("Cloudflare Ray ID"));
 
     const hasNoResultsText =
         /no results found|no records found|0 results|no data found|no tenders found|no records available/i.test(lowerText);
@@ -157,8 +155,7 @@ async function clickFilterButton(keyword) {
 }
 async function extractListings() {
     if (document.title.includes("Just a moment") ||
-        (document.body && document.body.innerHTML && document.body.innerHTML.includes("cf-turnstile")) ||
-        (document.body && document.body.innerText && document.body.innerText.includes("Cloudflare"))) {
+        document.title.includes("Checking your browser")) {
         return { status: "cloudflare" };
     }
 
