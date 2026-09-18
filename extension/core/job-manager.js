@@ -125,7 +125,7 @@ async function processJobLogic() {
             if (!locked) return; // Could not lock or server rejected
 
             job.status = 'running';
-            job.phase = 'init';
+            job.phase = 'search';
             job.currentKeywordIndex = 0;
             job.resultsCollected = 0;
             job.uploadedResults = 0;
