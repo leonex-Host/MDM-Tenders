@@ -1,3 +1,5 @@
+import { setManualActionRequired } from '../core/job-manager.js';
+
 async function getCredentials() {
     const data = await chrome.storage.local.get(['apiUrl', 'apiKey']);
     if (!data.apiUrl || !data.apiKey) return null;
@@ -11,6 +13,10 @@ export async function fetchJobs() {
         const res = await fetch(`${creds.apiUrl}/api/extension/jobs`, {
             headers: { 'X-Extension-Key': creds.apiKey }
         });
+        if (res.status === 403 || res.status === 401) {
+            await setManualActionRequired("API KEY REJECTED. Update extension settings.", "");
+            return null;
+        }
         if (!res.ok) return null;
         return await res.json();
     } catch (e) { return null; }

@@ -3,11 +3,20 @@ import { runWorkflow } from './workflow-engine.js';
 
 let isProcessing = false;
 
+let pollerInterval = null;
+
 export async function initializeJobManager() {
     chrome.alarms.create("pollJobs", { periodInMinutes: 1 });
     chrome.alarms.onAlarm.addListener((alarm) => {
         if (alarm.name === "pollJobs") pollAndProcess();
     });
+
+    if (!pollerInterval) {
+        pollerInterval = setInterval(() => {
+            pollAndProcess();
+        }, 5000); // Aggressively poll every 5s while service worker is alive
+    }
+
     // Attempt recovery on boot
     pollAndProcess();
 }
