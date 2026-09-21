@@ -96,11 +96,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 configPanel.style.display = 'none';
 
                 mSource.innerText = String(j.source).toUpperCase();
-                mExtracted.innerText = (j.resultsCollected || 0).toLocaleString();
 
-                const ph = String(j.phase || 'N/A').toUpperCase();
+                const currentCount = j.phase === 'details'
+                    ? (j.kwResults || []).length
+                    : (j.allResultsPhase1 || []).length;
+                mExtracted.innerText = currentCount.toLocaleString();
+
                 const kw = j.keyword || '...';
-                mPhaseKwd.innerText = `${ph} / [${kw}]`;
+                mPhaseKwd.innerText = kw;
 
                 if (extState.blocked) {
                     log(`HALTED: ${extState.blockReason || 'Manual Action Required'}.`);

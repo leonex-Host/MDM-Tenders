@@ -192,7 +192,7 @@
       font-family: monospace;
       max-height: 44px;
       overflow-y: hidden;
-      display: flex;
+      display: none !important;
       align-items: center;
     }
   </style>
@@ -202,12 +202,7 @@
 
   <div class="header">
     <div class="logo">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-        style="color: var(--accent)">
-        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-        <polyline points="2 17 12 22 22 17"></polyline>
-        <polyline points="2 12 12 17 22 12"></polyline>
-      </svg>
+      <img src="icons/icon.png" width="16" height="16" alt="logo" />
       MDM Extension
     </div>
     <div id="status_indicator">
@@ -243,7 +238,7 @@
         <div class="m-val m-highlight" id="m_extracted">0</div>
       </div>
       <div class="metric" style="grid-column: 1 / -1;">
-        <div class="m-label">Topic</div>
+        <div class="m-label">Search</div>
         <div class="m-val" id="m_phase_kwd" style="font-size: 11px;">--</div>
       </div>
     </div>
