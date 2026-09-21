@@ -106,18 +106,21 @@ async function runJobInWindow(job, conf) {
     activeJobs.set(jid, { job, conf, tabId: tid, windowId: win.id, status: 'running' });
 
     try {
+        let selfCompleted = false;
         if (job.source === "google") {
-            await runGoogleTwoPhaseJob(job, conf, tid, win.id);
+            selfCompleted = await runGoogleTwoPhaseJob(job, conf, tid, win.id);
         } else {
             await runTenderJob(job, conf, tid, win.id);
         }
 
-        // Complete
-        await fetch(`${conf.apiUrl}/api/extension/jobs/${jid}/complete`, {
-            method: 'POST',
-            headers: { 'X-Extension-Key': conf.apiKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: "completed", summary: { source: job.source } })
-        });
+        // Google sends its own /complete, so skip double-complete
+        if (!selfCompleted) {
+            await fetch(`${conf.apiUrl}/api/extension/jobs/${jid}/complete`, {
+                method: 'POST',
+                headers: { 'X-Extension-Key': conf.apiKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: "completed", summary: { source: job.source } })
+            });
+        }
         console.log(`[JOB][${jid}] ✅ COMPLETED`);
     } catch (e) {
         console.error(`[JOB][${jid}] ❌ FAILED:`, e);
@@ -307,7 +310,7 @@ async function runGoogleTwoPhaseJob(job, conf, tid, windowId) {
         body: JSON.stringify({ status: "completed", summary: { total_all: allResults.length, total_filtered: filtered.length, total_matches: filtered.length } })
     });
     // Signal to caller NOT to send a second complete
-    throw { __completed: true };
+    return true;
 }
 
 // ── Utilities ───────────────────────────────────────────────────
