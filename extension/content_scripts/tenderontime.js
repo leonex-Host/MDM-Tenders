@@ -105,30 +105,7 @@ async function clickFilterButton(keyword) {
         return r.width > 0 && r.height > 0 && st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0' && !el.disabled;
     };
 
-    const allInputs = [...document.querySelectorAll('input')].filter(visible);
-    const input = allInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
-        || allInputs.find(el => el.type === 'text' || el.type === 'search');
-
-    if (!input) {
-        console.log('[TOT][ERROR] No search input found.');
-        return { success: false, clicked: false, verified: false, reason: 'search_input_not_found' };
-    }
-
-    console.log('[TOT][INPUT_FOUND] Target input successfully located.');
-
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-    if (setter) setter.call(input, keyword || ''); else input.value = keyword || '';
-
-    for (const type of ['input', 'change', 'blur']) {
-        input.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
-    }
-
-    if (input.value !== keyword) {
-        console.warn(`[TOT][ERROR] Input value mismatch. Expected ${keyword}, got ${input.value}`);
-        return { success: false, clicked: false, verified: false, reason: 'input_value_mismatch' };
-    }
-
-    console.log('[TOT][INPUT_VALUE_VERIFIED] Value safely verified inside target input.');
+    console.log('[TOT] Bypassing artificial input manipulation. Trusting native URL query initialization.');
 
     let target = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
     if (!target || !visible(target)) {
