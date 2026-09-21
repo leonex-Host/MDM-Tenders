@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const jobsList = document.getElementById('jobs_list');
     const jobCount = document.getElementById('job_count');
     const abortBtn = document.getElementById('abort_btn');
+    const resumeBtn = document.getElementById('resume_btn');
 
     let connected = false;
 
@@ -36,6 +37,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 chrome.runtime.sendMessage({ action: "abort_manual" });
                 log("All jobs aborted.");
             }
+        });
+    }
+
+    if (resumeBtn) {
+        resumeBtn.addEventListener('click', () => {
+            chrome.runtime.sendMessage({ action: "resume_manual" }, (res) => {
+                if (res?.resumed) {
+                    log("Resuming from Captcha...");
+                    resumeBtn.style.display = 'none';
+                    pollStatus();
+                }
+            });
         });
     }
 
@@ -89,6 +102,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             log(`Active: ${jobs.length} job(s) running.`);
+        });
+
+        // Check if globally blocked by Captcha
+        chrome.storage.local.get(['extensionState'], (data) => {
+            if (data.extensionState && data.extensionState.blocked) {
+                if (resumeBtn) resumeBtn.style.display = 'inline-block';
+                log(`PAUSED: ${data.extensionState.blockReason || 'Captcha'}`);
+            } else {
+                if (resumeBtn) resumeBtn.style.display = 'none';
+            }
         });
     }
 
