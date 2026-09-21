@@ -36,9 +36,9 @@ export async function createJobTab(job) {
     }
 }
 
-export async function closeJobTab(windowId) {
-    if (windowId) {
-        await chrome.windows.remove(windowId).catch(() => { });
+export async function closeJobTab(tabId) {
+    if (tabId) {
+        await chrome.tabs.remove(tabId).catch(() => { });
     }
 }
 

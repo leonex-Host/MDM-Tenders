@@ -122,7 +122,7 @@ export async function runGoogleWorkflow(job) {
             throw e;
         } finally {
             if (!challengePaused) {
-                await closeJobTab(tabInfo.windowId);
+                await closeJobTab(tabInfo.tabId);
                 await updateJobState({ tabId: null, windowId: null });
             }
         }

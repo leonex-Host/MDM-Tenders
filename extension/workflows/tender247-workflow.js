@@ -97,7 +97,7 @@ export async function runTender247Workflow(job) {
         }
         await finishJob(allMatchesCount);
     } finally {
-        await closeJobTab(tabInfo.windowId);
+        await closeJobTab(tabInfo.tabId);
         await updateJobState({ tabId: null, windowId: null });
     }
 }
