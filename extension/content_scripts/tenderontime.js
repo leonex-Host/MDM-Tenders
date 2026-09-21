@@ -159,7 +159,7 @@ async function extractListings() {
 
     let listings = [];
 
-    const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
+    const items = document.querySelectorAll("div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item");
 
     items.forEach(item => {
         try {
@@ -244,7 +244,7 @@ function getCurrentPageNumber() {
 
 function getListingSignature() {
     const items = document.querySelectorAll(
-        "div.listingbox.ng-scope, div.listingbox, div.tender-item"
+        "div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item"
     );
 
     const urls = [...items]
