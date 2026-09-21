@@ -114,26 +114,17 @@ async function clickFilterButton(keyword) {
 
     console.log("[TOT][CONTENT] SEARCHING_INPUT");
 
-    const allInputs = [...document.querySelectorAll('input')];
-    allInputs.forEach(i => {
-        if (visible(i)) {
-            console.log(`[TOT][CONTENT] Visible Input: name="${i.name}" id="${i.id}" ph="${i.placeholder}" type="${i.type}" val="${i.value}"`);
-        }
-    });
-
-    const allVisibleInputs = allInputs.filter(visible);
-    const input = allVisibleInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
-        || allVisibleInputs.find(el => el.type === 'text' || el.type === 'search');
+    const allInputs = [...document.querySelectorAll('input')].filter(visible);
+    const input = allInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
+        || allInputs.find(el => el.type === 'text' || el.type === 'search');
 
     if (!input) {
         console.warn('[TOT][FILTER_FAILED] No search input found on page.');
         return { success: false, clicked: false, verified: false, reason: 'search_input_not_found' };
     }
 
-    console.log("[TOT][CONTENT] INPUT_FOUND", input);
+    console.log("[TOT][CONTENT] INPUT_FOUND", input.outerHTML);
 
-    // VITAL: Forcefully inject the value and blast synthetic events to hijack Angular's internal scope binding 
-    // before the explicit MAIN-world filter bypass is executed!
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     if (setter) setter.call(input, keyword || ''); else input.value = keyword || '';
 
@@ -143,15 +134,14 @@ async function clickFilterButton(keyword) {
 
     console.log("[TOT][CONTENT] INPUT_VALUE_SET. Current value is:", input.value);
 
-    if (input.value !== keyword) {
-        console.warn("[TOT][ERROR] input.value does not match keyword!");
+    if (input.value === keyword) {
+        console.log("[TOT][CONTENT] INPUT_VALUE_VERIFIED");
     }
 
     console.log("[TOT][CONTENT] SEARCHING_FILTER_BUTTON");
 
-    const count1 = document.querySelectorAll("button.search-btn[onclick*='filterTendersJS']").length;
-    const count2 = document.querySelectorAll("[onclick*='filterTendersJS']").length;
-    console.log(`[TOT][CONTENT] button.search-btn count: ${count1}, [onclick] count: ${count2}`);
+    console.log("[TOT][CONTENT] exact filter count =", document.querySelectorAll("button.search-btn[onclick*='filterTendersJS']").length);
+    console.log("[TOT][CONTENT] fallback filter count =", document.querySelectorAll("[onclick*='filterTendersJS']").length);
 
     let target = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
     if (!target || !visible(target)) {
@@ -159,19 +149,18 @@ async function clickFilterButton(keyword) {
     }
 
     if (!target || !visible(target)) {
-        console.warn('[TOT][FILTER_FAILED] exact filter button not found. FILTER_SELECTOR_NOT_FOUND');
+        console.log("[TOT][CONTENT] FILTER_SELECTOR_NOT_FOUND");
         return { clicked: false, reason: "FILTER_SELECTOR_NOT_FOUND" };
     }
 
     console.log("[TOT][CONTENT] FILTER_BUTTON_FOUND", target.outerHTML);
-
     console.log("[TOT][CONTENT] FILTER_CLICKING");
-    console.log('[TOT][FILTER_FOUND] Exact filter button matched layout rules. Returning path to MV3 worker.');
 
     target.scrollIntoView({ block: 'center', inline: 'center' });
     target.focus();
+    target.click();
 
-    console.log("[TOT][CONTENT] FILTER_CLICKED (Returning selector for bypass execution)");
+    console.log("[TOT][CONTENT] FILTER_CLICKED");
 
     return {
         clicked: true,
@@ -180,6 +169,7 @@ async function clickFilterButton(keyword) {
         selector: "button.search-btn[onclick*='filterTendersJS'], [onclick*='filterTendersJS']"
     };
 }
+
 async function extractListings() {
     if (document.title.includes("Just a moment") ||
         document.title.includes("Checking your browser") ||

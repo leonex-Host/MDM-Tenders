@@ -12,9 +12,10 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
         try { tabInfo = await chrome.tabs.get(tabId); } catch (e) { return { ready: false, isChallenge: false }; }
 
         const pageCheck = await executeContentScript(tabId, "check_page_available");
+        console.log(`[TOT][WAIT] URL=${tabInfo.url} status=${tabInfo.status}`, pageCheck);
 
         if (pageCheck && pageCheck.cloudflareActive) {
-            console.warn("[TOT][${runtime.jobId}][${runtime.tabId}] CLOUDFLARE Cloudflare detected dynamically during wait.");
+            console.warn(`[TOT][${tabId}] CLOUDFLARE Cloudflare detected dynamically during wait.`);
             return { ready: false, isChallenge: true, reason: 'Cloudflare' };
         }
 
@@ -27,13 +28,14 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
             await sleep(1500); continue;
         }
 
+        const currentUrl = (tabInfo.url || "").toLowerCase();
         const isExpected = options.isGoogle
-            ? tabInfo.url.includes("google.com/search")
-            : tabInfo.url.includes("advancesearch");
+            ? currentUrl.includes("google.com/search")
+            : currentUrl.includes("/tenders/advancesearch");
 
-        if (isExpected && pageCheck.pageAvailable) {
-            console.log("[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_READY Expected advanced search environment perfectly confirmed.");
-            await sleep(1500);
+        if (isExpected && pageCheck && pageCheck.readyState === "complete" && !pageCheck.cloudflareActive) {
+            console.log(`[TOT][WAIT][${tabId}] PAGE_READY`);
+            await sleep(1000);
             return { ready: true, isChallenge: false, pageCheck };
         }
 
@@ -58,7 +60,7 @@ async function waitUntilListingsReady(tabId) {
             await sleep(1000); continue;
         }
         if (listingData.status === "cloudflare") {
-            console.warn("[TOT][${runtime.jobId}][${runtime.tabId}] CLOUDFLARE Block intercepted organically within items block.");
+            console.warn(`[TOT][${tabId}] CLOUDFLARE Block intercepted organically within items block.`);
             return { isChallenge: true, reason: 'Cloudflare' };
         }
         if (Array.isArray(listingData)) {
@@ -194,35 +196,12 @@ export async function runTendersOnTimeWorkflow(runtime) {
                 console.log("[TOT][DEBUG] BEFORE_FILTER_CLICK");
                 console.log(`[TOT][FILTER] sending click_filter_button`);
                 let filterResult = await executeContentScript(runtime.tabId, "click_filter_button", { keyword });
-                console.log(`[TOT][FILTER] response = ${JSON.stringify(filterResult)}`);
-                console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] FILTER_ACTION_RETURNED keyword="${keyword}" result=${JSON.stringify(filterResult || {})}`);
-                console.log("[TOT][DEBUG] AFTER_FILTER_CLICK");
+                console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] FILTER_RESULT`, filterResult);
+                console.log(`[TOT][DEBUG] AFTER_FILTER_CLICK`);
 
                 if (!filterResult?.clicked) {
                     console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] FILTER_FAILED exact filter button not found`);
                     continue;
-                }
-
-                if (filterResult?.selector) {
-                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] INJECTING MAIN-WORLD FIREWALL BYPASS...`);
-                    await chrome.scripting.executeScript({
-                        target: { tabId: runtime.tabId },
-                        world: "MAIN",
-                        func: () => {
-                            try {
-                                if (typeof filterTendersJS === 'function') {
-                                    console.log("[TOT] Directly executing filter backend function to bypass Untrusted Event blocks.");
-                                    filterTendersJS(1, 'filterbtn');
-                                } else {
-                                    const btn = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
-                                    if (btn) btn.click();
-                                }
-                            } catch (e) { console.error(e); }
-                        }
-                    }).catch(e => console.warn(`[TOT] CSP Bypass Error:`, e));
-
-                    // Minor delay to let network stack absorb the synthetic AJAX
-                    await new Promise(r => setTimeout(r, 1000));
                 }
 
                 // Result readiness now verified separately!
