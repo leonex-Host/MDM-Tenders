@@ -105,7 +105,23 @@ async function clickFilterButton(keyword) {
         return r.width > 0 && r.height > 0 && st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0' && !el.disabled;
     };
 
-    console.log('[TOT] Bypassing artificial input manipulation. Trusting native URL query initialization.');
+    const allInputs = [...document.querySelectorAll('input')].filter(visible);
+    const input = allInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
+        || allInputs.find(el => el.type === 'text' || el.type === 'search');
+
+    if (!input) {
+        console.warn('[TOT][FILTER_FAILED] No search input found on page.');
+        return { success: false, clicked: false, verified: false, reason: 'search_input_not_found' };
+    }
+
+    // VITAL: Forcefully inject the value and blast synthetic events to hijack Angular's internal scope binding 
+    // before the explicit MAIN-world filter bypass is executed!
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    if (setter) setter.call(input, keyword || ''); else input.value = keyword || '';
+
+    for (const type of ['input', 'change', 'keyup', 'blur']) {
+        input.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+    }
 
     let target = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
     if (!target || !visible(target)) {
