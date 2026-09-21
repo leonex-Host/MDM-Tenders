@@ -166,6 +166,27 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     continue;
                 }
 
+                if (filterResult?.selector) {
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] INJECTING MAIN-WORLD FIREWALL BYPASS...`);
+                    await chrome.scripting.executeScript({
+                        target: { tabId: runtime.tabId },
+                        world: "MAIN",
+                        func: (sel) => {
+                            try {
+                                if (typeof filterTendersJS === 'function') filterTendersJS(1, 'filterbtn');
+                                else {
+                                    const btn = document.querySelector(sel);
+                                    if (btn) btn.click();
+                                }
+                            } catch (e) { }
+                        },
+                        args: [filterResult.selector]
+                    }).catch(e => console.warn(`[TOT] CSP Bypass Error:`, e));
+
+                    // Minor delay to let network stack absorb the synthetic AJAX
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+
                 // Result readiness now verified separately!
 
                 await updateRuntimeState(runtime.jobId, { phase: 'list_collection' });

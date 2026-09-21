@@ -139,25 +139,17 @@ async function clickFilterButton(keyword) {
         return { clicked: false, reason: "exact_filter_button_not_found" };
     }
 
-    console.log('[TOT][FILTER_FOUND] Exact filter button matched layout rules.');
+    console.log('[TOT][FILTER_FOUND] Exact filter button matched layout rules. Returning path to MV3 worker.');
 
     target.scrollIntoView({ block: 'center', inline: 'center' });
     target.focus();
 
-    // Execute the click inside the MAIN world to force the native AJAX handler structurally
-    const script = document.createElement("script");
-    script.textContent = `
-        try {
-            const btn = document.querySelector("button.search-btn[onclick*='filterTendersJS']") || document.querySelector("[onclick*='filterTendersJS']");
-            if (btn) btn.click();
-        } catch(e) {}
-    `;
-    (document.head || document.documentElement).appendChild(script);
-    script.remove();
-
-    console.log('[TOT][FILTER_CLICKED] Physical native DOM target activated via inline MAIN world execution.');
-
-    return { clicked: true, verified: false, reason: 'filter_clicked' };
+    return {
+        clicked: true,
+        verified: false,
+        reason: 'filter_ready',
+        selector: "button.search-btn[onclick*='filterTendersJS'], [onclick*='filterTendersJS']"
+    };
 }
 async function extractListings() {
     if (document.title.includes("Just a moment") ||
