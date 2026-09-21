@@ -42,6 +42,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             chrome.runtime.reload();
         })();
         sendResponse({ aborted: true });
+    } else if (request.action === "keep_alive") {
+        sendResponse({ ok: true });
+        return false;
+    } else if (request.action === "trigger_poll") {
+        pollForJobs();
+        sendResponse({ ok: true });
+        return false;
     }
 });
 
