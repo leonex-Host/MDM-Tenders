@@ -1,4 +1,4 @@
-import { initializeJobManager, resumeManualJob, getActiveJobSummary, getAllActiveJobIds, pollAndProcess, failJob } from './core/job-manager.js';
+import { initializeJobManager, resumeManualJob, getRuntime, getAllActiveJobIds, pollAndProcess, failJob } from './core/job-manager.js';
 import { closeJobTab } from './core/tab-manager.js';
 
 const POLL_ALARM_NAME = "extension-job-poll";
@@ -50,8 +50,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         })();
         sendResponse({ aborted: true });
     } else if (request.action === "get_status") {
-        const job = getActiveJobSummary();
-        sendResponse({ job });
+        const jobIds = getAllActiveJobIds();
+        const jobs = [];
+        for (const jid of jobIds) {
+            const rt = getRuntime(jid);
+            if (rt) jobs.push({ job_id: rt.jobId, source: rt.jobType || rt.source || 'unknown', status: rt.status });
+        }
+        sendResponse({ jobs, count: jobs.length });
+        return false;
+    } else if (request.action === "keep_alive") {
+        sendResponse({ ok: true });
+        return false;
+    } else if (request.action === "trigger_poll") {
+        pollAndProcess();
+        sendResponse({ ok: true });
         return false;
     }
 });

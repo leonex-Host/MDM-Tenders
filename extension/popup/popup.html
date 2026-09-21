@@ -3,33 +3,18 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>MDM Extension</title>
+  <title>MDM Agent Control</title>
   <style>
     :root {
-      --bg: #ffffff;
-      --bg-panel: #f8fafc;
-      --border: #e2e8f0;
-      --text: #0f172a;
-      --text-dim: #64748b;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
+      --bg: #0d1117;
+      --bg-card: rgba(255, 255, 255, 0.03);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e5e7eb;
+      --text-dim: #6b7280;
+      --accent: #3b82f6;
       --success: #10b981;
-      --warning: #f59e0b;
       --danger: #ef4444;
-      --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #0f172a;
-        --bg-panel: #1e293b;
-        --border: #334155;
-        --text: #f8fafc;
-        --text-dim: #94a3b8;
-        --accent: #3b82f6;
-        --accent-hover: #60a5fa;
-        --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-      }
+      --warning: #f59e0b;
     }
 
     * {
@@ -39,10 +24,9 @@
     }
 
     body {
-      width: 280px;
-      /* Small, cute width */
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
-      background-color: var(--bg);
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
       color: var(--text);
       padding: 16px;
     }
@@ -52,202 +36,218 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
     }
 
-    .logo {
-      font-size: 14px;
-      font-weight: 700;
+    .header h2 {
+      font-size: 15px;
+      font-weight: 800;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
-    .status-dot {
+    .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
       background: var(--danger);
+      flex-shrink: 0;
     }
 
-    .status-connected .status-dot {
+    .dot.on {
       background: var(--success);
-      box-shadow: 0 0 6px var(--success);
+      box-shadow: 0 0 8px var(--success);
     }
 
-    .panel {
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 14px;
-      margin-bottom: 12px;
-      box-shadow: var(--shadow);
+    .badge {
+      font-size: 9px;
+      font-weight: 800;
+      background: var(--accent);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    /* Config Panel */
+    #config_panel {
+      display: none;
+    }
+
+    #config_panel.show {
+      display: block;
     }
 
     .form-group {
       margin-bottom: 10px;
     }
 
-    .form-group:last-child {
-      margin-bottom: 0;
-    }
-
-    label {
+    .form-group label {
       display: block;
       font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
+      font-weight: 700;
       color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
       margin-bottom: 4px;
     }
 
-    input {
+    .form-group input {
       width: 100%;
-      background: var(--bg);
+      background: rgba(0, 0, 0, 0.3);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 8px;
-      border-radius: 6px;
+      padding: 8px 10px;
+      border-radius: 8px;
       font-size: 12px;
       outline: none;
     }
 
-    input:focus {
+    .form-group input:focus {
       border-color: var(--accent);
     }
 
-    button {
+    .btn {
       width: 100%;
       padding: 10px;
       background: var(--accent);
       color: #fff;
       border: none;
       border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 11px;
       cursor: pointer;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 6px;
-      margin-top: 8px;
+      margin-top: 4px;
     }
 
-    button:hover {
-      background: var(--accent-hover);
-    }
-
-    .btn-warn {
-      background: var(--warning);
-      color: #000;
+    .btn:hover {
+      filter: brightness(1.15);
     }
 
     .btn-danger {
       background: var(--danger);
-      color: #fff;
     }
 
-    /* Compact Metrics */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+    .btn-sm {
+      width: auto;
+      padding: 4px 10px;
+      font-size: 9px;
+      margin: 0;
     }
 
-    .metric {
-      background: var(--bg);
+    /* Jobs Panel */
+    #jobs_panel {
+      display: none;
+    }
+
+    #jobs_panel.show {
+      display: block;
+    }
+
+    .job-card {
+      background: var(--bg-card);
       border: 1px solid var(--border);
-      padding: 10px;
       border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 8px;
     }
 
-    .m-label {
+    .job-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .job-source {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .job-id {
       font-size: 9px;
       color: var(--text-dim);
+      font-family: monospace;
+    }
+
+    .job-status {
+      font-size: 9px;
+      font-weight: 800;
       text-transform: uppercase;
-      font-weight: 700;
-      margin-bottom: 2px;
+      padding: 2px 6px;
+      border-radius: 4px;
     }
 
-    .m-val {
-      font-size: 13px;
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .m-highlight {
+    .job-status.running {
+      background: rgba(16, 185, 129, 0.15);
       color: var(--success);
     }
 
-    .terminal {
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px 12px;
+    .job-status.starting {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-dim);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .logs {
+      margin-top: 12px;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
       font-size: 10px;
       color: var(--text-dim);
       font-family: monospace;
-      max-height: 44px;
-      overflow-y: hidden;
-      display: none !important;
-      align-items: center;
+      min-height: 30px;
+    }
+
+    .footer {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
     }
   </style>
 </head>
 
 <body>
-
   <div class="header">
-    <div class="logo">
-      <img src="../icons/icon.png" width="16" height="16" alt="logo" />
-      MDM Extension
-    </div>
-    <div id="status_indicator">
-      <div class="status-dot"></div>
-    </div>
+    <h2>
+      <div class="dot" id="dot"></div> MDM Agent
+    </h2>
+    <span class="badge" id="job_count">0 JOBS</span>
   </div>
 
-  <!-- Settings hidden when scraping -->
-  <div class="panel" id="config_panel">
+  <!-- Config Panel (shown when no connection) -->
+  <div id="config_panel" class="show">
     <div class="form-group">
-      <label>Render API</label>
-      <input type="text" id="api_url" placeholder="https://..." />
+      <label>Render API URL</label>
+      <input type="text" id="api_url" placeholder="https://your-app.onrender.com" />
     </div>
     <div class="form-group">
-      <label>Secret Key</label>
-      <input type="password" id="api_key" placeholder="••••••••" />
+      <label>Extension Key</label>
+      <input type="password" id="api_key" placeholder="Enter secure key..." />
     </div>
-    <button id="save_btn">Save & Link</button>
+    <button class="btn" id="save_btn">Save & Connect</button>
   </div>
 
-  <!-- Scraping Stats visible only when active -->
-  <div class="panel" id="metrics_panel" style="display: none; border-color: var(--success);">
-    <div style="font-size:11px; font-weight:700; color:var(--success); margin-bottom:10px; text-align:center;">Engine
-      Active</div>
-
-    <div class="metrics-grid">
-      <div class="metric">
-        <div class="m-label">Target</div>
-        <div class="m-val" id="m_source">--</div>
-      </div>
-      <div class="metric">
-        <div class="m-label">Found</div>
-        <div class="m-val m-highlight" id="m_extracted">0</div>
-      </div>
-      <div class="metric" style="grid-column: 1 / -1;">
-        <div class="m-label">Search</div>
-        <div class="m-val" id="m_phase_kwd" style="font-size: 11px;">--</div>
-      </div>
+  <!-- Jobs Panel (shown when connected) -->
+  <div id="jobs_panel">
+    <div id="jobs_list">
+      <div class="empty-state">Polling for jobs...</div>
     </div>
-
-    <button id="resume_btn" class="btn-warn" style="display:none;">Resume Blocked Tab</button>
-    <button id="abort_btn" class="btn-danger" style="display:none;">Abort Local Loop</button>
+    <div class="footer">
+      <button class="btn btn-danger btn-sm" id="abort_btn" style="display:none;">ABORT ALL</button>
+    </div>
   </div>
 
-  <div class="terminal" id="logs">Booting local agent...</div>
+  <div class="logs" id="logs">Extension loaded.</div>
 
   <script src="popup.js"></script>
 </body>

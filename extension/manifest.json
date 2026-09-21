@@ -86,6 +86,16 @@
                 "content_scripts/gem.js"
             ],
             "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "*://*.onrender.com/*",
+                "*://localhost/*"
+            ],
+            "js": [
+                "content_scripts/dashboard.js"
+            ],
+            "run_at": "document_idle"
         }
     ],
     "action": {
