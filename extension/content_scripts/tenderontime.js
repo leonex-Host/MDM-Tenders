@@ -116,7 +116,8 @@ async function clickFilterButton(keyword) {
     }
 
     if (!target) {
-        const candidates = [...document.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"], a')]
+        const container = input.closest('form, .filter-box, .search, .sidebar, .sidebar-wrapper, .left-column, .row') || document;
+        const candidates = [...container.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"], a')]
             .filter(visible)
             .map(el => {
                 const label = norm(`${el.innerText} ${el.value} ${el.id} ${el.className} ${el.getAttribute('aria-label')} ${el.getAttribute('ng-click')} ${el.getAttribute('onclick')}`);
