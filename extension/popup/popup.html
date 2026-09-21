@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Automation Pulse Agent</title>
+  <title>MDM Tender Extension</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -55,23 +55,7 @@
     .header h2 {
       font-size: 16px;
       font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 8px;
       margin: 0;
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--danger);
-      flex-shrink: 0;
-    }
-
-    .dot.on {
-      background: var(--success);
-      box-shadow: 0 0 8px var(--success);
     }
 
     .badge {
@@ -330,9 +314,8 @@
 <body>
   <div class="header">
     <div class="header-logo">
-      <div class="dot" id="dot"></div>
       <img src="../icons/icon.png" alt="Logo" onerror="this.style.display='none'">
-      <h2>Automation Pulse</h2>
+      <h2>MDM Tender Extension</h2>
     </div>
     <span class="badge" id="job_count">0 JOBS</span>
   </div>

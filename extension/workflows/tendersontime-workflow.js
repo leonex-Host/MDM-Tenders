@@ -201,23 +201,17 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     await chrome.scripting.executeScript({
                         target: { tabId: runtime.tabId },
                         world: "MAIN",
-                        func: (sel) => {
+                        func: () => {
                             try {
-                                const btns = document.querySelectorAll(sel);
-                                for (const btn of btns) {
-                                    const r = btn.getBoundingClientRect();
-                                    const style = window.getComputedStyle(btn);
-                                    if (r.width > 0 && r.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
-                                        console.log("[TOT] Structural target acquired. Firing native click payload:", btn);
-                                        btn.scrollIntoView({ block: 'center', inline: 'center' });
-                                        btn.click();
-                                        return;
-                                    }
+                                if (typeof filterTendersJS === 'function') {
+                                    console.log("[TOT] Directly executing filter backend function to bypass Untrusted Event blocks.");
+                                    filterTendersJS(1, 'filterbtn');
+                                } else {
+                                    const btn = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
+                                    if (btn) btn.click();
                                 }
-                                console.warn("[TOT] Visibility iteration failed to isolate a rendered filter button.");
-                            } catch (e) { }
-                        },
-                        args: [filterResult.selector]
+                            } catch (e) { console.error(e); }
+                        }
                     }).catch(e => console.warn(`[TOT] CSP Bypass Error:`, e));
 
                     // Minor delay to let network stack absorb the synthetic AJAX

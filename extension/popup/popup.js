@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiKeyInput = document.getElementById('api_key');
     const saveBtn = document.getElementById('save_btn');
     const logs = document.getElementById('logs');
-    const dot = document.getElementById('dot');
 
     const configPanel = document.getElementById('config_panel');
     const jobsPanel = document.getElementById('jobs_panel');
@@ -50,18 +49,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 if (res.ok) {
                     connected = true;
-                    dot.classList.add('on');
                     configPanel.classList.remove('show');
                     jobsPanel.classList.add('show');
                     log(`Linked securely. Polling internal metrics...`);
                     chrome.runtime.sendMessage({ action: "start_polling" });
                     pollStatus();
                 } else {
-                    dot.classList.remove('on');
                     log(`Auth failed remotely (HTTP ${res.status})`);
                 }
             } catch (err) {
-                dot.classList.remove('on');
                 log('API infrastructure not accessible.');
             }
         });
