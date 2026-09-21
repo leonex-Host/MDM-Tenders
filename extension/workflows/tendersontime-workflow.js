@@ -5,6 +5,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function waitUntilPageAvailable(tabId, options = {}) {
     const timeout = options.timeout || 120000;
+    const startTime = Date.now();
     console.log("[TOT][PAGE_WAIT] Waiting for search URL to render...");
     while (Date.now() - startTime < timeout) {
         let tabInfo;
