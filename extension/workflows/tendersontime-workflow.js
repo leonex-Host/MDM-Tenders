@@ -7,6 +7,7 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
     const timeout = options.timeout || 120000;
     const startTime = Date.now();
     console.log("[TOT][PAGE_WAIT] Waiting for search URL to render...");
+    let challengeLoops = 0;
     while (Date.now() - startTime < timeout) {
         let tabInfo;
         try { tabInfo = await chrome.tabs.get(tabId); } catch (e) { return { ready: false, isChallenge: false }; }
@@ -15,8 +16,15 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
         console.log(`[TOT][WAIT] URL=${tabInfo.url} status=${tabInfo.status}`, pageCheck);
 
         if (pageCheck && pageCheck.cloudflareActive) {
-            console.warn(`[TOT][${tabId}] CLOUDFLARE Cloudflare detected dynamically during wait.`);
-            return { ready: false, isChallenge: true, reason: 'Cloudflare' };
+            console.warn(`[TOT][${tabId}] CLOUDFLARE tracking... (${challengeLoops}/12)`);
+            challengeLoops++;
+            if (challengeLoops > 12) {
+                return { ready: false, isChallenge: true, reason: 'Cloudflare' };
+            }
+            await sleep(1500);
+            continue;
+        } else {
+            challengeLoops = 0;
         }
 
         if (tabInfo.status !== "complete") {
@@ -54,14 +62,19 @@ async function waitUntilListingsReady(tabId) {
     let noResultsCount = 0;
 
     console.log(`[TOT][LISTINGS_WAIT] Waiting up to ${timeout}ms for search listings to populate...`);
+    let challengeLoops = 0;
     while (Date.now() - startTime < timeout) {
         let listingData = await executeContentScript(tabId, "extract_listings");
         if (!listingData) {
             await sleep(1000); continue;
         }
         if (listingData.status === "cloudflare") {
-            console.warn(`[TOT][${tabId}] CLOUDFLARE Block intercepted organically within items block.`);
-            return { isChallenge: true, reason: 'Cloudflare' };
+            console.warn(`[TOT][${tabId}] CLOUDFLARE tracking organically within items... (${challengeLoops}/12)`);
+            challengeLoops++;
+            if (challengeLoops > 12) return { isChallenge: true, reason: 'Cloudflare' };
+            await sleep(1000); continue;
+        } else {
+            challengeLoops = 0;
         }
         if (Array.isArray(listingData)) {
             if (listingData.length === 0) {
