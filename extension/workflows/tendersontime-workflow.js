@@ -168,6 +168,9 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     }
                 }).catch(e => console.warn("[TOT] Interceptor inject skip:", e));
 
+                // Critical: Ensure full AngularJS structural hydration before dispatching synthetic native events
+                await new Promise(r => setTimeout(r, 2000));
+
                 const pageReady = await waitUntilPageAvailable(runtime.tabId, { isGoogle: false }, keyword);
                 console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_CHECK keyword="${keyword}" ready=${pageReady.ready}`);
 
@@ -200,11 +203,18 @@ export async function runTendersOnTimeWorkflow(runtime) {
                         world: "MAIN",
                         func: (sel) => {
                             try {
-                                const btn = document.querySelector(sel);
-                                if (btn) {
-                                    console.log("[TOT] Firing native click payload on element:", btn);
-                                    btn.click();
+                                const btns = document.querySelectorAll(sel);
+                                for (const btn of btns) {
+                                    const r = btn.getBoundingClientRect();
+                                    const style = window.getComputedStyle(btn);
+                                    if (r.width > 0 && r.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+                                        console.log("[TOT] Structural target acquired. Firing native click payload:", btn);
+                                        btn.scrollIntoView({ block: 'center', inline: 'center' });
+                                        btn.click();
+                                        return;
+                                    }
                                 }
+                                console.warn("[TOT] Visibility iteration failed to isolate a rendered filter button.");
                             } catch (e) { }
                         },
                         args: [filterResult.selector]
