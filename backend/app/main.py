@@ -81,7 +81,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-request_logger = get_logger("nounmod.request")
+request_logger = get_logger("mdm request")
 
 import time
 import uuid

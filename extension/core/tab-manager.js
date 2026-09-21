@@ -26,11 +26,10 @@ export async function createJobTab(job) {
 
     try {
         console.log("[BidDetailTrace] opening tab URL: about:blank");
-        const win = await chrome.windows.create({ url: "about:blank", state: "normal", focused: true });
-        const tid = win.tabs[0].id;
-        console.log("[BidDetailTrace] chrome.tabs.create result: window created");
-        console.log("[BidDetailTrace] tab created ID:", tid);
-        return { windowId: win.id, tabId: tid };
+        const tab = await chrome.tabs.create({ url: "about:blank", active: true });
+        console.log("[BidDetailTrace] chrome.tabs.create result: tab created");
+        console.log("[BidDetailTrace] tab created ID:", tab.id);
+        return { windowId: tab.windowId, tabId: tab.id };
     } catch (e) {
         console.error("[BidDetailTrace] chrome.tabs.create result/error:", e);
         throw e;
