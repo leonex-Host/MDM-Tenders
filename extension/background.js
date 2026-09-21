@@ -28,9 +28,15 @@ initializeJobManager();
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "start_polling") {
-        ensurePollingAlarm();
-        initializeJobManager();
-        sendResponse({ started: true });
+        chrome.storage.local.get(['extensionState']).then(async data => {
+            if (data.extensionState) {
+                await chrome.storage.local.set({ extensionState: { ...data.extensionState, blocked: false, blockReason: null } });
+            }
+            ensurePollingAlarm();
+            initializeJobManager();
+            sendResponse({ started: true });
+        });
+        return true;
     } else if (request.action === "resume_manual") {
         resumeManualJob();
         sendResponse({ resumed: true });
