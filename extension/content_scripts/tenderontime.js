@@ -27,7 +27,6 @@ function checkPageAvailable() {
     const text = document.body?.innerText || "";
     const lowerText = text.toLowerCase();
 
-    const html = document.documentElement?.innerHTML || "";
     const cloudflareActive =
         /just a moment|checking your browser|verify you are human/i.test(title + " " + text) ||
         html.includes("cf-turnstile") ||
