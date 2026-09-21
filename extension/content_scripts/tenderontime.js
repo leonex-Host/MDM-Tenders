@@ -27,9 +27,12 @@ function checkPageAvailable() {
     const text = document.body?.innerText || "";
     const lowerText = text.toLowerCase();
 
+    const html = document.documentElement?.innerHTML || "";
     const cloudflareActive =
-        (title.includes("Just a moment") || title.includes("Checking your browser")) ||
-        (text.includes("verify you are human") || text.includes("Cloudflare Ray ID"));
+        /just a moment|checking your browser|verify you are human/i.test(title + " " + text) ||
+        html.includes("cf-turnstile") ||
+        html.includes("cf-chl") ||
+        html.includes("challenge-platform");
 
     const hasNoResultsText =
         /no results found|no records found|0 results|no data found|no tenders found|no records available/i.test(lowerText);
@@ -105,8 +108,14 @@ async function clickFilterButton(keyword) {
 
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     if (setter) setter.call(input, keyword || ''); else input.value = keyword || '';
-    for (const type of ['input', 'change', 'keyup', 'blur']) {
-        input.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+    for (const type of ['input', 'change', 'keydown', 'keypress', 'keyup', 'blur']) {
+        const ev = new Event(type, { bubbles: true, cancelable: true });
+        if (type.startsWith('key')) {
+            ev.key = 'Enter';
+            ev.keyCode = 13;
+            ev.which = 13;
+        }
+        input.dispatchEvent(ev);
     }
 
     let target = null;
