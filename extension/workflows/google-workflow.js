@@ -57,6 +57,12 @@ export async function runGoogleWorkflow(job) {
                         throw new Error("CHALLENGE_PAUSED");
                     }
 
+                    const tabData = await chrome.tabs.get(tabInfo.tabId);
+                    if (tabData.url && tabData.url.toLowerCase().includes("/sorry/")) {
+                        await setManualActionRequired("Google Captcha Detected", tabData.url);
+                        throw new Error("CHALLENGE_PAUSED");
+                    }
+
                     const data = await executeContentScript(tabInfo.tabId, "extract_listings");
                     const listings = Array.isArray(data) ? data : (data?.listings || []);
 

@@ -45,28 +45,17 @@ function checkPageAvailable() {
             s.visibility !== "hidden" && s.opacity !== "0";
     };
 
-    const forms = [...document.querySelectorAll("form")].filter(visible);
-    const searchForms = forms.filter(form =>
-        form.matches(".search, [class*='search'], [id*='search']") ||
-        form.querySelector("input[name='q'], input[name*='search'], input[placeholder*='search' i], input[placeholder*='keyword' i]")
-    );
+    const allInputs = [...document.querySelectorAll("input")].filter(visible);
+    const hasSearchInput = allInputs.some(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`) || el.type === 'text' || el.type === 'search');
 
-    const formPool = searchForms.length ? searchForms : forms;
-    const formReady = isSearchPage && formPool.some(form =>
-        visible(form) && form.querySelector("input, select, textarea, button")
-    );
+    // Rely exclusively on the physical inputs being rendered rather than strict <form> container inheritance
+    const formReady = Boolean(isSearchPage && hasSearchInput);
 
-    const filterReady = formReady && formPool.some(form => {
-        const controls = [...form.querySelectorAll("button, input[type='submit'], input[type='button'], [role='button'], a")];
-        return controls.some(el => {
-            if (!visible(el) || el.disabled || el.getAttribute("aria-disabled") === "true") return false;
-            const label = `${el.innerText || ""} ${el.value || ""} ${el.getAttribute("aria-label") || ""} ${el.id || ""} ${el.className || ""}`.toLowerCase();
-            const isPagination = el.closest(".pagination") || /\b(next|previous|prev|page\s*\d+|login|sign in|register)\b/i.test(label);
-            if (isPagination) return false;
-            return el.type === "submit" ||
-                /search|filter|apply|submit|find|go|tender/i.test(label) ||
-                el.tagName === "BUTTON";
-        });
+    const allButtons = [...document.querySelectorAll("button, input[type='submit'], input[type='button'], [role='button'], a")].filter(visible);
+    const filterReady = formReady && allButtons.some(el => {
+        const label = `${el.innerText || ""} ${el.value || ""} ${el.getAttribute("aria-label") || ""} ${el.id || ""} ${el.className || ""}`.toLowerCase();
+        if (/next|previous|prev|page\s*\d+|login|sign in|register/.test(label)) return false;
+        return el.type === "submit" || /search|filter|apply|submit|find|go|tender/i.test(label) || el.tagName === "BUTTON";
     });
 
     return {

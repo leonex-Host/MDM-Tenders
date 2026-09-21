@@ -42,7 +42,8 @@
         {
             "matches": [
                 "https://www.google.com/search*",
-                "https://www.google.com/url*"
+                "https://www.google.com/url*",
+                "https://www.google.com/sorry/*"
             ],
             "js": [
                 "content_scripts/google.js"
