@@ -4,6 +4,7 @@ import { closeJobTab } from './tab-manager.js';
 
 let pollingInProgress = false;
 let pollerInterval = null;
+let isInitialized = false;
 const MAX_CONCURRENT_JOBS = 6;
 const STALE_TIMEOUT_MS = 300000; // 5 minutes
 
@@ -57,6 +58,9 @@ export function validateExtensionJob(rawJob) {
 }
 
 export async function initializeJobManager() {
+    if (isInitialized) return;
+    isInitialized = true;
+
     if (!pollerInterval) {
         pollerInterval = setInterval(() => {
             pollAndProcess();
