@@ -4,9 +4,10 @@ import { validateExtensionJob } from './job-manager.js';
 export async function createJobTab(runtime) {
     const id = runtime?.jobId || 'UNKNOWN';
     try {
-        console.log(`[TabManager][${id}] Creating logical isolated tab: about:blank`);
-        const tab = await chrome.tabs.create({ url: "about:blank", active: true });
-        console.log(`[TabManager][${id}] Successfully allocated Tab ID:`, tab.id);
+        console.log(`[TabManager][${id}] Creating physically isolated Chrome window...`);
+        const win = await chrome.windows.create({ url: "about:blank", state: "normal" });
+        const tab = win.tabs[0];
+        console.log(`[TabManager][${id}] Allocated Window ID: ${win.id} | Tab ID: ${tab.id}`);
         return { windowId: tab.windowId, tabId: tab.id };
     } catch (e) {
         console.error(`[TabManager][${id}] FATAL chrome.tabs.create error:`, e);
