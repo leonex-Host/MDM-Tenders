@@ -51,9 +51,22 @@ export async function runGoogleWorkflow(runtime) {
                     for (; page < 7; page++) {
                         await updateRuntimeState(runtime.jobId, { currentPage: page });
 
-                        let url = runtime.pausedUrl || googleSearchUrl(keyword, page);
-                        await navigateAndWait(runtime.tabId, url);
-                        await updateRuntimeState(runtime.jobId, { pausedUrl: null });
+                        let didNavigate = false;
+                        if (runtime.pausedUrl) {
+                            const tabData = await chrome.tabs.get(runtime.tabId).catch(() => ({}));
+                            if (tabData.url && !tabData.url.includes("/sorry/")) {
+                                console.log(`[Google][${runtime.jobId}] Solved manually via natural redirect.`);
+                            } else {
+                                await navigateAndWait(runtime.tabId, runtime.pausedUrl);
+                                didNavigate = true;
+                            }
+                            await updateRuntimeState(runtime.jobId, { pausedUrl: null });
+                        } else {
+                            await navigateAndWait(runtime.tabId, googleSearchUrl(keyword, page));
+                            didNavigate = true;
+                        }
+
+                        if (!didNavigate) await new Promise(r => setTimeout(r, 2000));
 
                         if (await checkChallenge(runtime.tabId)) {
                             const u = (await chrome.tabs.get(runtime.tabId)).url;
@@ -102,9 +115,15 @@ export async function runGoogleWorkflow(runtime) {
                     const item = allResults[currentDetailIndex];
 
                     let targetUrl = item.href;
-                    if (runtime.pausedUrl) { targetUrl = runtime.pausedUrl; await updateRuntimeState(runtime.jobId, { pausedUrl: null }); }
+                    let skipNav = false;
+                    if (runtime.pausedUrl) {
+                        const tabData = await chrome.tabs.get(runtime.tabId).catch(() => ({}));
+                        if (tabData.url && !tabData.url.includes("/sorry/")) skipNav = true;
+                        else targetUrl = runtime.pausedUrl;
+                        await updateRuntimeState(runtime.jobId, { pausedUrl: null });
+                    }
 
-                    await navigateAndWait(runtime.tabId, targetUrl, 120000);
+                    if (!skipNav) await navigateAndWait(runtime.tabId, targetUrl, 120000);
 
                     const detail = await executeContentScript(runtime.tabId, "extract_details", { keyword: item.keyword });
                     if (detail?.found) {
