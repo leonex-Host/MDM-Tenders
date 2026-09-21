@@ -47,17 +47,32 @@ function checkPageAvailable() {
             s.visibility !== "hidden" && s.opacity !== "0";
     };
 
-    const allInputs = [...document.querySelectorAll("input")].filter(visible);
-    const hasSearchInput = allInputs.some(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`) || el.type === 'text' || el.type === 'search');
+    const forms = [...document.querySelectorAll("form")].filter(visible);
 
-    // Rely exclusively on the physical inputs being rendered rather than strict <form> container inheritance
-    const formReady = Boolean(isSearchPage && hasSearchInput);
+    // Loosely identify which forms are likely search forms
+    const searchForms = forms.filter(form => {
+        const text = (form.innerText || "").toLowerCase();
+        const action = (form.getAttribute("action") || "").toLowerCase();
+        return (
+            text.includes("search") ||
+            action.includes("search") ||
+            form.querySelector('input[type="search"], input[name*="search"], input[name*="keyword"]')
+        );
+    });
 
-    const allButtons = [...document.querySelectorAll("button, input[type='submit'], input[type='button'], [role='button'], a")].filter(visible);
-    const filterReady = formReady && allButtons.some(el => {
-        const label = `${el.innerText || ""} ${el.value || ""} ${el.getAttribute("aria-label") || ""} ${el.id || ""} ${el.className || ""}`.toLowerCase();
-        if (/next|previous|prev|page\s*\d+|login|sign in|register/.test(label)) return false;
-        return el.type === "submit" || /search|filter|apply|submit|find|go|tender/i.test(label) || el.tagName === "BUTTON";
+    const formPool = searchForms.length ? searchForms : forms;
+
+    const formReady = isSearchPage && formPool.some(form =>
+        visible(form) && form.querySelector("input, select, textarea, button")
+    );
+
+    const filterReady = formReady && formPool.some(form => {
+        const controls = [...form.querySelectorAll("button, input[type='submit'], input[type='button'], [role='button'], a")];
+        return controls.some(el => {
+            const label = `${el.innerText || ""} ${el.value || ""} ${el.getAttribute("aria-label") || ""} ${el.id || ""} ${el.className || ""}`.toLowerCase();
+            if (/next|previous|prev|page\s*\d+|login|sign in|register/.test(label)) return false;
+            return el.type === "submit" || /search|filter|apply|submit|find|go|tender/i.test(label) || el.tagName === "BUTTON";
+        });
     });
 
     return {
@@ -107,28 +122,18 @@ async function clickFilterButton(keyword) {
 
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     if (setter) setter.call(input, keyword || ''); else input.value = keyword || '';
-    for (const type of ['input', 'change', 'keydown', 'keypress', 'keyup', 'blur']) {
-        const ev = new Event(type, { bubbles: true, cancelable: true });
-        if (type.startsWith('key')) {
-            ev.key = 'Enter';
-            ev.keyCode = 13;
-            ev.which = 13;
-        }
-        input.dispatchEvent(ev);
+    for (const type of ['input', 'change', 'keyup', 'blur']) {
+        input.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
     }
 
-    let targets = [];
+    let target = null;
     for (const selector of directSelectors) {
-        const matching = [...document.querySelectorAll(selector)].filter(visible);
-        if (matching.length > 0) {
-            targets = matching;
-            break;
-        }
+        const candidate = [...document.querySelectorAll(selector)].find(visible);
+        if (candidate) { target = candidate; break; }
     }
 
-    if (targets.length === 0) {
-        const container = input.closest('form, .filter-box, .search, .sidebar, .sidebar-wrapper, .left-column, .row') || document;
-        const candidates = [...container.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"], a')]
+    if (!target) {
+        const candidates = [...document.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"], a')]
             .filter(visible)
             .map(el => {
                 const label = norm(`${el.innerText} ${el.value} ${el.id} ${el.className} ${el.getAttribute('aria-label')} ${el.getAttribute('ng-click')} ${el.getAttribute('onclick')}`);
@@ -140,36 +145,23 @@ async function clickFilterButton(keyword) {
                 if (el.tagName === 'A' && el.getAttribute('href') && !/^javascript:/i.test(el.getAttribute('href'))) score -= 200;
                 return { el, score };
             }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
-        if (candidates.length > 0) targets = [candidates[0].el];
+        target = candidates[0]?.el || null;
     }
 
-    if (targets.length === 0) return { success: false, clicked: false, verified: false, reason: 'filter_button_not_found' };
+    if (!target) return { success: false, clicked: false, verified: false, reason: 'filter_button_not_found' };
 
-    targets.forEach(target => {
-        try {
-            target.scrollIntoView({ block: 'center', inline: 'center' });
-            target.focus();
-            for (const type of ['mousedown', 'mouseup', 'click']) {
-                target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
-            }
-            if (target.tagName !== 'A' || /^javascript:/i.test(target.getAttribute('href') || '')) {
-                target.click();
-            }
-            console.log('[TENDER FILTER CLICKED]', { keyword, selector: target.outerHTML.slice(0, 500) });
-        } catch (e) { }
-    });
-
-    // Indestructible Execution Assurance: Direct Main-World invocation of the specific handler
-    try {
-        const inject = document.createElement('script');
-        inject.textContent = "if (typeof filterTendersJS === 'function') { filterTendersJS(1, 'filterbtn'); }";
-        document.documentElement.appendChild(inject);
-        inject.remove();
-        console.log('[TENDER FILTER SCRIPT EXECUTED]');
-    } catch (e) { }
-
+    target.scrollIntoView({ block: 'center', inline: 'center' });
+    target.focus();
     const beforeUrl = location.href;
     const beforeText = document.body?.innerText || '';
+
+    // Dispatch a real mouse sequence first; many Angular/jQuery handlers listen for it.
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+        target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+    }
+
+    // Native click fallback, but never navigate an ordinary anchor accidentally.
+    if (target.tagName !== 'A' || /^javascript:/i.test(target.getAttribute('href') || '')) target.click();
 
     // Accept one/two results. Only wait for the site to react, not for a minimum count.
     for (let i = 0; i < 25; i++) {

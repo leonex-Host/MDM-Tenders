@@ -6,6 +6,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 async function waitUntilPageAvailable(tabId, options = {}) {
     const timeout = options.timeout || 120000;
     const startTime = Date.now();
+    console.log("[TENDERONTIME][PAGE_WAIT] Waiting for search URL to render...");
     while (Date.now() - startTime < timeout) {
         let tabInfo;
         try { tabInfo = await chrome.tabs.get(tabId); } catch (e) { return { ready: false, isChallenge: false }; }
@@ -21,6 +22,7 @@ async function waitUntilPageAvailable(tabId, options = {}) {
         }
 
         if (pageCheck.cloudflareActive) {
+            console.warn("[TENDERONTIME][CLOUDFLARE] Cloudflare detected dynamically during wait.");
             return { ready: false, isChallenge: true, reason: 'Cloudflare' };
         }
 
@@ -29,6 +31,7 @@ async function waitUntilPageAvailable(tabId, options = {}) {
             : tabInfo.url.includes("advancesearch");
 
         if (isExpected && pageCheck.readyState === "complete" && (options.isGoogle || pageCheck.formReady)) {
+            console.log("[TENDERONTIME][PAGE_READY] Expected advanced search environment perfectly confirmed.");
             await sleep(1500);
             return { ready: true, isChallenge: false };
         }
@@ -43,12 +46,14 @@ async function waitUntilListingsReady(tabId) {
     const startTime = Date.now();
     let noResultsCount = 0;
 
+    console.log(`[TENDERONTIME][LISTINGS_WAIT] Waiting up to ${timeout}ms for search listings to populate...`);
     while (Date.now() - startTime < timeout) {
         let listingData = await executeContentScript(tabId, "extract_listings");
         if (!listingData) {
             await sleep(1000); continue;
         }
         if (listingData.status === "cloudflare") {
+            console.warn("[TENDERONTIME][CLOUDFLARE] Block intercepted organically within items block.");
             return { isChallenge: true, reason: 'Cloudflare' };
         }
         if (Array.isArray(listingData)) {
@@ -56,13 +61,17 @@ async function waitUntilListingsReady(tabId) {
                 let pageCheck = await executeContentScript(tabId, "check_page_available");
                 if (pageCheck && pageCheck.hasNoResultsText) {
                     noResultsCount++;
-                    if (noResultsCount >= 3) return { status: "no_results" };
+                    if (noResultsCount >= 3) {
+                        console.log("[TENDERONTIME][NO_RESULTS] Confirmed zero-results display condition organically.");
+                        return { status: "no_results" };
+                    }
                 } else {
                     noResultsCount = 0;
                 }
                 await sleep(1000);
                 continue;
             } else {
+                console.log(`[TENDERONTIME][LISTINGS_READY] Dynamically detected ${listingData.length} valid results on active view.`);
                 return { status: "results", listings: listingData };
             }
         }
@@ -109,33 +118,46 @@ export async function runTendersOnTimeWorkflow(job) {
                 await updateJobState({ currentKeywordIndex: kwIndex, keyword, phase: 'search' });
 
                 if (job.pausedUrl) {
+                    console.log(`[TENDERONTIME][NAVIGATE] Re-navigating paused URL: ${job.pausedUrl}`);
                     await navigateAndWait(tabInfo.tabId, job.pausedUrl);
                     await updateJobState({ pausedUrl: null });
                 } else {
+                    console.log(`[TENDERONTIME][NAVIGATE] Routing to native search URL: ${searchUrl}`);
                     await navigateAndWait(tabInfo.tabId, searchUrl);
                 }
 
                 const pageReady = await waitUntilPageAvailable(tabInfo.tabId, { isGoogle: false });
                 if (pageReady.isChallenge) {
+                    console.warn(`[TENDERONTIME][CLOUDFLARE] Suspended keyword processing natively -> ${keyword}`);
                     const u = (await chrome.tabs.get(tabInfo.tabId)).url;
                     await setManualActionRequired('Cloudflare/Captcha Block', u);
                     throw new Error("CHALLENGE_PAUSED");
                 }
                 if (!pageReady.ready) {
+                    console.error(`[TENDERONTIME][ERROR] Fatal wait condition failed unconditionally on keyword: ${keyword}. Skipping bounds.`);
                     continue;
                 }
 
+                console.log(`[TENDERONTIME][FILTER_SEARCH] Activating filter targets on keyword: ${keyword}`);
                 let filterResult = null;
                 for (let i = 0; i < 3; i++) {
                     filterResult = await executeContentScript(tabInfo.tabId, "click_filter_button", { keyword });
-                    if (filterResult?.clicked && filterResult?.verified) break;
+                    if (filterResult?.clicked) console.log(`[TENDERONTIME][FILTER_CLICKED] Event natively transmitted to button signature.`);
+                    if (filterResult?.clicked && filterResult?.verified) {
+                        console.log(`[TENDERONTIME][FILTER_VERIFIED] Target reacted cleanly to simulation routines.`);
+                        break;
+                    }
                     await sleep(1500);
                 }
-                if (!filterResult?.clicked) continue;
+                if (!filterResult?.clicked) {
+                    console.warn(`[TENDERONTIME][ERROR] Filter invocation utterly failed 3 times. Halting loop -> ${keyword}`);
+                    continue;
+                }
 
                 await updateJobState({ phase: 'list_collection' });
 
                 while (pageNum <= maxPages) {
+                    console.log(`[TENDERONTIME][PAGINATION] Actively scraping page coordinate index [${pageNum}/${maxPages}]`);
                     await updateJobState({ currentPage: pageNum });
                     const result = await waitUntilListingsReady(tabInfo.tabId);
                     if (result.isChallenge) {
@@ -158,11 +180,18 @@ export async function runTendersOnTimeWorkflow(job) {
                     if (pageNum >= maxPages) break;
 
                     const nextResult = await executeContentScript(tabInfo.tabId, "click_next_page");
-                    if (!nextResult || !nextResult.clicked || !nextResult.changed) break;
+                    if (!nextResult || !nextResult.clicked || !nextResult.changed) {
+                        console.warn(`[TENDERONTIME][ERROR] Next click natively failed or duplicate bounds detected organically.`);
+                        break;
+                    }
 
                     const expectedPage = pageNum + 1;
                     const actualPage = nextResult.pageNumber;
-                    if (actualPage && parseInt(actualPage, 10) !== expectedPage) break;
+                    if (actualPage && parseInt(actualPage, 10) !== expectedPage) {
+                        console.warn(`[TENDERONTIME][ERROR] Pagination sequence mismatch. Expected ${expectedPage}, read ${actualPage}. Exiting slice bounds.`);
+                        break;
+                    }
+                    console.log(`[TENDERONTIME][PAGE_CHANGED] Successfully traversed into native iteration loop ${actualPage}.`);
 
                     pageNum++;
                 }
@@ -182,14 +211,19 @@ export async function runTendersOnTimeWorkflow(job) {
                     if (!item.href) continue;
 
                     let targetUrl = item.href;
-                    if (job.pausedUrl) { targetUrl = job.pausedUrl; await updateJobState({ pausedUrl: null }); }
+                    if (job.pausedUrl) {
+                        targetUrl = job.pausedUrl;
+                        await updateJobState({ pausedUrl: null });
+                    }
 
+                    console.log(`[TENDERONTIME][DETAIL] Fetching specific document signature... ${currentDetailIndex + 1}/${allListings.length}`);
                     await navigateAndWait(tabInfo.tabId, targetUrl);
                     await sleep(2000);
 
                     // check Challenge manually for detail
                     const chk = await executeContentScript(tabInfo.tabId, "check_page_available");
                     if (chk?.cloudflareActive) {
+                        console.warn("[TENDERONTIME][CLOUDFLARE] Block intersected organically mapping isolated document detail layout.");
                         const u = (await chrome.tabs.get(tabInfo.tabId)).url;
                         await setManualActionRequired('Cloudflare/Captcha Block at Details', u);
                         throw new Error("CHALLENGE_PAUSED");
@@ -202,12 +236,14 @@ export async function runTendersOnTimeWorkflow(job) {
                 }
 
                 if (kwResults.length > 0 && !job.uploadedBatch) {
+                    console.log(`[TENDERONTIME][UPLOAD] Queuing batch transfer matrix containing ${kwResults.length} records...`);
                     await enqueueUpload({ source: "tenderontime", keyword: keyword, tenders: kwResults });
                     allMatchesCount += kwResults.length;
                     await updateJobState({ uploadedBatch: true, resultsCollected: allMatchesCount });
                 }
             }
 
+            console.log(`[TENDERONTIME][KEYWORD_COMPLETE] Organically completed process chain natively for sequence -> ${keyword}`);
             // reset for next keyword
             await updateJobState({
                 phase: 'search',
@@ -221,6 +257,7 @@ export async function runTendersOnTimeWorkflow(job) {
             await sleep(2000);
         }
 
+        console.log(`[TENDERONTIME][JOB_COMPLETE] Unambiguously terminating current operation structurally natively! Records matched: ${allMatchesCount}`);
         await finishJob(allMatchesCount, {});
 
     } catch (e) {
