@@ -54,10 +54,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const jobs = [];
         for (const jid of jobIds) {
             const rt = getRuntime(jid);
-            if (rt) jobs.push({ job_id: rt.jobId, source: rt.jobType || rt.source || 'unknown', status: rt.status });
+            if (rt) {
+                jobs.push({
+                    job_id: rt.jobId,
+                    source: rt.jobType || rt.source || 'unknown',
+                    status: rt.status,
+                    phase: rt.phase || 'unknown',
+                    results: rt.resultsCollected || 0,
+                    keyword: (rt.keywords && rt.keywords.length > 0) ? rt.keywords[rt.currentKeywordIndex || 0] : null
+                });
+            }
         }
         sendResponse({ jobs, count: jobs.length });
         return false;
+    } else if (request.action === "abort_job") {
+        failJob(request.jobId, "Aborted manually by operator").then(() => {
+            sendResponse({ aborted: true });
+        });
+        return true;
     } else if (request.action === "keep_alive") {
         sendResponse({ ok: true });
         return false;

@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>MDM Agent Control</title>
+  <title>Automation Pulse Agent</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -11,6 +11,7 @@
       --border: rgba(255, 255, 255, 0.08);
       --text: #e5e7eb;
       --text-dim: #6b7280;
+      --text-muted: #9ca3af;
       --accent: #3b82f6;
       --success: #10b981;
       --danger: #ef4444;
@@ -24,11 +25,12 @@
     }
 
     body {
-      width: 360px;
+      width: 380px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       padding: 16px;
+      overflow-x: hidden;
     }
 
     .header {
@@ -38,12 +40,25 @@
       margin-bottom: 16px;
     }
 
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-logo img {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+
     .header h2 {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 800;
       display: flex;
       align-items: center;
       gap: 8px;
+      margin: 0;
     }
 
     .dot {
@@ -60,12 +75,12 @@
     }
 
     .badge {
-      font-size: 9px;
+      font-size: 10px;
       font-weight: 800;
       background: var(--accent);
       color: #fff;
-      padding: 2px 8px;
-      border-radius: 10px;
+      padding: 3px 8px;
+      border-radius: 12px;
     }
 
     /* Config Panel */
@@ -106,6 +121,7 @@
       border-color: var(--accent);
     }
 
+    /* Buttons */
     .btn {
       width: 100%;
       padding: 10px;
@@ -117,6 +133,7 @@
       font-size: 11px;
       cursor: pointer;
       margin-top: 4px;
+      transition: 0.2s;
     }
 
     .btn:hover {
@@ -125,13 +142,20 @@
 
     .btn-danger {
       background: var(--danger);
+      color: white;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
     }
 
     .btn-sm {
       width: auto;
-      padding: 4px 10px;
-      font-size: 9px;
+      padding: 6px 12px;
+      font-size: 10px;
       margin: 0;
+      border-radius: 6px;
     }
 
     /* Jobs Panel */
@@ -143,40 +167,66 @@
       display: block;
     }
 
+    #jobs_list {
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    /* Scrollbar */
+    #jobs_list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #jobs_list::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+    }
+
+    #jobs_list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+
     .job-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+      position: relative;
     }
 
     .job-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
+      align-items: flex-start;
+      margin-bottom: 12px;
     }
 
     .job-source {
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 900;
       text-transform: uppercase;
       letter-spacing: 1px;
+      color: #fff;
+      display: block;
     }
 
     .job-id {
-      font-size: 9px;
+      font-size: 10px;
       color: var(--text-dim);
       font-family: monospace;
+      display: block;
+      margin-top: 2px;
     }
 
     .job-status {
       font-size: 9px;
       font-weight: 800;
       text-transform: uppercase;
-      padding: 2px 6px;
-      border-radius: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
     }
 
     .job-status.running {
@@ -185,46 +235,109 @@
     }
 
     .job-status.starting {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent);
+    }
+
+    .job-status.paused {
       background: rgba(245, 158, 11, 0.15);
       color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .job-status.failed {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+    }
+
+    .job-metrics {
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+
+    .metric-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .metric-label {
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-val {
+      font-weight: 700;
+      color: #fff;
+      max-width: 140px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: right;
+    }
+
+    .metric-val.hlt {
+      color: var(--accent);
+    }
+
+    .job-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
     }
 
     .empty-state {
       text-align: center;
-      padding: 24px;
-      color: var(--text-dim);
-      font-size: 11px;
-      font-weight: 700;
+      padding: 30px 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      border: 1px dashed rgba(255, 255, 255, 0.1);
     }
 
     .logs {
-      margin-top: 12px;
-      padding: 8px;
-      background: rgba(0, 0, 0, 0.3);
+      margin-top: 16px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.4);
       border-radius: 8px;
       font-size: 10px;
       color: var(--text-dim);
       font-family: monospace;
-      min-height: 30px;
+      min-height: 40px;
     }
 
-    .footer {
-      margin-top: 12px;
+    .footer-actions {
+      margin-top: 16px;
       display: flex;
       gap: 8px;
+      justify-content: center;
     }
   </style>
 </head>
 
 <body>
   <div class="header">
-    <h2>
-      <div class="dot" id="dot"></div> MDM Agent
-    </h2>
+    <div class="header-logo">
+      <div class="dot" id="dot"></div>
+      <img src="../icons/icon.png" alt="Logo" onerror="this.style.display='none'">
+      <h2>Automation Pulse</h2>
+    </div>
     <span class="badge" id="job_count">0 JOBS</span>
   </div>
 
-  <!-- Config Panel (shown when no connection) -->
+  <!-- Config Panel -->
   <div id="config_panel" class="show">
     <div class="form-group">
       <label>Render API URL</label>
@@ -237,19 +350,19 @@
     <button class="btn" id="save_btn">Save & Connect</button>
   </div>
 
-  <!-- Jobs Panel (shown when connected) -->
+  <!-- Jobs Panel -->
   <div id="jobs_panel">
     <div id="jobs_list">
-      <div class="empty-state">Polling for jobs...</div>
+      <div class="empty-state">No Active Jobs.</div>
     </div>
-    <div class="footer">
-      <button class="btn btn-success btn-sm" id="resume_btn" style="display:none; background: #10b981;">RESUME
-        CAPTCHA</button>
-      <button class="btn btn-danger btn-sm" id="abort_btn" style="display:none;">ABORT ALL</button>
+
+    <div class="footer-actions">
+      <button class="btn btn-danger btn-sm" id="abort_all_btn" style="display:none; width:100%;">ABORT ALL
+        SYSTEMS</button>
     </div>
   </div>
 
-  <div class="logs" id="logs">Extension loaded.</div>
+  <div class="logs" id="logs">Booting engine...</div>
 
   <script src="popup.js"></script>
 </body>

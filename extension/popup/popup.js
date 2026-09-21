@@ -4,18 +4,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveBtn = document.getElementById('save_btn');
     const logs = document.getElementById('logs');
     const dot = document.getElementById('dot');
+
     const configPanel = document.getElementById('config_panel');
     const jobsPanel = document.getElementById('jobs_panel');
     const jobsList = document.getElementById('jobs_list');
     const jobCount = document.getElementById('job_count');
-    const abortBtn = document.getElementById('abort_btn');
-    const resumeBtn = document.getElementById('resume_btn');
+
+    const abortAllBtn = document.getElementById('abort_all_btn');
 
     let connected = false;
 
     function log(msg) { logs.innerText = msg; }
 
-    // Load config
     chrome.storage.local.get(['apiUrl', 'apiKey'], (res) => {
         if (res.apiUrl) apiUrlInput.value = res.apiUrl;
         if (res.apiKey) apiKeyInput.value = res.apiKey;
@@ -26,36 +26,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const apiUrl = apiUrlInput.value.trim().replace(/\/$/, "");
         const apiKey = apiKeyInput.value.trim();
         chrome.storage.local.set({ apiUrl, apiKey }, () => {
-            log('Saved!');
+            log('Saved configured API route!');
             checkConnection();
         });
     });
 
-    if (abortBtn) {
-        abortBtn.addEventListener('click', () => {
-            if (confirm("ABORT ALL running jobs?")) {
+    if (abortAllBtn) {
+        abortAllBtn.addEventListener('click', () => {
+            if (confirm("EMERGENCY ABORT ALL running engine systems?")) {
                 chrome.runtime.sendMessage({ action: "abort_manual" });
-                log("All jobs aborted.");
+                log("Systems aborted natively.");
             }
-        });
-    }
-
-    if (resumeBtn) {
-        resumeBtn.addEventListener('click', () => {
-            chrome.runtime.sendMessage({ action: "resume_manual" }, (res) => {
-                if (res?.resumed) {
-                    log("Resuming from Captcha...");
-                    resumeBtn.style.display = 'none';
-                    pollStatus();
-                }
-            });
         });
     }
 
     async function checkConnection() {
         chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
             if (!c.apiUrl || !c.apiKey) return;
-            log('Connecting...');
+            log('Connecting orchestrator...');
             try {
                 const res = await fetch(`${c.apiUrl}/api/extension/config`, {
                     headers: { 'X-Extension-Key': c.apiKey }
@@ -65,16 +53,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     dot.classList.add('on');
                     configPanel.classList.remove('show');
                     jobsPanel.classList.add('show');
-                    log(`Connected! Polling for jobs...`);
+                    log(`Linked securely. Polling internal metrics...`);
                     chrome.runtime.sendMessage({ action: "start_polling" });
                     pollStatus();
                 } else {
                     dot.classList.remove('on');
-                    log(`Auth failed (HTTP ${res.status})`);
+                    log(`Auth failed remotely (HTTP ${res.status})`);
                 }
             } catch (err) {
                 dot.classList.remove('on');
-                log('Cannot reach API.');
+                log('API infrastructure not accessible.');
             }
         });
     }
@@ -86,36 +74,71 @@ document.addEventListener('DOMContentLoaded', () => {
             jobCount.innerText = `${jobs.length} JOB${jobs.length !== 1 ? 'S' : ''}`;
 
             if (jobs.length === 0) {
-                jobsList.innerHTML = '<div class="empty-state">Polling for jobs...</div>';
-                abortBtn.style.display = 'none';
+                jobsList.innerHTML = '<div class="empty-state">No active sequences running currently.</div>';
+                abortAllBtn.style.display = 'none';
             } else {
-                abortBtn.style.display = 'inline-block';
+                abortAllBtn.style.display = 'block';
+
                 jobsList.innerHTML = jobs.map(j => `
                     <div class="job-card">
                         <div class="job-header">
-                            <span class="job-source">${(j.source || 'unknown').toUpperCase()}</span>
-                            <span class="job-status ${j.status || 'running'}">${(j.status || 'running').toUpperCase()}</span>
+                            <div>
+                                <span class="job-source">${j.source}</span>
+                                <span class="job-id">ID: ${j.job_id}</span>
+                            </div>
+                            <span class="job-status ${j.status || 'starting'}">${j.status || 'STARTING'}</span>
                         </div>
-                        <div class="job-id">ID: ${j.job_id || '?'}</div>
+                        <div class="job-metrics">
+                            <div class="metric-row">
+                                <span class="metric-label">PHASE ACTIVITY</span>
+                                <span class="metric-val">${(j.phase || 'BOOTING').toUpperCase()}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span class="metric-label">CURRENT KEYWORD</span>
+                                <span class="metric-val hlt" title="${j.keyword ? j.keyword.replace(/"/g, '&quot;') : 'Wait...'}">${j.keyword || 'Wait...'}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span class="metric-label">RESULTS ISOLATED</span>
+                                <span class="metric-val">${j.results || 0} ITEMS</span>
+                            </div>
+                        </div>
+                        <div class="job-actions">
+                            ${j.status === 'paused' ?
+                        `<button class="btn btn-success btn-sm resume-job-btn" data-id="${j.job_id}">RESUME ENGINE</button>`
+                        : ''}
+                            <button class="btn btn-danger btn-sm abort-job-btn" data-id="${j.job_id}">ABORT</button>
+                        </div>
                     </div>
                 `).join('');
-            }
 
-            log(`Active: ${jobs.length} job(s) running.`);
+                // Attack live listeners
+                document.querySelectorAll('.resume-job-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const jid = e.target.getAttribute('data-id');
+                        log("Sending resume vector...");
+                        chrome.runtime.sendMessage({ action: "resume_manual" }, () => pollStatus());
+                    });
+                });
+
+                document.querySelectorAll('.abort-job-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const jid = e.target.getAttribute('data-id');
+                        if (confirm(`Abort specific target sequence [${jid}]?`)) {
+                            log(`Terminating ${jid}...`);
+                            chrome.runtime.sendMessage({ action: "abort_job", jobId: jid }, () => pollStatus());
+                        }
+                    });
+                });
+            }
         });
 
-        // Check if globally blocked by Captcha
         chrome.storage.local.get(['extensionState'], (data) => {
             if (data.extensionState && data.extensionState.blocked) {
-                if (resumeBtn) resumeBtn.style.display = 'inline-block';
-                log(`PAUSED: ${data.extensionState.blockReason || 'Captcha'}`);
-            } else {
-                if (resumeBtn) resumeBtn.style.display = 'none';
+                log(`STRUCTURAL BLOCK: ${data.extensionState.blockReason || 'Manual Check Needed'}`);
             }
         });
     }
 
-    // Auto-refresh every 2s
     setInterval(() => {
         if (connected) pollStatus();
     }, 2000);

@@ -147,7 +147,18 @@ export async function pollAndProcess() {
 }
 
 export async function resumeManualJob() {
+    console.log("[AGENT] Resuming global block...");
     await setExtensionState({ blocked: false, blockReason: null, lastError: null });
+
+    // Resurrect dead workflow threads natively
+    for (const [id, rt] of activeJobs.entries()) {
+        if (rt.status === 'paused') {
+            console.log(`[JOB][${id}] Restarting paused workflow loop...`);
+            await updateRuntimeState(id, { status: 'running' });
+            runWorkflowWrapper(rt);
+        }
+    }
+
     pollAndProcess();
 }
 
