@@ -1,4 +1,4 @@
-import { initializeJobManager, resumeManualJob, getState, pollAndProcess, failJob } from './core/job-manager.js';
+import { initializeJobManager, resumeManualJob, getActiveJobSummary, getAllActiveJobIds, pollAndProcess, failJob } from './core/job-manager.js';
 import { closeJobTab } from './core/tab-manager.js';
 
 const POLL_ALARM_NAME = "extension-job-poll";
@@ -41,18 +41,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         resumeManualJob();
         sendResponse({ resumed: true });
     } else if (request.action === "abort_manual") {
-        getState().then(async (job) => {
-            if (job) {
-                if (job.windowId) {
-                    await closeJobTab(job.windowId).catch(() => { });
-                }
-                await failJob("Aborted manually by operator on local laptop");
-                chrome.runtime.reload();
+        (async () => {
+            const jobIds = getAllActiveJobIds();
+            for (const jid of jobIds) {
+                await failJob(jid, "Aborted manually by operator on local laptop");
             }
-        });
+            chrome.runtime.reload();
+        })();
         sendResponse({ aborted: true });
     } else if (request.action === "get_status") {
-        getState().then(job => sendResponse({ job })).catch(e => sendResponse({ job: null }));
-        return true;
+        const job = getActiveJobSummary();
+        sendResponse({ job });
+        return false;
     }
 });

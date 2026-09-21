@@ -81,12 +81,47 @@ export async function initializeJobManager() {
 async function syncMapToStorage() {
     // Basic sync logic to ensure MV3 persistence survives organic teardowns
     const raw = {};
-    for (const [key, val] of activeJobs.entries()) { raw[key] = val; }
-    await chrome.storage.local.set({ activeJobsSync: raw });
+    let firstJob = null;
+    for (const [key, val] of activeJobs.entries()) {
+        raw[key] = val;
+        if (!firstJob) {
+            firstJob = {
+                job_id: val.jobId,
+                source: val.jobType,
+                phase: val.phase,
+                status: val.status,
+                keyword: (val.keywords && val.keywords[val.keywordIndex]) || null,
+                allResultsPhase1: val.allResultsPhase1 || [],
+                tabId: val.tabId
+            };
+        }
+    }
+    await chrome.storage.local.set({ activeJobsSync: raw, activeJob: firstJob });
 }
 
 export function getRuntime(jobId) {
     return activeJobs.get(jobId) || null;
+}
+
+// Bridge: returns the first active runtime (backward compat for popup UI)
+export function getActiveJobSummary() {
+    for (const [jobId, runtime] of activeJobs.entries()) {
+        return {
+            job_id: runtime.jobId,
+            source: runtime.jobType,
+            phase: runtime.phase,
+            status: runtime.status,
+            keyword: (runtime.keywords && runtime.keywords[runtime.keywordIndex]) || null,
+            allResultsPhase1: runtime.allResultsPhase1 || [],
+            tabId: runtime.tabId
+        };
+    }
+    return null;
+}
+
+// Returns all active job IDs for batch operations
+export function getAllActiveJobIds() {
+    return Array.from(activeJobs.keys());
 }
 
 export async function pollAndProcess() {
