@@ -127,34 +127,7 @@ export async function runTendersOnTimeWorkflow(job) {
 
                 let filterResult = null;
                 for (let i = 0; i < 3; i++) {
-                    const previousSigReq = await executeContentScript(tabInfo.tabId, "extract_listings");
-                    const previousFirst = (Array.isArray(previousSigReq) && previousSigReq.length > 0) ? previousSigReq[0].href : null;
-
                     filterResult = await executeContentScript(tabInfo.tabId, "click_filter_button", { keyword });
-
-                    if (filterResult && filterResult.clickId) {
-                        try {
-                            await chrome.scripting.executeScript({
-                                target: { tabId: tabInfo.tabId },
-                                world: "MAIN",
-                                func: (id) => { const el = document.getElementById(id); if (el) el.click(); },
-                                args: [filterResult.clickId]
-                            });
-                        } catch (e) { }
-
-                        // Verification spin waiting for AJAX load
-                        for (let x = 0; x < 20; x++) {
-                            await sleep(1000);
-                            const check = await executeContentScript(tabInfo.tabId, "extract_listings");
-                            if (check && check.status === "cloudflare") break;
-                            if (Array.isArray(check) && check.length === 0) {
-                                const pageCheck = await executeContentScript(tabInfo.tabId, "check_page_available");
-                                if (pageCheck && pageCheck.hasNoResultsText) break;
-                            }
-                            const newFirst = (Array.isArray(check) && check.length > 0) ? check[0].href : null;
-                            if (newFirst && newFirst !== previousFirst) break;
-                        }
-                    }
                     if (filterResult?.clicked && filterResult?.verified) break;
                     await sleep(1500);
                 }
@@ -186,29 +159,6 @@ export async function runTendersOnTimeWorkflow(job) {
 
                     const nextResult = await executeContentScript(tabInfo.tabId, "click_next_page");
                     if (!nextResult || !nextResult.clicked || !nextResult.changed) break;
-
-                    if (nextResult.clickId) {
-                        const previousSigReq = await executeContentScript(tabInfo.tabId, "extract_listings");
-                        const previousFirst = (Array.isArray(previousSigReq) && previousSigReq.length > 0) ? previousSigReq[0].href : null;
-
-                        try {
-                            await chrome.scripting.executeScript({
-                                target: { tabId: tabInfo.tabId },
-                                world: "MAIN",
-                                func: (id) => { const el = document.getElementById(id); if (el) el.click(); },
-                                args: [nextResult.clickId]
-                            });
-                        } catch (e) { }
-
-                        // Ensure DOM swapped before progressing
-                        for (let x = 0; x < 15; x++) {
-                            await sleep(800);
-                            const check = await executeContentScript(tabInfo.tabId, "extract_listings");
-                            const newFirst = (Array.isArray(check) && check.length > 0) ? check[0].href : null;
-                            if (newFirst !== previousFirst) break;
-                        }
-                        await sleep(1000);
-                    }
 
                     const expectedPage = pageNum + 1;
                     const actualPage = nextResult.pageNumber;

@@ -138,9 +138,25 @@ async function clickFilterButton(keyword) {
     const beforeUrl = location.href;
     const beforeText = document.body?.innerText || '';
 
-    if (!target.id) target.id = `mdm-filter-${Date.now()}`;
-    console.log('[TENDER FILTER MAPPED]', { keyword, selector: target.outerHTML.slice(0, 500) });
-    return { success: true, clicked: true, verified: true, reason: 'mapped_bounced', clickId: target.id };
+    // Dispatch a real mouse sequence first; many Angular/jQuery handlers listen for it.
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+        target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+    }
+
+    // Native click fallback, but never navigate an ordinary anchor accidentally.
+    if (target.tagName !== 'A' || /^javascript:/i.test(target.getAttribute('href') || '')) target.click();
+
+    console.log('[TENDER FILTER CLICKED]', { keyword, selector: target.outerHTML.slice(0, 500) });
+
+    // Accept one/two results. Only wait for the site to react, not for a minimum count.
+    for (let i = 0; i < 25; i++) {
+        await sleep(500);
+        const text = document.body?.innerText || '';
+        const changed = text !== beforeText || location.href !== beforeUrl || document.querySelectorAll('div.listingbox, div.listingbox.ng-scope, div.tender-item').length > 0;
+        const noResults = /no results|no records|no tenders|no data found|0 results/i.test(text);
+        if (changed || noResults) return { success: true, clicked: true, verified: true, reason: noResults ? 'no_results' : 'filter_reacted', target: target.outerHTML.slice(0, 500) };
+    }
+    return { success: true, clicked: true, verified: true, reason: 'click_sent', target: target.outerHTML.slice(0, 500) };
 }
 async function extractListings() {
     if (document.title.includes("Just a moment") ||
@@ -290,8 +306,71 @@ async function clickNextPage() {
         return { clicked: false, changed: false, reason: "next_button_not_found" };
     }
 
-    if (!btn.id) btn.id = `mdm-next-${Date.now()}`;
-    console.log("[NEXT CLICK MAPPED]", { href: btn.href, id: btn.id });
+    const beforeSignature = getListingSignature();
 
-    return { clicked: true, changed: true, clickId: btn.id, pageNumber: parseInt(getCurrentPageNumber() || '0') + 1 };
+    console.log("[NEXT CLICK TARGET]", {
+        text: btn.innerText?.trim(),
+        href: btn.href || null,
+        className: btn.className,
+        visible: !!(btn.offsetWidth || btn.offsetHeight || btn.getClientRects().length),
+        outerHTML: btn.outerHTML.slice(0, 1000)
+    });
+
+    console.log("[BEFORE NEXT]", {
+        signature: beforeSignature,
+        activePage: getCurrentPageNumber(),
+        url: location.href
+    });
+
+    btn.scrollIntoView({ behavior: "instant", block: "center" });
+    btn.click();
+
+    // Explicit buffer to allow pagination AJAX to start clearing old DOM
+    await new Promise(resolve => setTimeout(resolve, 2500));
+
+    let lastSignature = null;
+    let stableCount = 0;
+
+    for (let attempt = 0; attempt < 40; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
+
+        if (!items || items.length === 0) continue;
+
+        const currentSignature = getListingSignature();
+
+        if (currentSignature && currentSignature !== beforeSignature) {
+            if (currentSignature === lastSignature) {
+                stableCount++;
+            } else {
+                lastSignature = currentSignature;
+                stableCount = 1;
+            }
+
+            if (stableCount >= 2) {
+                console.log("[AFTER NEXT]", {
+                    signature: currentSignature,
+                    activePage: getCurrentPageNumber(),
+                    url: location.href
+                });
+
+                return {
+                    clicked: true,
+                    changed: true,
+                    beforeSignature,
+                    afterSignature: currentSignature,
+                    pageNumber: getCurrentPageNumber()
+                };
+            }
+        }
+    }
+
+    return {
+        clicked: true,
+        changed: false,
+        reason: "new_page_did_not_stabilize",
+        beforeSignature,
+        pageNumber: getCurrentPageNumber()
+    };
 }
