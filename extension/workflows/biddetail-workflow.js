@@ -13,11 +13,13 @@ export async function runBidDetailWorkflow(runtime) {
     console.log(`[BidDetailTrace] source detected: ${runtime.source || 'undefined'}`);
     console.log(`[BidDetailTrace] job ID: ${runtime.job_id || 'undefined'}`);
     console.log(`[BidDetailTrace] job status: ${runtime.status || 'undefined'}`);
-    
+
 
     if (!runtime.tabId || !runtime.windowId) {
         tabInfo = await createJobTab(runtime);
-        await updateRuntimeState(runtime.jobId, { tabId: runtime.tabId, windowId: runtime.windowId });
+        await updateRuntimeState(runtime.jobId, { tabId: tabInfo.tabId, windowId: tabInfo.windowId });
+        runtime.tabId = tabInfo.tabId;
+        runtime.windowId = tabInfo.windowId;
     }
 
     try {

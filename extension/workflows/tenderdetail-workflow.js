@@ -12,7 +12,9 @@ export async function runTenderDetailWorkflow(runtime) {
 
     if (!runtime.tabId || !runtime.windowId) {
         tabInfo = await createJobTab(runtime);
-        await updateRuntimeState(runtime.jobId, { tabId: runtime.tabId, windowId: runtime.windowId });
+        await updateRuntimeState(runtime.jobId, { tabId: tabInfo.tabId, windowId: tabInfo.windowId });
+        runtime.tabId = tabInfo.tabId;
+        runtime.windowId = tabInfo.windowId;
     }
 
     try {
