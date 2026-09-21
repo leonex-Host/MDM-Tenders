@@ -135,9 +135,12 @@ def start_scraper(
     import os
     source_normalized = str(source or "").strip().lower()
     EXTENSION_SOURCES = {"tenderontime", "tender247", "tenderdetail", "gem", "biddetail"}
-    execution_mode = os.getenv("SCRAPER_EXECUTION_MODE", "extension").strip().lower()
+    
+    is_render = os.getenv("RENDER") is not None
+    default_mode = "extension" if is_render else "playwright"
+    execution_mode = os.getenv("SCRAPER_EXECUTION_MODE", default_mode).strip().lower()
 
-    if source_normalized in EXTENSION_SOURCES and (execution_mode == "extension" or os.getenv("RENDER") is not None):
+    if source_normalized in EXTENSION_SOURCES and execution_mode == "extension":
         from app.api.extension_api import _pending_jobs
         
         db_s = SessionLocal()
