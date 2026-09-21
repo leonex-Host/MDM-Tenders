@@ -1,4 +1,4 @@
-import { updateJobState, setManualActionRequired, finishJob, enqueueUpload } from '../core/job-manager.js';
+import { updateRuntimeState, setManualActionRequired, finishJob, enqueueUpload } from '../core/job-manager.js';
 import { createJobTab, navigateAndWait, executeContentScript, closeJobTab, waitForComplete } from '../core/tab-manager.js';
 
 function googleSearchUrl(keyword, page) {
@@ -21,51 +21,51 @@ async function checkChallenge(tabId) {
     return false;
 }
 
-export async function runGoogleWorkflow(job) {
-    const keywords = job.keywords || [];
-    let allMap = new Map((job.allResultsPhase1 || []).map(r => [canonicalUrl(r.href), r]));
-    let filtered = job.kwResults || [];
+export async function runGoogleWorkflow(runtime) {
+    const keywords = runtime.keywords || [];
+    let allMap = new Map((runtime.allResultsPhase1 || []).map(r => [canonicalUrl(r.href), r]));
+    let filtered = runtime.kwResults || [];
 
-    let tabInfo = { tabId: job.tabId, windowId: job.windowId };
-    if (!job.tabId || !job.windowId) {
-        tabInfo = await createJobTab(job);
-        await updateJobState({ tabId: tabInfo.tabId, windowId: tabInfo.windowId });
+    let tabInfo = { tabId: runtime.tabId, windowId: runtime.windowId };
+    if (!runtime.tabId || !runtime.windowId) {
+        tabInfo = await createJobTab(runtime);
+        await updateRuntimeState(runtime.jobId, { tabId: runtime.tabId, windowId: runtime.windowId });
     }
 
     try {
-        let phase = job.phase || 'search';
+        let phase = runtime.phase || 'search';
         let challengePaused = false;
 
         try {
             // Phase 1: Search URLs
             if (phase === 'search') {
-                let kwIndex = job.currentKeywordIndex || 0;
-                let page = job.currentPage || 0;
+                let kwIndex = runtime.currentKeywordIndex || 0;
+                let page = runtime.currentPage || 0;
 
                 for (; kwIndex < keywords.length; kwIndex++) {
                     const keyword = keywords[kwIndex];
-                    await updateJobState({ currentKeywordIndex: kwIndex, keyword });
+                    await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword });
 
                     for (; page < 7; page++) {
-                        await updateJobState({ currentPage: page });
+                        await updateRuntimeState(runtime.jobId, { currentPage: page });
 
-                        let url = job.pausedUrl || googleSearchUrl(keyword, page);
-                        await navigateAndWait(tabInfo.tabId, url);
-                        await updateJobState({ pausedUrl: null });
+                        let url = runtime.pausedUrl || googleSearchUrl(keyword, page);
+                        await navigateAndWait(runtime.tabId, url);
+                        await updateRuntimeState(runtime.jobId, { pausedUrl: null });
 
-                        if (await checkChallenge(tabInfo.tabId)) {
-                            const u = (await chrome.tabs.get(tabInfo.tabId)).url;
-                            await setManualActionRequired("Google Captcha Detected", u);
+                        if (await checkChallenge(runtime.tabId)) {
+                            const u = (await chrome.tabs.get(runtime.tabId)).url;
+                            await setManualActionRequired(runtime.jobId, "Google Captcha Detected", u);
                             throw new Error("CHALLENGE_PAUSED");
                         }
 
-                        const tabData = await chrome.tabs.get(tabInfo.tabId);
+                        const tabData = await chrome.tabs.get(runtime.tabId);
                         if (tabData.url && tabData.url.toLowerCase().includes("/sorry/")) {
-                            await setManualActionRequired("Google Captcha Detected", tabData.url);
+                            await setManualActionRequired(runtime.jobId, "Google Captcha Detected", tabData.url);
                             throw new Error("CHALLENGE_PAUSED");
                         }
 
-                        const data = await executeContentScript(tabInfo.tabId, "extract_listings");
+                        const data = await executeContentScript(runtime.tabId, "extract_listings");
                         const listings = Array.isArray(data) ? data : (data?.listings || []);
 
                         for (const item of listings) {
@@ -75,46 +75,46 @@ export async function runGoogleWorkflow(job) {
                                 allMap.set(key, { ...item, keyword, search_keyword: keyword, google_page: page + 1, result_type: "all" });
                             }
                         }
-                        await updateJobState({ allResultsPhase1: [...allMap.values()] });
+                        await updateRuntimeState(runtime.jobId, { allResultsPhase1: [...allMap.values()] });
                     }
                     page = 0; // reset page array for next keyword
                 }
 
                 const allResults = [...allMap.values()];
-                if (allResults.length > 0 && !job.phase1Uploaded) {
-                    await enqueueUpload({ source: "google", keyword: "ALL", result_type: "all", results: allResults, tenders: allResults });
-                    await updateJobState({ phase1Uploaded: true });
+                if (allResults.length > 0 && !runtime.phase1Uploaded) {
+                    await enqueueUpload(runtime.jobId, { source: "google", keyword: "ALL", result_type: "all", results: allResults, tenders: allResults });
+                    await updateRuntimeState(runtime.jobId, { phase1Uploaded: true });
                 }
 
-                await updateJobState({ phase: 'details', currentDetailIndex: 0, kwResults: [] });
+                await updateRuntimeState(runtime.jobId, { phase: 'details', currentDetailIndex: 0, kwResults: [] });
                 phase = 'details';
             }
 
             // Phase 2: Details URLs
             if (phase === 'details') {
                 const allResults = [...allMap.values()];
-                let currentDetailIndex = job.currentDetailIndex || 0;
+                let currentDetailIndex = runtime.currentDetailIndex || 0;
 
                 for (; currentDetailIndex < allResults.length; currentDetailIndex++) {
-                    await updateJobState({ currentDetailIndex, kwResults: filtered });
+                    await updateRuntimeState(runtime.jobId, { currentDetailIndex, kwResults: filtered });
                     const item = allResults[currentDetailIndex];
 
                     let targetUrl = item.href;
-                    if (job.pausedUrl) { targetUrl = job.pausedUrl; await updateJobState({ pausedUrl: null }); }
+                    if (runtime.pausedUrl) { targetUrl = runtime.pausedUrl; await updateRuntimeState(runtime.jobId, { pausedUrl: null }); }
 
-                    await navigateAndWait(tabInfo.tabId, targetUrl, 120000);
+                    await navigateAndWait(runtime.tabId, targetUrl, 120000);
 
-                    const detail = await executeContentScript(tabInfo.tabId, "extract_details", { keyword: item.keyword });
+                    const detail = await executeContentScript(runtime.tabId, "extract_details", { keyword: item.keyword });
                     if (detail?.found) {
                         filtered.push({ ...item, ...detail, result_type: "filtered" });
                     }
                 }
 
-                if (filtered.length > 0 && !job.phase2Uploaded) {
-                    await enqueueUpload({ source: "google", keyword: "ALL", result_type: "filtered", results: filtered, tenders: filtered });
-                    await updateJobState({ phase2Uploaded: true });
+                if (filtered.length > 0 && !runtime.phase2Uploaded) {
+                    await enqueueUpload(runtime.jobId, { source: "google", keyword: "ALL", result_type: "filtered", results: filtered, tenders: filtered });
+                    await updateRuntimeState(runtime.jobId, { phase2Uploaded: true });
                 }
-                await finishJob(filtered.length, { total_all: allResults.length, total_filtered: filtered.length });
+                await finishJob(runtime.jobId, filtered.length, { total_all: allResults.length, total_filtered: filtered.length });
             }
 
         } catch (e) {
@@ -122,8 +122,8 @@ export async function runGoogleWorkflow(job) {
             throw e;
         } finally {
             if (!challengePaused) {
-                await closeJobTab(tabInfo.tabId);
-                await updateJobState({ tabId: null, windowId: null });
+                await closeJobTab(runtime.tabId);
+                await updateRuntimeState(runtime.jobId, { tabId: null, windowId: null });
             }
         }
     } catch (outer) {

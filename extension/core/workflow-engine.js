@@ -6,31 +6,31 @@ import { runTenderDetailWorkflow } from '../workflows/tenderdetail-workflow.js';
 import { runGemWorkflow } from '../workflows/gem-workflow.js';
 import { failJob } from './job-manager.js';
 
-export async function runWorkflow(job) {
-    const source = (job.source || "tenderontime").toLowerCase();
+export async function runWorkflow(runtime) {
+    const source = (runtime.jobType || runtime.source || "tenderontime").toLowerCase();
 
     switch (source) {
         case 'google':
-            await runGoogleWorkflow(job);
+            await runGoogleWorkflow(runtime);
             break;
         case 'tenderontime':
-            await runTendersOnTimeWorkflow(job);
+            await runTendersOnTimeWorkflow(runtime);
             break;
         case 'tender247':
-            await runTender247Workflow(job);
+            await runTender247Workflow(runtime);
             break;
         case 'biddetail':
-            await runBidDetailWorkflow(job);
+            await runBidDetailWorkflow(runtime);
             break;
         case 'tenderdetail':
-            await runTenderDetailWorkflow(job);
+            await runTenderDetailWorkflow(runtime);
             break;
         case 'gem':
-            await runGemWorkflow(job);
+            await runGemWorkflow(runtime);
             break;
         default:
-            console.error("Unsupported source:", source);
-            await failJob(`Unsupported workflow source: ${source}`);
+            console.error(`[JOB][${runtime.jobId}] Unsupported source:`, source);
+            await failJob(runtime.jobId, `Unsupported workflow source: ${source}`);
             break;
     }
 }

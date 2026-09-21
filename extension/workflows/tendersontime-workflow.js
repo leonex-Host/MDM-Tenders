@@ -1,4 +1,4 @@
-import { updateJobState, setManualActionRequired, finishJob, enqueueUpload } from '../core/job-manager.js';
+import { updateRuntimeState, setManualActionRequired, finishJob, enqueueUpload } from '../core/job-manager.js';
 import { createJobTab, navigateAndWait, executeContentScript, closeJobTab, waitForComplete } from '../core/tab-manager.js';
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -14,7 +14,7 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
         const pageCheck = await executeContentScript(tabId, "check_page_available");
 
         if (pageCheck && pageCheck.cloudflareActive) {
-            console.warn("[TOT][CLOUDFLARE] Cloudflare detected dynamically during wait.");
+            console.warn("[TOT][${runtime.jobId}][${runtime.tabId}] CLOUDFLARE Cloudflare detected dynamically during wait.");
             return { ready: false, isChallenge: true, reason: 'Cloudflare' };
         }
 
@@ -32,7 +32,7 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
             : tabInfo.url.includes("advancesearch");
 
         if (isExpected && pageCheck.pageAvailable) {
-            console.log("[TOT][PAGE_READY] Expected advanced search environment perfectly confirmed.");
+            console.log("[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_READY Expected advanced search environment perfectly confirmed.");
             await sleep(1500);
             return { ready: true, isChallenge: false, pageCheck };
         }
@@ -58,7 +58,7 @@ async function waitUntilListingsReady(tabId) {
             await sleep(1000); continue;
         }
         if (listingData.status === "cloudflare") {
-            console.warn("[TOT][CLOUDFLARE] Block intercepted organically within items block.");
+            console.warn("[TOT][${runtime.jobId}][${runtime.tabId}] CLOUDFLARE Block intercepted organically within items block.");
             return { isChallenge: true, reason: 'Cloudflare' };
         }
         if (Array.isArray(listingData)) {
@@ -86,24 +86,26 @@ async function waitUntilListingsReady(tabId) {
     return { status: "timeout" };
 }
 
-export async function runTendersOnTimeWorkflow(job) {
-    let kwIndex = job.currentKeywordIndex || 0;
-    const keywords = job.keywords || [];
-    const maxPages = job.max_pages || 7;
-    let allMatchesCount = job.resultsCollected || 0;
+export async function runTendersOnTimeWorkflow(runtime) {
+    let kwIndex = runtime.currentKeywordIndex || 0;
+    const keywords = runtime.keywords || [];
+    const maxPages = runtime.max_pages || 7;
+    let allMatchesCount = runtime.resultsCollected || 0;
 
-    let tabInfo = { tabId: job.tabId, windowId: job.windowId };
+    let tabInfo = { tabId: runtime.tabId, windowId: runtime.windowId };
     try {
-        if (!job.tabId || !job.windowId) {
-            tabInfo = await createJobTab(job);
-            await updateJobState({ tabId: tabInfo.tabId, windowId: tabInfo.windowId });
+        if (!runtime.tabId) {
+            tabInfo = await createJobTab(runtime);
+            await updateRuntimeState(runtime.jobId, { tabId: tabInfo.tabId, windowId: tabInfo.windowId });
+            runtime.tabId = tabInfo.tabId;
         } else {
             // Re-verify if tab exists after resume
             try {
-                await chrome.tabs.get(tabInfo.tabId);
+                await chrome.tabs.get(runtime.tabId);
             } catch (e) {
-                tabInfo = await createJobTab(job);
-                await updateJobState({ tabId: tabInfo.tabId, windowId: tabInfo.windowId });
+                tabInfo = await createJobTab(runtime);
+                await updateRuntimeState(runtime.jobId, { tabId: tabInfo.tabId, windowId: tabInfo.windowId });
+                runtime.tabId = tabInfo.tabId;
             }
         }
     } catch (e) { throw e; }
@@ -116,67 +118,67 @@ export async function runTendersOnTimeWorkflow(job) {
             const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
 
             // Allow resuming from a specific phase
-            let phase = job.phase || 'search';
-            let allListings = job.allListings || [];
-            let pageNum = job.currentPage || 1;
+            let phase = runtime.phase || 'search';
+            let allListings = runtime.allListings || [];
+            let pageNum = runtime.currentPage || 1;
 
-            console.log(`[TOT][KEYWORD_START] ${keyword}`);
+            console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] KEYWORD_START ${keyword}`);
 
             if (phase === 'search' || phase === 'list_collection') {
-                await updateJobState({ currentKeywordIndex: kwIndex, keyword, phase: 'search' });
+                await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword, phase: 'search' });
 
                 let navigationResult = null;
-                if (job.pausedUrl) {
-                    console.log(`[TOT][NAVIGATION] ${job.pausedUrl}`);
-                    navigationResult = await navigateAndWait(tabInfo.tabId, job.pausedUrl);
-                    await updateJobState({ pausedUrl: null });
+                if (runtime.pausedUrl) {
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] NAVIGATION_START ${runtime.pausedUrl}`);
+                    navigationResult = await navigateAndWait(runtime.tabId, runtime.pausedUrl);
+                    await updateRuntimeState(runtime.jobId, { pausedUrl: null });
                 } else {
-                    console.log(`[TOT][NAVIGATION] ${searchUrl}`);
-                    navigationResult = await navigateAndWait(tabInfo.tabId, searchUrl);
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] NAVIGATION_START ${searchUrl}`);
+                    navigationResult = await navigateAndWait(runtime.tabId, searchUrl);
                 }
 
                 if (!navigationResult) {
-                    console.warn(`[TOT][NAVIGATION_FAILED] keyword="${keyword}" failed. Skipping.`);
+                    console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] NAVIGATION_FAILED keyword="${keyword}" failed. Skipping.`);
                     continue;
                 }
-                console.log(`[TOT][STATE] NAVIGATION_COMPLETE keyword="${keyword}"`);
+                console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] NAVIGATION_COMPLETE keyword="${keyword}"`);
 
-                const pageReady = await waitUntilPageAvailable(tabInfo.tabId, { isGoogle: false }, keyword);
-                console.log(`[TOT][STATE] PAGE_CHECK keyword="${keyword}" ready=${pageReady.ready}`);
+                const pageReady = await waitUntilPageAvailable(runtime.tabId, { isGoogle: false }, keyword);
+                console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_CHECK keyword="${keyword}" ready=${pageReady.ready}`);
 
                 if (pageReady.isChallenge) {
-                    console.warn(`[TOT][CLOUDFLARE] Suspended keyword processing natively -> ${keyword}`);
-                    const u = (await chrome.tabs.get(tabInfo.tabId)).url;
-                    await setManualActionRequired('Cloudflare/Captcha Block', u);
+                    console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] CLOUDFLARE Suspended keyword processing natively -> ${keyword}`);
+                    const u = (await chrome.tabs.get(runtime.tabId)).url;
+                    await setManualActionRequired(runtime.jobId, 'Cloudflare/Captcha Block', u);
                     throw new Error("CHALLENGE_PAUSED");
                 }
                 if (!pageReady.ready) {
-                    console.error(`[TOT][ERROR] Fatal wait condition failed unconditionally on keyword: ${keyword}. Skipping bounds.`);
+                    console.error(`[TOT][${runtime.jobId}][${runtime.tabId}] ERROR Fatal wait condition failed unconditionally on keyword: ${keyword}. Skipping bounds.`);
                     continue;
                 }
 
-                console.log(`[TOT][STATE] FILTER_ACTION_START keyword="${keyword}"`);
-                let filterResult = await executeContentScript(tabInfo.tabId, "click_filter_button", { keyword });
-                console.log(`[TOT][STATE] FILTER_ACTION_RETURNED keyword="${keyword}" result=${JSON.stringify(filterResult || {})}`);
+                console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] FILTER_ACTION_START keyword="${keyword}"`);
+                let filterResult = await executeContentScript(runtime.tabId, "click_filter_button", { keyword });
+                console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] FILTER_ACTION_RETURNED keyword="${keyword}" result=${JSON.stringify(filterResult || {})}`);
 
                 if (!filterResult?.clicked) {
-                    console.warn(`[TOT][FILTER_FAILED] exact filter button not found`);
+                    console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] FILTER_FAILED exact filter button not found`);
                     continue;
                 }
 
                 // Result readiness now verified separately!
 
-                await updateJobState({ phase: 'list_collection' });
+                await updateRuntimeState(runtime.jobId, { phase: 'list_collection' });
 
                 while (pageNum <= maxPages) {
-                    console.log(`[TOT][STATE] LISTING_WAIT_START keyword="${keyword}"`);
-                    console.log(`[TOT][PAGINATION] Actively scraping page coordinate index [${pageNum}/${maxPages}]`);
-                    await updateJobState({ currentPage: pageNum });
-                    const result = await waitUntilListingsReady(tabInfo.tabId);
-                    console.log(`[TOT][STATE] LISTING_WAIT_RETURNED keyword="${keyword}" status="${result.status}"`);
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] LISTING_WAIT_START keyword="${keyword}"`);
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGINATION Actively scraping page coordinate index [${pageNum}/${maxPages}]`);
+                    await updateRuntimeState(runtime.jobId, { currentPage: pageNum });
+                    const result = await waitUntilListingsReady(runtime.tabId);
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] LISTING_WAIT_RETURNED keyword="${keyword}" status="${result.status}"`);
                     if (result.isChallenge) {
-                        const u = (await chrome.tabs.get(tabInfo.tabId)).url;
-                        await setManualActionRequired('Cloudflare/Captcha Block at Listings', u);
+                        const u = (await chrome.tabs.get(runtime.tabId)).url;
+                        await setManualActionRequired(runtime.jobId, 'Cloudflare/Captcha Block at Listings', u);
                         throw new Error("CHALLENGE_PAUSED");
                     }
 
@@ -189,81 +191,81 @@ export async function runTendersOnTimeWorkflow(job) {
                         }
                     }
 
-                    await updateJobState({ allListings });
+                    await updateRuntimeState(runtime.jobId, { allListings });
 
                     if (pageNum >= maxPages) break;
 
-                    const nextResult = await executeContentScript(tabInfo.tabId, "click_next_page");
+                    const nextResult = await executeContentScript(runtime.tabId, "click_next_page");
                     if (!nextResult || !nextResult.clicked || !nextResult.changed) {
-                        console.warn(`[TOT][ERROR] Next click natively failed or duplicate bounds detected organically.`);
+                        console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] ERROR Next click natively failed or duplicate bounds detected organically.`);
                         break;
                     }
 
                     const expectedPage = pageNum + 1;
                     const actualPage = nextResult.pageNumber;
                     if (actualPage && parseInt(actualPage, 10) !== expectedPage) {
-                        console.warn(`[TOT][ERROR] Pagination sequence mismatch. Expected ${expectedPage}, read ${actualPage}. Exiting slice bounds.`);
+                        console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] ERROR Pagination sequence mismatch. Expected ${expectedPage}, read ${actualPage}. Exiting slice bounds.`);
                         break;
                     }
-                    console.log(`[TOT][PAGE_CHANGED] Successfully traversed into native iteration loop ${actualPage}.`);
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_CHANGED Successfully traversed into native iteration loop ${actualPage}.`);
 
                     pageNum++;
                 }
 
                 // Transition to details phase
-                await updateJobState({ phase: 'details', currentDetailIndex: 0, kwResults: [] });
+                await updateRuntimeState(runtime.jobId, { phase: 'details', currentDetailIndex: 0, kwResults: [] });
                 phase = 'details';
             }
 
             if (phase === 'details') {
-                let currentDetailIndex = job.currentDetailIndex || 0;
-                let kwResults = job.kwResults || [];
+                let currentDetailIndex = runtime.currentDetailIndex || 0;
+                let kwResults = runtime.kwResults || [];
 
                 for (; currentDetailIndex < allListings.length; currentDetailIndex++) {
-                    await updateJobState({ currentDetailIndex, kwResults });
+                    await updateRuntimeState(runtime.jobId, { currentDetailIndex, kwResults });
                     const item = allListings[currentDetailIndex];
                     if (!item.href) continue;
 
                     let targetUrl = item.href;
-                    if (job.pausedUrl) {
-                        targetUrl = job.pausedUrl;
-                        await updateJobState({ pausedUrl: null });
+                    if (runtime.pausedUrl) {
+                        targetUrl = runtime.pausedUrl;
+                        await updateRuntimeState(runtime.jobId, { pausedUrl: null });
                     }
 
-                    console.log(`[TOT][DETAIL] Fetching specific document signature... ${currentDetailIndex + 1}/${allListings.length}`);
-                    await navigateAndWait(tabInfo.tabId, targetUrl);
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] DETAIL Fetching specific document signature... ${currentDetailIndex + 1}/${allListings.length}`);
+                    await navigateAndWait(runtime.tabId, targetUrl);
                     await sleep(2000);
 
                     // check Challenge manually for detail
-                    const chk = await executeContentScript(tabInfo.tabId, "check_page_available");
+                    const chk = await executeContentScript(runtime.tabId, "check_page_available");
                     if (chk?.cloudflareActive) {
-                        console.warn("[TOT][CLOUDFLARE] Block intersected organically mapping isolated document detail layout.");
-                        const u = (await chrome.tabs.get(tabInfo.tabId)).url;
-                        await setManualActionRequired('Cloudflare/Captcha Block at Details', u);
+                        console.warn("[TOT][${runtime.jobId}][${runtime.tabId}] CLOUDFLARE Block intersected organically mapping isolated document detail layout.");
+                        const u = (await chrome.tabs.get(runtime.tabId)).url;
+                        await setManualActionRequired(runtime.jobId, 'Cloudflare/Captcha Block at Details', u);
                         throw new Error("CHALLENGE_PAUSED");
                     }
 
-                    const detailData = await executeContentScript(tabInfo.tabId, "extract_details", { keyword });
+                    const detailData = await executeContentScript(runtime.tabId, "extract_details", { keyword });
                     if (detailData && detailData.found) {
                         kwResults.push({ ...item, ...detailData });
                     }
                 }
 
-                if (kwResults.length > 0 && !job.uploadedBatch) {
-                    console.log(`[TOT][UPLOAD] Queuing batch transfer matrix containing ${kwResults.length} records...`);
-                    await enqueueUpload({ source: "tenderontime", keyword: keyword, tenders: kwResults });
+                if (kwResults.length > 0 && !runtime.uploadedBatch) {
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] UPLOAD Queuing batch transfer matrix containing ${kwResults.length} records...`);
+                    await enqueueUpload(runtime.jobId, { source: "tenderontime", keyword: keyword, tenders: kwResults });
                     allMatchesCount += kwResults.length;
-                    await updateJobState({ uploadedBatch: true, resultsCollected: allMatchesCount });
+                    await updateRuntimeState(runtime.jobId, { uploadedBatch: true, resultsCollected: allMatchesCount });
                 }
             }
 
-            console.log(`[TOT][STATE] KEYWORD_COMPLETE keyword="${keyword}"`);
+            console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] KEYWORD_COMPLETE keyword="${keyword}"`);
             if (kwIndex < keywords.length - 1) {
-                console.log(`[TOT][STATE] KEYWORD_NEXT keyword="${keywords[kwIndex + 1]}"`);
+                console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] KEYWORD_NEXT keyword="${keywords[kwIndex + 1]}"`);
             }
 
             // reset for next keyword
-            await updateJobState({
+            await updateRuntimeState(runtime.jobId, {
                 phase: 'search',
                 currentPage: 1,
                 allListings: [],
@@ -275,16 +277,16 @@ export async function runTendersOnTimeWorkflow(job) {
             await sleep(2000);
         }
 
-        console.log(`[TOT][JOB_COMPLETE] Unambiguously terminating current operation structurally natively! Records matched: ${allMatchesCount}`);
-        await finishJob(allMatchesCount, {});
+        console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] JOB_COMPLETE Unambiguously terminating current operation structurally natively! Records matched: ${allMatchesCount}`);
+        await finishJob(runtime.jobId, allMatchesCount, {});
 
     } catch (e) {
         if (e && e.message === "CHALLENGE_PAUSED") challengePaused = true;
         throw e;
     } finally {
         if (!challengePaused) {
-            await closeJobTab(tabInfo.tabId);
-            await updateJobState({ tabId: null, windowId: null });
+            await closeJobTab(runtime.tabId);
+            await updateRuntimeState(runtime.jobId, { tabId: null });
         }
     }
 }

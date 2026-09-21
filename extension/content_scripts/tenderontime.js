@@ -144,12 +144,18 @@ async function clickFilterButton(keyword) {
     target.scrollIntoView({ block: 'center', inline: 'center' });
     target.focus();
 
-    for (const type of ['mousedown', 'mouseup', 'click']) {
-        target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
-    }
-    if (target.tagName !== 'A' || /^javascript:/i.test(target.getAttribute('href') || '')) target.click();
+    // Execute the click inside the MAIN world to force the native AJAX handler structurally
+    const script = document.createElement("script");
+    script.textContent = `
+        try {
+            const btn = document.querySelector("button.search-btn[onclick*='filterTendersJS']") || document.querySelector("[onclick*='filterTendersJS']");
+            if (btn) btn.click();
+        } catch(e) {}
+    `;
+    (document.head || document.documentElement).appendChild(script);
+    script.remove();
 
-    console.log('[TOT][FILTER_CLICKED] Physical native DOM target activated.');
+    console.log('[TOT][FILTER_CLICKED] Physical native DOM target activated via inline MAIN world execution.');
 
     return { clicked: true, verified: false, reason: 'filter_clicked' };
 }

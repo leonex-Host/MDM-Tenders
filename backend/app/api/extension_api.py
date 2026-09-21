@@ -87,6 +87,8 @@ def start_extension_job(job_id: str, _key=Depends(_validate_extension_key)):
     """Extension signals that it has picked up and started a job."""
     for job in _pending_jobs:
         if job["job_id"] == job_id:
+            if job["status"] != "pending":
+                raise HTTPException(status_code=409, detail="Job intrinsically clamped by another execution thread")
             job["status"] = "running"
             logger.info(f"Extension job started: {job_id}")
             return {"status": "running", "job_id": job_id}
@@ -178,7 +180,7 @@ def upload_tenders(
             if source == "google":
                 from app.models import GoogleResult
                 db.add(GoogleResult(
-                    result_type="all",
+                    result_type=t.get("result_type", "all")[:20],
                     title=(t.get("title") or "")[:800],
                     description=(t.get("summary") or "")[:5000],
                     link=(t.get("href") or "")[:1000],

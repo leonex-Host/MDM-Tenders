@@ -260,12 +260,20 @@ class EmailService:
             start_time = datetime.now() - timedelta(hours=lookback_hours)
             end_time = datetime.now()
 
-        results = (
+        raw_results = (
             db.query(GoogleResult)
             .filter(GoogleResult.result_type == "all", GoogleResult.scraped_at >= start_time, GoogleResult.scraped_at <= end_time)
             .order_by(GoogleResult.scraped_at.desc())
             .all()
         )
+        
+        seen_links = set()
+        results = []
+        for r in raw_results:
+            lnk = r.link or ""
+            if lnk not in seen_links:
+                seen_links.add(lnk)
+                results.append(r)
         
         if not results:
             return  # Do not send empty google reports

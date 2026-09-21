@@ -1,8 +1,14 @@
 import { fetchJobs, startJobOnServer, completeJobOnServer, uploadResults } from '../api/backend-client.js';
 import { runWorkflow } from './workflow-engine.js';
+import { closeJobTab } from './tab-manager.js';
 
-let isProcessing = false;
+let pollingInProgress = false;
 let pollerInterval = null;
+const MAX_CONCURRENT_JOBS = 6;
+const STALE_TIMEOUT_MS = 300000; // 5 minutes
+
+// In memory Map for active rutimes
+const activeJobs = new Map();
 
 export async function getExtensionState() {
     const data = await chrome.storage.local.get(['extensionState']);
@@ -23,11 +29,6 @@ export function validateExtensionJob(rawJob) {
 
     const jobId = String(rawJob.job_id ?? "").trim();
     const source = String(rawJob.source ?? rawJob.source_name ?? rawJob.sourceName ?? "").trim().toLowerCase();
-
-    // In our existing implementation, the target URL is implicit for TenderOnTime/Google, 
-    // but the backend sends generic fields. We will tolerate an implicit URL if it's a known generic source, 
-    // but fail if the explicit validation logic determines targetUrl is strictly needed strings.
-    // The user suggested explicit target_url check. I will include a basic check, bypassing if keywords exist.
     const rawTargetUrl = String(rawJob.target_url ?? rawJob.targetUrl ?? rawJob.url ?? rawJob.detail_url ?? rawJob.detailUrl ?? "").trim();
 
     if (!jobId) return { valid: false, reason: "missing job_id" };
@@ -59,189 +60,262 @@ export async function initializeJobManager() {
     if (!pollerInterval) {
         pollerInterval = setInterval(() => {
             pollAndProcess();
-        }, 5000); // Aggressively poll every 5s while service worker is alive
+            checkStaleJobs();
+        }, 5000);
     }
 
-    // Attempt recovery on boot
+    // Recovery of local storage jobs on boot
+    const data = await chrome.storage.local.get(['activeJobsSync']);
+    if (data.activeJobsSync) {
+        for (const [jobId, runtime] of Object.entries(data.activeJobsSync)) {
+            activeJobs.set(jobId, runtime);
+            if (runtime.status === 'running') {
+                // Resume background loops organically directly natively
+                runWorkflowWrapper(runtime);
+            }
+        }
+    }
     pollAndProcess();
 }
 
-export async function getState() {
-    const data = await chrome.storage.local.get(['activeJob']);
-    return data.activeJob || null;
+async function syncMapToStorage() {
+    // Basic sync logic to ensure MV3 persistence survives organic teardowns
+    const raw = {};
+    for (const [key, val] of activeJobs.entries()) { raw[key] = val; }
+    await chrome.storage.local.set({ activeJobsSync: raw });
+}
+
+export function getRuntime(jobId) {
+    return activeJobs.get(jobId) || null;
 }
 
 export async function pollAndProcess() {
-    if (isProcessing) return;
+    if (pollingInProgress) return;
     const extState = await getExtensionState();
     if (extState.blocked) return;
 
-    isProcessing = true;
+    if (activeJobs.size >= MAX_CONCURRENT_JOBS) {
+        console.log(`[AGENT][POLL] Capacity reached (${activeJobs.size}/${MAX_CONCURRENT_JOBS}). Waiting.`);
+        return;
+    }
+
+    pollingInProgress = true;
     try {
         await processJobLogic();
     } finally {
-        isProcessing = false;
+        pollingInProgress = false;
     }
 }
 
-export async function resumeManualJob() { // called from popup
+export async function resumeManualJob() {
     await setExtensionState({ blocked: false, blockReason: null, lastError: null });
     pollAndProcess();
 }
 
 async function processJobLogic() {
-    let rawJob = await getState();
+    let slotsAvailable = MAX_CONCURRENT_JOBS - activeJobs.size;
+    if (slotsAvailable <= 0) return;
 
-    if (rawJob) {
-        if (!rawJob.job_id && !rawJob.source) {
-            console.error("Corrupted activeJob detected. Purging state.");
-            await chrome.storage.local.remove(['activeJob']);
-            rawJob = null;
-        } else {
-            console.log("Resuming active job:", rawJob.job_id);
-        }
+    const fetchedRaw = await fetchJobs();
+    let fetchedList = [];
+    if (Array.isArray(fetchedRaw)) fetchedList = fetchedRaw;
+    else if (fetchedRaw && Array.isArray(fetchedRaw.jobs)) fetchedList = fetchedRaw.jobs;
+
+    if (fetchedList.length === 0) return;
+
+    console.log(`[AGENT][POLL] Received ${fetchedList.length} jobs.`);
+
+    for (const rawJob of fetchedList) {
+        if (slotsAvailable <= 0) break;
+
+        const validation = validateExtensionJob(rawJob);
+        if (!validation.valid) continue;
+
+        const job = validation.job;
+        if (activeJobs.has(job.job_id)) continue; // Already mapped natively
+
+        console.log(`[JOB][${job.job_id}] Locking new job`);
+        const locked = await startJobOnServer(job.job_id);
+        if (!locked) continue;
+
+        const runtime = {
+            jobId: job.job_id,
+            jobType: job.source,
+            tabId: null,
+            status: 'running',
+            phase: 'search',
+            keywordIndex: 0,
+            resultsCollected: 0,
+            uploadedResults: 0,
+            allResultsPhase1: [],
+            uploadQueue: [],
+
+            // Raw properties needed by workflows inherently
+            keywords: job.keywords || [],
+            max_pages: job.max_pages || 5,
+
+            startedAt: Date.now(),
+            lastActivityAt: Date.now(),
+            pausedUrl: null,
+            error: null
+        };
+
+        activeJobs.set(runtime.jobId, runtime);
+        await syncMapToStorage();
+        slotsAvailable--;
+
+        console.log(`[JOB][${runtime.jobId}] starting ${runtime.jobType.toUpperCase()}`);
+        runWorkflowWrapper(runtime);
     }
+}
 
-    if (!rawJob) {
-        const data = await fetchJobs();
-        let fetchedList = [];
-        if (Array.isArray(data)) fetchedList = data;
-        else if (data && Array.isArray(data.jobs)) fetchedList = data.jobs;
-
-        if (fetchedList.length > 0) {
-            rawJob = fetchedList[0];
-            const validation = validateExtensionJob(rawJob);
-            if (!validation.valid) {
-                console.error("[JobManager] Invalid job rejected:", validation.reason, rawJob);
-                await setExtensionState({ lastJobError: { reason: validation.reason, timestamp: Date.now() } });
-                return;
-            }
-
-            const job = validation.job;
-            console.log("[BidDetailTrace] valid job accepted:", { job_id: job.job_id, source: job.source });
-
-            console.log("Locking new job:", job.job_id);
-            const locked = await startJobOnServer(job.job_id);
-            if (!locked) return; // Could not lock or server rejected
-
-            job.status = 'running';
-            job.phase = 'search';
-            job.currentKeywordIndex = 0;
-            job.resultsCollected = 0;
-            job.uploadedResults = 0;
-            job.allResultsPhase1 = [];
-            job.uploadQueue = [];
-
-            await chrome.storage.local.set({ activeJob: job });
-            rawJob = job;
-        } else {
-            return; // No jobs
-        }
-    }
-
-    const currentValidation = validateExtensionJob(rawJob);
-    if (!currentValidation.valid) {
-        await chrome.storage.local.remove(['activeJob']);
-        return;
-    }
-
+async function runWorkflowWrapper(runtime) {
     try {
-        await processUploadQueue();
-        await runWorkflow(currentValidation.job);
+        await processUploadQueue(runtime.jobId);
+        await runWorkflow(runtime);
     } catch (e) {
-        console.error("Workflow fatal error", e);
+        console.error(`[JOB][${runtime.jobId}] Workflow fatal error`, e);
         if (e.message !== "CHALLENGE_PAUSED") {
-            await failJob(e.message || "Unknown error");
+            await failJob(runtime.jobId, e.message || "Unknown error");
         }
     }
 }
 
-export async function updateJobState(updates) {
-    const job = await getState() || {};
-    const newState = { ...job, ...updates };
-    await chrome.storage.local.set({ activeJob: newState });
-    return newState;
-}
+export async function updateRuntimeState(jobId, updates) {
+    const runtime = activeJobs.get(jobId);
+    if (!runtime) return null;
 
-export async function setManualActionRequired(reason, url) {
-    await setExtensionState({ blocked: true, blockReason: reason, pausedUrl: url });
-}
-
-export async function finishJob(matches = 0, summaryData = {}) {
-    await processUploadQueue(); // Ensure queue is flushed completely
-    const job = await getState();
-    if (!job) return;
-    if (job.uploadQueue && job.uploadQueue.length > 0) {
-        console.warn("Cannot finish job yet, uploads pending. Will retry next tick.");
-        return;
+    for (const key of Object.keys(updates)) {
+        runtime[key] = updates[key];
     }
-    await completeJobOnServer(job.job_id || job.id, { status: "completed", summary: { total_matches: matches, ...summaryData } });
-    await chrome.storage.local.remove(['activeJob']);
+    runtime.lastActivityAt = Date.now();
+
+    // Save map dynamically organically 
+    await syncMapToStorage();
+    return runtime;
 }
 
-export async function failJob(errorMsg) {
-    const job = await getState();
-    if (!job) return;
-    await completeJobOnServer(job.job_id || job.id, { status: "failed", error: errorMsg });
-    await chrome.storage.local.remove(['activeJob']);
+export async function setManualActionRequired(jobId, reason, url) {
+    console.warn(`[JOB][${jobId}] paused manually: ${reason}`);
+    await updateRuntimeState(jobId, { pausedUrl: url, status: 'paused', error: reason });
+    await setExtensionState({ blocked: true, blockReason: reason });
 }
 
-export async function enqueueUpload(payload) {
-    const job = await getState();
-    if (!job) return;
-    job.uploadQueue = job.uploadQueue || [];
+export async function finishJob(jobId, matches = 0, summaryData = {}) {
+    const runtime = activeJobs.get(jobId);
+    if (!runtime) return;
+
+    await processUploadQueue(jobId);
+
+    if (runtime.uploadQueue && runtime.uploadQueue.length > 0) {
+        console.warn(`[JOB][${jobId}] Cannot finish job yet, uploads pending.`);
+        runtime.lastActivityAt = Date.now();
+        return; // Will retry via heartbeat organically 
+    }
+
+    console.log(`[JOB][${jobId}] completed natively. Matched: ${matches}`);
+    await completeJobOnServer(jobId, { status: "completed", summary: { total_matches: matches, ...summaryData } });
+
+    activeJobs.delete(jobId);
+    if (runtime.tabId) await closeJobTab(runtime.tabId);
+    await syncMapToStorage();
+}
+
+export async function failJob(jobId, errorMsg) {
+    const runtime = activeJobs.get(jobId);
+    if (!runtime) return;
+
+    console.error(`[JOB][${jobId}] FAILED: ${errorMsg}`);
+    await completeJobOnServer(jobId, { status: "failed", error: errorMsg });
+
+    activeJobs.delete(jobId);
+    if (runtime.tabId) await closeJobTab(runtime.tabId);
+    await syncMapToStorage();
+}
+
+export async function enqueueUpload(jobId, payload) {
+    const runtime = activeJobs.get(jobId);
+    if (!runtime) return;
+
+    runtime.uploadQueue = runtime.uploadQueue || [];
     const batchId = Date.now().toString() + Math.random().toString();
-    job.uploadQueue.push({ batchId, payload });
-    await updateJobState({ uploadQueue: job.uploadQueue });
-    await processUploadQueue();
+    runtime.uploadQueue.push({ batchId, payload });
+    await updateRuntimeState(jobId, { uploadQueue: runtime.uploadQueue });
+    await processUploadQueue(jobId);
 }
 
-let isUploading = false;
-export async function processUploadQueue() {
-    if (isUploading) return;
-    isUploading = true;
-    try {
-        let job = await getState();
-        if (!job || !job.uploadQueue || job.uploadQueue.length === 0) return;
+// Ensure uploading isn't globally locked blocking other jobs!
+const uploadingJobs = new Set();
+export async function processUploadQueue(jobId) {
+    if (uploadingJobs.has(jobId)) return;
+    uploadingJobs.add(jobId);
 
-        let remainingQueue = [...job.uploadQueue];
-        for (const batch of job.uploadQueue) {
-            if (batch.status && ['validation_error', 'fatal', 'payload_too_large'].includes(batch.status)) {
-                break; // blocked by permanent failure
-            }
+    try {
+        let runtime = activeJobs.get(jobId);
+        if (!runtime || !runtime.uploadQueue || runtime.uploadQueue.length === 0) return;
+
+        let remainingQueue = [...runtime.uploadQueue];
+        for (const batch of runtime.uploadQueue) {
+            if (batch.status && ['validation_error', 'fatal', 'payload_too_large'].includes(batch.status)) break;
 
             const res = await uploadResults(batch.payload);
+            runtime.lastActivityAt = Date.now(); // bump heartbeat
 
             if (res.ok) {
                 remainingQueue.shift();
-                await updateJobState({ uploadQueue: remainingQueue });
+                await updateRuntimeState(jobId, { uploadQueue: remainingQueue });
             } else if ([400, 422].includes(res.status)) {
                 batch.status = 'validation_error';
-                batch.lastResponse = res.status;
-                await updateJobState({ uploadQueue: remainingQueue });
-                console.error(`Permanent ${res.status}, preserving payload for manual recovery.`);
+                await updateRuntimeState(jobId, { uploadQueue: remainingQueue });
+                console.error(`[JOB][${jobId}] upload permanent generic ${res.status}`);
                 break;
             } else if ([401, 403, 404].includes(res.status)) {
                 batch.status = 'fatal';
-                batch.lastResponse = res.status;
-                await updateJobState({ uploadQueue: remainingQueue });
-                console.error(`Fatal Auth/Not Found ${res.status}, locking queue.`);
+                await updateRuntimeState(jobId, { uploadQueue: remainingQueue });
+                console.error(`[JOB][${jobId}] Fatal Auth ${res.status}`);
                 break;
             } else if (res.status === 413) {
                 batch.status = 'payload_too_large';
-                batch.lastResponse = res.status;
-                await updateJobState({ uploadQueue: remainingQueue });
+                await updateRuntimeState(jobId, { uploadQueue: remainingQueue });
                 break;
             } else if (res.status === 409) {
-                console.warn("409 Conflict - treating as already processed");
                 remainingQueue.shift();
-                await updateJobState({ uploadQueue: remainingQueue });
+                await updateRuntimeState(jobId, { uploadQueue: remainingQueue });
             } else {
-                console.error(`Upload network/5xx error (status ${res.status}), keeping in queue for retry.`);
                 break;
             }
         }
     } finally {
-        isUploading = false;
+        uploadingJobs.delete(jobId);
     }
 }
+
+async function checkStaleJobs() {
+    const now = Date.now();
+    for (const [jobId, runtime] of activeJobs.entries()) {
+        if (runtime.status === 'paused') continue;
+
+        if (now - runtime.lastActivityAt > STALE_TIMEOUT_MS) {
+            console.error(`[JOB][${jobId}] Stale timeout detected organically. Last activity was >5m ago.`);
+            // if queue is failing, finishJob might be pending perpetually
+            if (runtime.uploadQueue && runtime.uploadQueue.length > 0) {
+                console.log(`[JOB][${jobId}] Upload queue frozen. Purging job to recycle thread boundaries.`);
+                await failJob(jobId, "Upload sequence stalled perpetually timeout");
+            } else {
+                await failJob(jobId, "Job timed out organically (no heartbeat)");
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Tab mapping hooks required inherently for closed tabs extraction
+// ─────────────────────────────────────────────────────────────────
+chrome.tabs.onRemoved.addListener(async (closedTabId) => {
+    for (const [jobId, runtime] of activeJobs.entries()) {
+        if (runtime.tabId === closedTabId) {
+            console.warn(`[TAB][${jobId}] Tab ${closedTabId} organically destroyed by native OS forces external.`);
+            await failJob(jobId, "Browser tab structurally destroyed externally");
+        }
+    }
+});
