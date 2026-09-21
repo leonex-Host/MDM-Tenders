@@ -117,13 +117,16 @@ async function clickFilterButton(keyword) {
         input.dispatchEvent(ev);
     }
 
-    let target = null;
+    let targets = [];
     for (const selector of directSelectors) {
-        const candidate = [...document.querySelectorAll(selector)].find(visible);
-        if (candidate) { target = candidate; break; }
+        const matching = [...document.querySelectorAll(selector)].filter(visible);
+        if (matching.length > 0) {
+            targets = matching;
+            break;
+        }
     }
 
-    if (!target) {
+    if (targets.length === 0) {
         const container = input.closest('form, .filter-box, .search, .sidebar, .sidebar-wrapper, .left-column, .row') || document;
         const candidates = [...container.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"], a')]
             .filter(visible)
@@ -137,25 +140,36 @@ async function clickFilterButton(keyword) {
                 if (el.tagName === 'A' && el.getAttribute('href') && !/^javascript:/i.test(el.getAttribute('href'))) score -= 200;
                 return { el, score };
             }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
-        target = candidates[0]?.el || null;
+        if (candidates.length > 0) targets = [candidates[0].el];
     }
 
-    if (!target) return { success: false, clicked: false, verified: false, reason: 'filter_button_not_found' };
+    if (targets.length === 0) return { success: false, clicked: false, verified: false, reason: 'filter_button_not_found' };
 
-    target.scrollIntoView({ block: 'center', inline: 'center' });
-    target.focus();
+    targets.forEach(target => {
+        try {
+            target.scrollIntoView({ block: 'center', inline: 'center' });
+            target.focus();
+            for (const type of ['mousedown', 'mouseup', 'click']) {
+                target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+            }
+            if (target.tagName !== 'A' || /^javascript:/i.test(target.getAttribute('href') || '')) {
+                target.click();
+            }
+            console.log('[TENDER FILTER CLICKED]', { keyword, selector: target.outerHTML.slice(0, 500) });
+        } catch (e) { }
+    });
+
+    // Indestructible Execution Assurance: Direct Main-World invocation of the specific handler
+    try {
+        const inject = document.createElement('script');
+        inject.textContent = "if (typeof filterTendersJS === 'function') { filterTendersJS(1, 'filterbtn'); }";
+        document.documentElement.appendChild(inject);
+        inject.remove();
+        console.log('[TENDER FILTER SCRIPT EXECUTED]');
+    } catch (e) { }
+
     const beforeUrl = location.href;
     const beforeText = document.body?.innerText || '';
-
-    // Dispatch a real mouse sequence first; many Angular/jQuery handlers listen for it.
-    for (const type of ['mousedown', 'mouseup', 'click']) {
-        target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
-    }
-
-    // Native click fallback, but never navigate an ordinary anchor accidentally.
-    if (target.tagName !== 'A' || /^javascript:/i.test(target.getAttribute('href') || '')) target.click();
-
-    console.log('[TENDER FILTER CLICKED]', { keyword, selector: target.outerHTML.slice(0, 500) });
 
     // Accept one/two results. Only wait for the site to react, not for a minimum count.
     for (let i = 0; i < 25; i++) {
