@@ -1,37 +1,15 @@
 import { CONFIG } from '../config.js';
 import { validateExtensionJob } from './job-manager.js';
 
-export async function createJobTab(job) {
-    if (job) {
-        const validation = validateExtensionJob(job);
-        if (!validation.valid) {
-            console.error("[TabManager] Refusing to create tab:", validation.reason);
-            throw new Error(`Cannot create tab: ${validation.reason}`);
-        }
-
-        const validJob = validation.job;
-        if (validJob.target_url) {
-            const parsedUrl = new URL(validJob.target_url);
-            if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-                throw new Error("Refusing to open non-web URL");
-            }
-            console.log("[BidDetailTrace] opening target URL:", {
-                origin: parsedUrl.origin,
-                pathname: parsedUrl.pathname,
-                source: validJob.source,
-                job_id: validJob.job_id
-            });
-        }
-    }
-
+export async function createJobTab(runtime) {
+    const id = runtime?.jobId || 'UNKNOWN';
     try {
-        console.log("[BidDetailTrace] opening tab URL: about:blank");
+        console.log(`[TabManager][${id}] Creating logical isolated tab: about:blank`);
         const tab = await chrome.tabs.create({ url: "about:blank", active: true });
-        console.log("[BidDetailTrace] chrome.tabs.create result: tab created");
-        console.log("[BidDetailTrace] tab created ID:", tab.id);
+        console.log(`[TabManager][${id}] Successfully allocated Tab ID:`, tab.id);
         return { windowId: tab.windowId, tabId: tab.id };
     } catch (e) {
-        console.error("[BidDetailTrace] chrome.tabs.create result/error:", e);
+        console.error(`[TabManager][${id}] FATAL chrome.tabs.create error:`, e);
         throw e;
     }
 }
