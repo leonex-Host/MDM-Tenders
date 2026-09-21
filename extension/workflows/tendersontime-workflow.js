@@ -3,7 +3,7 @@ import { createJobTab, navigateAndWait, executeContentScript, closeJobTab, waitF
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function waitUntilPageAvailable(tabId, options = {}) {
+async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
     const timeout = options.timeout || 120000;
     const startTime = Date.now();
     console.log("[TOT][PAGE_WAIT] Waiting for search URL to render...");
@@ -31,15 +31,19 @@ async function waitUntilPageAvailable(tabId, options = {}) {
             ? tabInfo.url.includes("google.com/search")
             : tabInfo.url.includes("advancesearch");
 
-        if (isExpected && pageCheck.readyState === "complete" && (options.isGoogle || pageCheck.formReady)) {
+        if (isExpected && pageCheck.pageAvailable) {
             console.log("[TOT][PAGE_READY] Expected advanced search environment perfectly confirmed.");
             await sleep(1500);
-            return { ready: true, isChallenge: false };
+            return { ready: true, isChallenge: false, pageCheck };
         }
 
         await sleep(1500);
     }
-    return { ready: false, isChallenge: false };
+
+    // Attempt fallback retrieval before hard fail
+    const fallbackStatus = await executeContentScript(tabId, "check_page_available") || {};
+    console.error(`[TOT][PAGE_TIMEOUT] keyword="${keyword}"\nreason="timeout"\nurl="${(await chrome.tabs.get(tabId).catch(() => ({ url: '' }))).url}"\nreadyState="${fallbackStatus.readyState}"\nformReady=${fallbackStatus.formReady}\nfilterReady=${fallbackStatus.filterReady}\nexactFilter=${fallbackStatus.exactFilter}`);
+    return { ready: false, isChallenge: false, pageCheck: fallbackStatus };
 }
 
 async function waitUntilListingsReady(tabId) {
@@ -121,16 +125,25 @@ export async function runTendersOnTimeWorkflow(job) {
             if (phase === 'search' || phase === 'list_collection') {
                 await updateJobState({ currentKeywordIndex: kwIndex, keyword, phase: 'search' });
 
+                let navigationResult = null;
                 if (job.pausedUrl) {
                     console.log(`[TOT][NAVIGATION] ${job.pausedUrl}`);
-                    await navigateAndWait(tabInfo.tabId, job.pausedUrl);
+                    navigationResult = await navigateAndWait(tabInfo.tabId, job.pausedUrl);
                     await updateJobState({ pausedUrl: null });
                 } else {
                     console.log(`[TOT][NAVIGATION] ${searchUrl}`);
-                    await navigateAndWait(tabInfo.tabId, searchUrl);
+                    navigationResult = await navigateAndWait(tabInfo.tabId, searchUrl);
                 }
 
-                const pageReady = await waitUntilPageAvailable(tabInfo.tabId, { isGoogle: false });
+                if (!navigationResult) {
+                    console.warn(`[TOT][NAVIGATION_FAILED] keyword="${keyword}" failed. Skipping.`);
+                    continue;
+                }
+                console.log(`[TOT][STATE] NAVIGATION_COMPLETE keyword="${keyword}"`);
+
+                const pageReady = await waitUntilPageAvailable(tabInfo.tabId, { isGoogle: false }, keyword);
+                console.log(`[TOT][STATE] PAGE_CHECK keyword="${keyword}" ready=${pageReady.ready}`);
+
                 if (pageReady.isChallenge) {
                     console.warn(`[TOT][CLOUDFLARE] Suspended keyword processing natively -> ${keyword}`);
                     const u = (await chrome.tabs.get(tabInfo.tabId)).url;
@@ -142,8 +155,10 @@ export async function runTendersOnTimeWorkflow(job) {
                     continue;
                 }
 
-                console.log(`[TOT][FILTER_SEARCH] Activating filter targets on keyword: ${keyword}`);
+                console.log(`[TOT][STATE] FILTER_ACTION_START keyword="${keyword}"`);
                 let filterResult = await executeContentScript(tabInfo.tabId, "click_filter_button", { keyword });
+                console.log(`[TOT][STATE] FILTER_ACTION_RETURNED keyword="${keyword}" result=${JSON.stringify(filterResult || {})}`);
+
                 if (!filterResult?.clicked) {
                     console.warn(`[TOT][FILTER_FAILED] exact filter button not found`);
                     continue;
@@ -154,9 +169,11 @@ export async function runTendersOnTimeWorkflow(job) {
                 await updateJobState({ phase: 'list_collection' });
 
                 while (pageNum <= maxPages) {
+                    console.log(`[TOT][STATE] LISTING_WAIT_START keyword="${keyword}"`);
                     console.log(`[TOT][PAGINATION] Actively scraping page coordinate index [${pageNum}/${maxPages}]`);
                     await updateJobState({ currentPage: pageNum });
                     const result = await waitUntilListingsReady(tabInfo.tabId);
+                    console.log(`[TOT][STATE] LISTING_WAIT_RETURNED keyword="${keyword}" status="${result.status}"`);
                     if (result.isChallenge) {
                         const u = (await chrome.tabs.get(tabInfo.tabId)).url;
                         await setManualActionRequired('Cloudflare/Captcha Block at Listings', u);
@@ -240,9 +257,9 @@ export async function runTendersOnTimeWorkflow(job) {
                 }
             }
 
-            console.log(`[TOT][KEYWORD_COMPLETE] ${keyword}`);
+            console.log(`[TOT][STATE] KEYWORD_COMPLETE keyword="${keyword}"`);
             if (kwIndex < keywords.length - 1) {
-                console.log(`[TOT][KEYWORD_NEXT] ${keywords[kwIndex + 1]}`);
+                console.log(`[TOT][STATE] KEYWORD_NEXT keyword="${keywords[kwIndex + 1]}"`);
             }
 
             // reset for next keyword

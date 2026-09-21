@@ -75,11 +75,16 @@ function checkPageAvailable() {
         });
     });
 
+    const exactFilter = !!document.querySelector("button.search-btn[onclick*='filterTendersJS']");
+    const searchInput = !!document.querySelector("input[name='q'], input[type='search'], input[name*='search'], input[name*='keyword']");
+
     return {
         success: true,
-        pageAvailable: !cloudflareActive && isSearchPage && document.readyState === "complete" && formReady && filterReady,
+        pageAvailable: !cloudflareActive && isSearchPage && document.readyState === "complete",
         formReady,
         filterReady,
+        exactFilter,
+        searchInput,
         readyState: document.readyState,
         title,
         url,
@@ -87,8 +92,7 @@ function checkPageAvailable() {
         hasNoResultsText,
         reason: cloudflareActive ? "cloudflare_active" :
             !isSearchPage ? "not_search_page" :
-                !formReady ? "search_form_not_ready" :
-                    !filterReady ? "filter_button_not_ready" : "advanced_search_form_ready"
+                document.readyState !== "complete" ? "document_loading" : "advanced_search_page_loaded"
     };
 }
 

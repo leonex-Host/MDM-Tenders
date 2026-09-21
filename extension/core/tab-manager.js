@@ -26,7 +26,7 @@ export async function createJobTab(job) {
 
     try {
         console.log("[BidDetailTrace] opening tab URL: about:blank");
-        const win = await chrome.windows.create({ url: "about:blank", state: "normal" });
+        const win = await chrome.windows.create({ url: "about:blank", state: "normal", focused: true });
         const tid = win.tabs[0].id;
         console.log("[BidDetailTrace] chrome.tabs.create result: window created");
         console.log("[BidDetailTrace] tab created ID:", tid);
