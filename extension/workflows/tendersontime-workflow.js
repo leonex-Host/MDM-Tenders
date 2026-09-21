@@ -200,10 +200,10 @@ export async function runTendersOnTimeWorkflow(runtime) {
                         world: "MAIN",
                         func: (sel) => {
                             try {
-                                if (typeof filterTendersJS === 'function') filterTendersJS(1, 'filterbtn');
-                                else {
-                                    const btn = document.querySelector(sel);
-                                    if (btn) btn.click();
+                                const btn = document.querySelector(sel);
+                                if (btn) {
+                                    console.log("[TOT] Firing native click payload on element:", btn);
+                                    btn.click();
                                 }
                             } catch (e) { }
                         },
