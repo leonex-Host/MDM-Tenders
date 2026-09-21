@@ -10,19 +10,20 @@ async function waitUntilPageAvailable(tabId, options = {}) {
         let tabInfo;
         try { tabInfo = await chrome.tabs.get(tabId); } catch (e) { return { ready: false, isChallenge: false }; }
 
+        const pageCheck = await executeContentScript(tabId, "check_page_available");
+
+        if (pageCheck && pageCheck.cloudflareActive) {
+            console.warn("[TOT][CLOUDFLARE] Cloudflare detected dynamically during wait.");
+            return { ready: false, isChallenge: true, reason: 'Cloudflare' };
+        }
+
         if (tabInfo.status !== "complete") {
             await sleep(1200);
             continue;
         }
 
-        const pageCheck = await executeContentScript(tabId, "check_page_available");
         if (!pageCheck) {
             await sleep(1500); continue;
-        }
-
-        if (pageCheck.cloudflareActive) {
-            console.warn("[TOT][CLOUDFLARE] Cloudflare detected dynamically during wait.");
-            return { ready: false, isChallenge: true, reason: 'Cloudflare' };
         }
 
         const isExpected = options.isGoogle
