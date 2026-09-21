@@ -128,6 +128,7 @@ export async function runTendersOnTimeWorkflow(runtime) {
                 await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword, phase: 'search' });
 
                 let navigationResult = null;
+                console.log("[TOT][DEBUG] BEFORE_NAVIGATION");
                 if (runtime.pausedUrl) {
                     console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] NAVIGATION_START ${runtime.pausedUrl}`);
                     navigationResult = await navigateAndWait(runtime.tabId, runtime.pausedUrl);
@@ -136,6 +137,7 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] NAVIGATION_START ${searchUrl}`);
                     navigationResult = await navigateAndWait(runtime.tabId, searchUrl);
                 }
+                console.log("[TOT][DEBUG] AFTER_NAVIGATION");
 
                 if (!navigationResult) {
                     console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] NAVIGATION_FAILED keyword="${keyword}" failed. Skipping.`);
@@ -171,7 +173,9 @@ export async function runTendersOnTimeWorkflow(runtime) {
                 // Critical: Ensure full AngularJS structural hydration before dispatching synthetic native events
                 await new Promise(r => setTimeout(r, 2000));
 
+                console.log("[TOT][DEBUG] BEFORE_PAGE_CHECK");
                 const pageReady = await waitUntilPageAvailable(runtime.tabId, { isGoogle: false }, keyword);
+                console.log("[TOT][DEBUG] AFTER_PAGE_CHECK");
                 console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_CHECK keyword="${keyword}" ready=${pageReady.ready}`);
 
                 if (pageReady.isChallenge) {
@@ -187,9 +191,12 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     continue;
                 }
 
-                console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] FILTER_ACTION_START keyword="${keyword}"`);
+                console.log("[TOT][DEBUG] BEFORE_FILTER_CLICK");
+                console.log(`[TOT][FILTER] sending click_filter_button`);
                 let filterResult = await executeContentScript(runtime.tabId, "click_filter_button", { keyword });
+                console.log(`[TOT][FILTER] response = ${JSON.stringify(filterResult)}`);
                 console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] FILTER_ACTION_RETURNED keyword="${keyword}" result=${JSON.stringify(filterResult || {})}`);
+                console.log("[TOT][DEBUG] AFTER_FILTER_CLICK");
 
                 if (!filterResult?.clicked) {
                     console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] FILTER_FAILED exact filter button not found`);

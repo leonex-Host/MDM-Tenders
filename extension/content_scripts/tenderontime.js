@@ -70,18 +70,23 @@ function checkPageAvailable() {
     const filterReady = formReady && formPool.some(form => {
         const controls = [...form.querySelectorAll("button, input[type='submit'], input[type='button'], [role='button'], a")];
         return controls.some(el => {
+            if (!visible(el) || el.disabled || el.getAttribute("aria-disabled") === "true") return false;
             const label = `${el.innerText || ""} ${el.value || ""} ${el.getAttribute("aria-label") || ""} ${el.id || ""} ${el.className || ""}`.toLowerCase();
-            if (/next|previous|prev|page\s*\d+|login|sign in|register/.test(label)) return false;
-            return el.type === "submit" || /search|filter|apply|submit|find|go|tender/i.test(label) || el.tagName === "BUTTON";
+            const isPagination = el.closest(".pagination") || /\b(next|previous|prev|page\s*\d+|login|sign in|register)\b/i.test(label);
+            if (isPagination) return false;
+            return el.type === "submit" ||
+                /search|filter|apply|submit|find|go|tender/i.test(label) ||
+                el.tagName === "BUTTON";
         });
     });
 
+    const isReady = isSearchPage && document.readyState === "complete" && !cloudflareActive;
     const exactFilter = !!document.querySelector("button.search-btn[onclick*='filterTendersJS']");
     const searchInput = !!document.querySelector("input[name='q'], input[type='search'], input[name*='search'], input[name*='keyword']");
 
     return {
         success: true,
-        pageAvailable: !cloudflareActive && isSearchPage && document.readyState === "complete",
+        pageAvailable: isReady,
         formReady,
         filterReady,
         exactFilter,
@@ -98,6 +103,8 @@ function checkPageAvailable() {
 }
 
 async function clickFilterButton(keyword) {
+    console.log("[TOT][CONTENT] click_filter_button RECEIVED", keyword);
+
     const visible = el => {
         if (!el) return false;
         const r = el.getBoundingClientRect();
@@ -105,14 +112,25 @@ async function clickFilterButton(keyword) {
         return r.width > 0 && r.height > 0 && st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0' && !el.disabled;
     };
 
-    const allInputs = [...document.querySelectorAll('input')].filter(visible);
-    const input = allInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
-        || allInputs.find(el => el.type === 'text' || el.type === 'search');
+    console.log("[TOT][CONTENT] SEARCHING_INPUT");
+
+    const allInputs = [...document.querySelectorAll('input')];
+    allInputs.forEach(i => {
+        if (visible(i)) {
+            console.log(`[TOT][CONTENT] Visible Input: name="${i.name}" id="${i.id}" ph="${i.placeholder}" type="${i.type}" val="${i.value}"`);
+        }
+    });
+
+    const allVisibleInputs = allInputs.filter(visible);
+    const input = allVisibleInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
+        || allVisibleInputs.find(el => el.type === 'text' || el.type === 'search');
 
     if (!input) {
         console.warn('[TOT][FILTER_FAILED] No search input found on page.');
         return { success: false, clicked: false, verified: false, reason: 'search_input_not_found' };
     }
+
+    console.log("[TOT][CONTENT] INPUT_FOUND", input);
 
     // VITAL: Forcefully inject the value and blast synthetic events to hijack Angular's internal scope binding 
     // before the explicit MAIN-world filter bypass is executed!
@@ -123,20 +141,37 @@ async function clickFilterButton(keyword) {
         input.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
     }
 
+    console.log("[TOT][CONTENT] INPUT_VALUE_SET. Current value is:", input.value);
+
+    if (input.value !== keyword) {
+        console.warn("[TOT][ERROR] input.value does not match keyword!");
+    }
+
+    console.log("[TOT][CONTENT] SEARCHING_FILTER_BUTTON");
+
+    const count1 = document.querySelectorAll("button.search-btn[onclick*='filterTendersJS']").length;
+    const count2 = document.querySelectorAll("[onclick*='filterTendersJS']").length;
+    console.log(`[TOT][CONTENT] button.search-btn count: ${count1}, [onclick] count: ${count2}`);
+
     let target = document.querySelector("button.search-btn[onclick*='filterTendersJS']");
     if (!target || !visible(target)) {
         target = document.querySelector("[onclick*='filterTendersJS']");
     }
 
     if (!target || !visible(target)) {
-        console.warn('[TOT][FILTER_FAILED] exact filter button not found');
-        return { clicked: false, reason: "exact_filter_button_not_found" };
+        console.warn('[TOT][FILTER_FAILED] exact filter button not found. FILTER_SELECTOR_NOT_FOUND');
+        return { clicked: false, reason: "FILTER_SELECTOR_NOT_FOUND" };
     }
 
+    console.log("[TOT][CONTENT] FILTER_BUTTON_FOUND", target.outerHTML);
+
+    console.log("[TOT][CONTENT] FILTER_CLICKING");
     console.log('[TOT][FILTER_FOUND] Exact filter button matched layout rules. Returning path to MV3 worker.');
 
     target.scrollIntoView({ block: 'center', inline: 'center' });
     target.focus();
+
+    console.log("[TOT][CONTENT] FILTER_CLICKED (Returning selector for bypass execution)");
 
     return {
         clicked: true,
