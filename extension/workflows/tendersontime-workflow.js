@@ -47,7 +47,7 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
 }
 
 async function waitUntilListingsReady(tabId) {
-    const timeout = 120000;
+    const timeout = 35000;
     const startTime = Date.now();
     let noResultsCount = 0;
 
@@ -143,6 +143,31 @@ export async function runTendersOnTimeWorkflow(runtime) {
                 }
                 console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] NAVIGATION_COMPLETE keyword="${keyword}"`);
 
+                // Inject Silent Captcha XHR Interceptor
+                await chrome.scripting.executeScript({
+                    target: { tabId: runtime.tabId },
+                    world: "MAIN",
+                    func: () => {
+                        try {
+                            if (!window._xhrIntercepted) {
+                                window._xhrIntercepted = true;
+                                const originalOpen = XMLHttpRequest.prototype.open;
+                                XMLHttpRequest.prototype.open = function () {
+                                    this.addEventListener('load', function () {
+                                        if (this.responseText &&
+                                            (this.responseText.includes('cf-turnstile') ||
+                                                this.responseText.includes('just a moment') ||
+                                                this.responseText.includes('verify you are human'))) {
+                                            document.body.setAttribute('data-captcha-silent', 'true');
+                                        }
+                                    });
+                                    originalOpen.apply(this, arguments);
+                                };
+                            }
+                        } catch (e) { }
+                    }
+                }).catch(e => console.warn("[TOT] Interceptor inject skip:", e));
+
                 const pageReady = await waitUntilPageAvailable(runtime.tabId, { isGoogle: false }, keyword);
                 console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_CHECK keyword="${keyword}" ready=${pageReady.ready}`);
 
@@ -150,6 +175,8 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] CLOUDFLARE Suspended keyword processing natively -> ${keyword}`);
                     const u = (await chrome.tabs.get(runtime.tabId)).url;
                     await setManualActionRequired(runtime.jobId, 'Cloudflare/Captcha Block', u);
+                    // Force a full reload so the Captcha natively surfaces for the user to solve visually
+                    await chrome.tabs.reload(runtime.tabId);
                     throw new Error("CHALLENGE_PAUSED");
                 }
                 if (!pageReady.ready) {
@@ -200,6 +227,7 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     if (result.isChallenge) {
                         const u = (await chrome.tabs.get(runtime.tabId)).url;
                         await setManualActionRequired(runtime.jobId, 'Cloudflare/Captcha Block at Listings', u);
+                        await chrome.tabs.reload(runtime.tabId);
                         throw new Error("CHALLENGE_PAUSED");
                     }
 

@@ -31,7 +31,8 @@ function checkPageAvailable() {
         /just a moment|checking your browser|verify you are human/i.test(title + " " + text) ||
         html.includes("cf-turnstile") ||
         html.includes("cf-chl") ||
-        html.includes("challenge-platform");
+        html.includes("challenge-platform") ||
+        document.body.hasAttribute("data-captcha-silent");
 
     const hasNoResultsText =
         /no results found|no records found|0 results|no data found|no tenders found|no records available/i.test(lowerText);
@@ -153,7 +154,8 @@ async function clickFilterButton(keyword) {
 }
 async function extractListings() {
     if (document.title.includes("Just a moment") ||
-        document.title.includes("Checking your browser")) {
+        document.title.includes("Checking your browser") ||
+        document.body.hasAttribute("data-captcha-silent")) {
         return { status: "cloudflare" };
     }
 
