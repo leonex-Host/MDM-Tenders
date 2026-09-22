@@ -82,23 +82,25 @@ export async function runGoogleWorkflow(runtime) {
 
                         const data = await executeContentScript(runtime.tabId, "extract_listings");
                         const listings = Array.isArray(data) ? data : (data?.listings || []);
+                        const newFound = [];
 
                         for (const item of listings) {
                             if (!item.href) continue;
                             const key = canonicalUrl(item.href);
                             if (!allMap.has(key)) {
-                                allMap.set(key, { ...item, keyword, search_keyword: keyword, google_page: page + 1, result_type: "all" });
+                                const payload = { ...item, keyword, search_keyword: keyword, google_page: page + 1, result_type: "all" };
+                                allMap.set(key, payload);
+                                newFound.push(payload);
                             }
                         }
-                        await updateRuntimeState(runtime.jobId, { allResultsPhase1: [...allMap.values()] });
+
+                        await updateRuntimeState(runtime.jobId, { allResultsPhase1: [...allMap.values()], resultsCollected: allMap.size });
+
+                        if (newFound.length > 0) {
+                            await enqueueUpload(runtime.jobId, { source: "google", keyword, result_type: "all", results: newFound, tenders: newFound });
+                        }
                     }
                     page = 0; // reset page array for next keyword
-                }
-
-                const allResults = [...allMap.values()];
-                if (allResults.length > 0 && !runtime.phase1Uploaded) {
-                    await enqueueUpload(runtime.jobId, { source: "google", keyword: "ALL", result_type: "all", results: allResults, tenders: allResults });
-                    await updateRuntimeState(runtime.jobId, { phase1Uploaded: true });
                 }
 
                 await updateRuntimeState(runtime.jobId, { phase: 'details', currentDetailIndex: 0, kwResults: [] });
@@ -127,15 +129,14 @@ export async function runGoogleWorkflow(runtime) {
 
                     const detail = await executeContentScript(runtime.tabId, "extract_details", { keyword: item.keyword });
                     if (detail?.found) {
-                        filtered.push({ ...item, ...detail, result_type: "filtered" });
+                        const payload = { ...item, ...detail, result_type: "filtered" };
+                        filtered.push(payload);
+                        await enqueueUpload(runtime.jobId, { source: "google", keyword: item.keyword, result_type: "filtered", results: [payload], tenders: [payload] });
                     }
                 }
 
-                if (filtered.length > 0 && !runtime.phase2Uploaded) {
-                    await enqueueUpload(runtime.jobId, { source: "google", keyword: "ALL", result_type: "filtered", results: filtered, tenders: filtered });
-                    await updateRuntimeState(runtime.jobId, { phase2Uploaded: true });
-                }
-                await finishJob(runtime.jobId, filtered.length, { total_all: allResults.length, total_filtered: filtered.length });
+                const finalCount = filtered.length;
+                await finishJob(runtime.jobId, finalCount, { total_all: allResults.length, total_filtered: finalCount });
             }
 
         } catch (e) {
