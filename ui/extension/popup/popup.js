@@ -110,9 +110,30 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="job-actions" style="display: flex; gap: 8px; justify-content: flex-end;">
                             ${(j.inserted > 0 || j.results > 0) ? `<a href="${j.source === 'google' ? 'https://mdm-tenders.vercel.app/#/google' : 'https://mdm-tenders.vercel.app/#/mdm-tenders'}" target="_blank" class="btn btn-sm" style="background:#2563eb; color:#fff; text-decoration:none; padding: 6px 12px; border-radius: 6px; font-weight:700; font-size:10px; display:inline-block; text-align:center;">VISIT DB</a>` : ''}
+                            ${j.status === 'paused' ? `<button class="btn btn-success btn-sm resume-job-btn" data-id="${j.job_id}" style="background:var(--success); color:#fff; border-radius:6px; font-weight:700; font-size:10px; padding:6px 12px; border:none; cursor:pointer;">RESUME ENGINE</button>` : ''}
+                            <button class="btn btn-danger btn-sm abort-job-btn" data-id="${j.job_id}" style="background:var(--danger); color:#fff; border-radius:6px; font-weight:700; font-size:10px; padding:6px 12px; border:none; cursor:pointer;">ABORT</button>
                         </div>
                     </div>
                 `).join('');
+
+                // Attack live listeners
+                document.querySelectorAll('.resume-job-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const jid = e.target.getAttribute('data-id');
+                        log("Sending resume vector...");
+                        chrome.runtime.sendMessage({ action: "resume_manual" }, () => pollStatus());
+                    });
+                });
+
+                document.querySelectorAll('.abort-job-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const jid = e.target.getAttribute('data-id');
+                        if (confirm(`Abort specific target sequence [${jid}]?`)) {
+                            log(`Terminating ${jid}...`);
+                            chrome.runtime.sendMessage({ action: "abort_job", jobId: jid }, () => pollStatus());
+                        }
+                    });
+                });
             }
 
             log(`Active: ${jobs.length} job(s) running.`);

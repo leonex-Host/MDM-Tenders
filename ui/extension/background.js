@@ -47,21 +47,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "abort_manual") {
         (async () => {
             const conf = await chrome.storage.local.get(['apiUrl', 'apiKey']);
+            const promises = [];
             for (const [jid, rt] of activeJobs.entries()) {
-                // Notify backend so Admin UI updates
+                if (conf.apiUrl && conf.apiKey) {
+                    promises.push(fetch(`${conf.apiUrl}/api/extension/jobs/${jid}/complete`, {
+                        method: 'POST',
+                        headers: { 'X-Extension-Key': conf.apiKey, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: "failed", error: "Aborted manually by operator" })
+                    }).catch(() => { }));
+                }
+                if (rt.windowId) await chrome.windows.remove(rt.windowId).catch(() => { });
+                activeJobs.delete(jid);
+            }
+            await Promise.all(promises);
+            sendResponse({ aborted: true });
+            setTimeout(() => { chrome.runtime.reload(); }, 200);
+        })();
+        return true;
+    } else if (request.action === "abort_job") {
+        (async () => {
+            const conf = await chrome.storage.local.get(['apiUrl', 'apiKey']);
+            const jid = request.jobId;
+            const rt = activeJobs.get(jid);
+            if (rt) {
                 if (conf.apiUrl && conf.apiKey) {
                     await fetch(`${conf.apiUrl}/api/extension/jobs/${jid}/complete`, {
                         method: 'POST',
                         headers: { 'X-Extension-Key': conf.apiKey, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: "failed", error: "Aborted manually by operator" })
+                        body: JSON.stringify({ status: "failed", error: "Aborted target job manually from popup" })
                     }).catch(() => { });
                 }
                 if (rt.windowId) await chrome.windows.remove(rt.windowId).catch(() => { });
                 activeJobs.delete(jid);
             }
-            chrome.runtime.reload();
+            sendResponse({ aborted: true });
         })();
-        sendResponse({ aborted: true });
+        return true;
     } else if (request.action === "keep_alive") {
         sendResponse({ ok: true });
         return false;

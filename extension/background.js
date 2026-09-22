@@ -46,9 +46,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             for (const jid of jobIds) {
                 await failJob(jid, "Aborted manually by operator on local laptop");
             }
-            chrome.runtime.reload();
+            sendResponse({ aborted: true });
+            setTimeout(() => { chrome.runtime.reload(); }, 200);
         })();
-        sendResponse({ aborted: true });
+        return true;
+    } else if (request.action === "abort_job") {
+        (async () => {
+            if (request.jobId) {
+                await failJob(request.jobId, "Aborted target job manually from local component terminal");
+            }
+            sendResponse({ aborted: true });
+        })();
+        return true;
     } else if (request.action === "get_status") {
         const jobIds = getAllActiveJobIds();
         const jobs = [];
