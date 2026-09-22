@@ -40,6 +40,7 @@ export async function renderGoogle(container) {
                 <div class="goog-tabs" id="goog-tabs">
                     <button class="goog-tab active" data-type="all">All Results</button>
                     <button class="goog-tab" data-type="filtered">Filtered Results</button>
+                    <button class="goog-tab" data-type="unwanted" style="color:var(--accent-red, #ef4444);">Unwanted</button>
                 </div>
                 
                 <select id="goog-keyword-input" class="goog-inp" title="Filter by Keyword" style="margin-left:auto;">
@@ -86,6 +87,9 @@ export async function renderGoogle(container) {
                     <button class="goog-dl-btn" id="goog-dl-filtered" title="Export Filtered Results matching filters">
                         <i data-lucide="download" style="width:13px;height:13px;"></i> Filtered Excel
                     </button>
+                    <button class="goog-dl-btn" id="goog-dl-unwanted" title="Export Unwanted Results" style="color:var(--accent-red, #ef4444); border-color:#fca5a5;">
+                        <i data-lucide="download" style="width:13px;height:13px;"></i> Unwanted Excel
+                    </button>
                 </div>
             </div>
         </div>
@@ -112,10 +116,10 @@ export async function renderGoogle(container) {
         const btn = document.getElementById('goog-refresh-btn');
         btn.innerHTML = `<i data-lucide="loader" style="width:13px;height:13px;" class="goog-spin"></i> Refreshing…`;
         if (window.lucide) window.lucide.createIcons();
-        
+
         await loadStats();
         await loadResults();
-        
+
         btn.innerHTML = `<i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Refresh Data`;
         if (window.lucide) window.lucide.createIcons();
     });
@@ -131,13 +135,13 @@ export async function renderGoogle(container) {
     });
 
     // ── Filters & Actions ──────────────────────────────────────────────────
-    
+
     function applyAllFilters() {
         state.dateFrom = document.getElementById('goog-date-from').value;
-        state.dateTo   = document.getElementById('goog-date-to').value;
-        state.search   = document.getElementById('goog-search-input').value.toLowerCase().trim();
-        state.keyword  = document.getElementById('goog-keyword-input').value.toLowerCase();
-        state.sort     = document.getElementById('goog-sort-input').value;
+        state.dateTo = document.getElementById('goog-date-to').value;
+        state.search = document.getElementById('goog-search-input').value.toLowerCase().trim();
+        state.keyword = document.getElementById('goog-keyword-input').value.toLowerCase();
+        state.sort = document.getElementById('goog-sort-input').value;
         loadResults();
     }
 
@@ -158,7 +162,7 @@ export async function renderGoogle(container) {
     document.getElementById('goog-date-to')?.addEventListener('change', applyAllFilters);
 
     document.getElementById('goog-apply-btn')?.addEventListener('click', applyAllFilters);
-    
+
     document.getElementById('goog-clear-btn')?.addEventListener('click', () => {
         state.dateFrom = ''; state.dateTo = ''; state.search = ''; state.keyword = ''; state.sort = 'newest';
         document.getElementById('goog-date-from').value = '';
@@ -170,29 +174,29 @@ export async function renderGoogle(container) {
     });
 
     // ── Excel download (Client-side CSV generator) ─────────────────────────
-    
+
     async function exportAsCsv(targetType) {
         let url = `${API}/results?result_type=${targetType}`;
         const qs = buildDateQS(state);
         if (qs) url += `&${qs}`;
-        
+
         try {
             const res = await authFetch(url, { cache: "no-store" });
             const d = await res.json();
-            
+
             let allItems = [];
             Object.values(d.groups || {}).forEach(arr => allItems.push(...arr));
 
             if (state.search) {
-                allItems = allItems.filter(r => 
-                    (r.title || '').toLowerCase().includes(state.search) || 
+                allItems = allItems.filter(r =>
+                    (r.title || '').toLowerCase().includes(state.search) ||
                     (r.description || '').toLowerCase().includes(state.search) ||
                     (r.search_query || '').toLowerCase().includes(state.search)
                 );
             }
             if (state.keyword) {
                 allItems = allItems.filter(r => {
-                    const kws = Array.isArray(r.keywords) ? r.keywords.map(k=>k.toLowerCase()) : [];
+                    const kws = Array.isArray(r.keywords) ? r.keywords.map(k => k.toLowerCase()) : [];
                     const q = (r.search_query || '').toLowerCase();
                     return kws.includes(state.keyword) || q.includes(state.keyword) || kws.some(k => k.includes(state.keyword));
                 });
@@ -204,7 +208,7 @@ export async function renderGoogle(container) {
             }
 
             const headers = ["Title", "Link", "Date Scraped", "Original Query", "Keywords", "Is PDF", "Description", "Page Excerpt"];
-            let csvContent = "\uFEFF" 
+            let csvContent = "\uFEFF"
                 + headers.join(",") + "\n"
                 + allItems.map(r => {
                     const title = `"${(r.title || "").replace(/"/g, '""')}"`;
@@ -220,14 +224,14 @@ export async function renderGoogle(container) {
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const blobUrl = URL.createObjectURL(blob);
-            
+
             const linkTag = document.createElement("a");
             linkTag.setAttribute("href", blobUrl);
             linkTag.setAttribute("download", `google_${targetType}_results_${new Date().toISOString().split('T')[0]}.csv`);
             document.body.appendChild(linkTag);
             linkTag.click();
             document.body.removeChild(linkTag);
-            
+
             setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
         } catch (e) {
             console.error("Export error", e);
@@ -237,9 +241,10 @@ export async function renderGoogle(container) {
 
     document.getElementById('goog-dl-all')?.addEventListener('click', () => exportAsCsv('all'));
     document.getElementById('goog-dl-filtered')?.addEventListener('click', () => exportAsCsv('filtered'));
+    document.getElementById('goog-dl-unwanted')?.addEventListener('click', () => exportAsCsv('unwanted'));
 
     // ── Stats & Status Polling ─────────────────────────────────────────────
-    
+
     // Create an audio player for the beep
     let _audioContext = null;
     function playBeep() {
@@ -259,7 +264,7 @@ export async function renderGoogle(container) {
         osc.start();
         osc.stop(_audioContext.currentTime + 0.5);
     }
-    
+
     let isBeeping = false;
     let captchaJustCleared = false;  // Guard: blocks re-beep immediately after user clicks cleared
 
@@ -272,7 +277,7 @@ export async function renderGoogle(container) {
             setText('goog-s3', fmtNum(d.total_all));
             setText('goog-s4', fmtNum(d.total_filtered));
             setText('goog-s5', d.last_sync ? fmtDate(d.last_sync) : 'Never');
-            
+
             checkCaptchaStatus(d.sync_status);
         } catch (e) { console.warn('Stats error', e); }
     }
@@ -284,14 +289,14 @@ export async function renderGoogle(container) {
             checkCaptchaStatus(st);
         } catch (e) { /* ignore network error on fast poll */ }
     }
-    
+
     function stopBeep() {
         isBeeping = false;
         clearInterval(window._captchaInterval);
         window._captchaInterval = null;
         // Also stop AudioContext to kill any lingering sound immediately
         if (_audioContext && _audioContext.state !== 'closed') {
-            try { _audioContext.suspend(); } catch(e) {}
+            try { _audioContext.suspend(); } catch (e) { }
         }
     }
 
@@ -318,7 +323,7 @@ export async function renderGoogle(container) {
                     </button>
                 `;
                 if (window.lucide) window.lucide.createIcons();
-                
+
                 document.getElementById('goog-clear-captcha-btn').addEventListener('click', async (e) => {
                     const btn = e.currentTarget;
                     btn.disabled = true;  // prevent double-clicks
@@ -335,7 +340,7 @@ export async function renderGoogle(container) {
                         if (res.ok) {
                             setTimeout(loadStats, 1500);
                         }
-                    } catch(e) { console.error(e); }
+                    } catch (e) { console.error(e); }
 
                     // Release guard after 10 seconds (enough time for backend to update)
                     setTimeout(() => { captchaJustCleared = false; }, 10000);
@@ -375,32 +380,33 @@ export async function renderGoogle(container) {
         try {
             const res = await authFetch(url, { cache: "no-store" });
             const d = await res.json();
-            
+
             // Re-flatten items to apply JS-side filters (search and keyword)
             let allItems = [];
             Object.values(d.groups || {}).forEach(arr => allItems.push(...arr));
 
             if (state.search) {
-                allItems = allItems.filter(r => 
-                    (r.title || '').toLowerCase().includes(state.search) || 
+                allItems = allItems.filter(r =>
+                    (r.title || '').toLowerCase().includes(state.search) ||
                     (r.description || '').toLowerCase().includes(state.search) ||
                     (r.search_query || '').toLowerCase().includes(state.search)
                 );
             }
-            
+
             if (state.keyword) {
                 allItems = allItems.filter(r => {
-                    const kws = Array.isArray(r.keywords) ? r.keywords.map(k=>k.toLowerCase()) : [];
+                    const kws = Array.isArray(r.keywords) ? r.keywords.map(k => k.toLowerCase()) : [];
                     const q = (r.search_query || '').toLowerCase();
                     return kws.includes(state.keyword) || q.includes(state.keyword) || kws.some(k => k.includes(state.keyword));
                 });
             }
-            
+
             // Attach data globally for Export Excel
             window.__currentGoogleData = allItems;
 
             const countEl = document.getElementById('goog-result-count');
-            if (countEl) countEl.innerHTML = `Showing <strong>${allItems.length}</strong> ${state.type === 'filtered' ? 'filtered' : 'all'} results`;
+            let typeLabel = state.type === 'filtered' ? 'filtered' : (state.type === 'unwanted' ? 'unwanted' : 'all');
+            if (countEl) countEl.innerHTML = `Showing <strong>${allItems.length}</strong> ${typeLabel} results`;
 
             if (allItems.length === 0) {
                 area.innerHTML = emptyState();
@@ -421,7 +427,7 @@ export async function renderGoogle(container) {
                     ${allItems.map(r => resultCard(r)).join('')}
                 </div>
             `;
-            
+
             if (window.lucide) window.lucide.createIcons();
 
             function bindActions() {
@@ -443,8 +449,8 @@ export async function renderGoogle(container) {
                     btn.addEventListener('click', async (e) => {
                         const b = e.currentTarget;
                         const id = b.getAttribute('data-id');
-                        if(!confirm("Are you sure you want to permanently delete this Google result from the database?")) return;
-                        
+                        if (!confirm("Are you sure you want to permanently delete this Google result from the database?")) return;
+
                         const card = b.closest('.goog-result-card');
                         if (card) {
                             card.style.opacity = '0.5';
@@ -457,7 +463,7 @@ export async function renderGoogle(container) {
                                 if (card) card.remove();
                                 // Optional: Unbookmark if it was saved
                                 const relatedBmBtn = card.querySelector(`[data-google]`);
-                                if(relatedBmBtn) {
+                                if (relatedBmBtn) {
                                     const objForStore = JSON.parse(relatedBmBtn.getAttribute('data-google'));
                                     if (isBookmarked(objForStore.link)) {
                                         toggleBookmark(objForStore, 'google');
@@ -468,7 +474,7 @@ export async function renderGoogle(container) {
                                 alert("Failed to delete record.");
                                 if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
                             }
-                        } catch(err) {
+                        } catch (err) {
                             console.error("Delete failed", err);
                             alert("Delete failed.");
                             if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
@@ -500,7 +506,7 @@ function resultCard(r) {
     const kws = Array.isArray(r.keywords) ? r.keywords : [];
     let domain = '';
     try { domain = new URL(r.link).hostname.replace('www.', ''); } catch (e) { domain = 'google.com'; }
-    
+
     const isActive = isBookmarked(r.link) ? 'active' : '';
 
     return `
@@ -559,7 +565,7 @@ function emptyState() {
 function buildDateQS(state) {
     const parts = [];
     if (state.dateFrom) parts.push(`date_from=${state.dateFrom}`);
-    if (state.dateTo)   parts.push(`date_to=${state.dateTo}`);
+    if (state.dateTo) parts.push(`date_to=${state.dateTo}`);
     return parts.join('&');
 }
 
@@ -582,6 +588,6 @@ function fmtDate(iso) {
 function fmtDateLabel(dk) {
     if (!dk || dk === 'unknown') return 'Unknown Date';
     const [y, m, d] = dk.split('-');
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
 }

@@ -137,6 +137,11 @@ export async function runGoogleWorkflow(runtime) {
 
                             if (isUnwantedLink(item.href)) {
                                 localUnwanted++;
+                                if (!allMap.has(key)) {
+                                    const payload = { ...item, keyword, search_keyword: keyword, google_page: page + 1, result_type: "unwanted" };
+                                    allMap.set(key, payload);
+                                    newFound.push(payload);
+                                }
                                 continue;
                             }
 
@@ -170,6 +175,8 @@ export async function runGoogleWorkflow(runtime) {
                 for (; currentDetailIndex < allResults.length; currentDetailIndex++) {
                     await updateRuntimeState(runtime.jobId, { currentDetailIndex, kwResults: filtered });
                     const item = allResults[currentDetailIndex];
+
+                    if (item.result_type === "unwanted") continue;
 
                     let targetUrl = item.href;
                     let skipNav = false;
