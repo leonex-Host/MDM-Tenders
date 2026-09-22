@@ -265,4 +265,4 @@ def upload_tenders(
     db.commit()
 
     logger.info(f"Extension upload: {source}/{keyword} — {saved} saved, {skipped} skipped out of {len(tenders)}")
-    return {"message": "Upload complete", "saved": saved, "skipped": skipped, "total": len(tenders)}
+    return {"message": "Upload complete", "saved": saved, "skipped": skipped, "inserted": saved, "duplicates_blocked": skipped, "total": len(tenders)}
