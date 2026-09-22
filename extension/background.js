@@ -26,6 +26,17 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 initializeJobManager();
 
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+    const jobIds = getAllActiveJobIds();
+    for (const jid of jobIds) {
+        const rt = getRuntime(jid);
+        if (rt && rt.tabId === tabId) {
+            console.warn(`[SyncTrace] Tab closed for job ${jid}. Terminating automatically.`);
+            await failJob(jid, "Browser tab running sequence was unexpectedly closed by operator");
+        }
+    }
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "start_polling") {
         chrome.storage.local.get(['extensionState']).then(async data => {

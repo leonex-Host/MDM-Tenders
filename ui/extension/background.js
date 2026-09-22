@@ -22,6 +22,23 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "keepAlive") pollForJobs();
 });
 
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+    const conf = await chrome.storage.local.get(['apiUrl', 'apiKey']);
+    for (const [jid, rt] of activeJobs.entries()) {
+        if (rt.tabId === tabId) {
+            console.warn(`[SyncTrace] Tab ${tabId} abruptly closed. Aborting Sequence ${jid}.`);
+            if (conf.apiUrl && conf.apiKey) {
+                await fetch(`${conf.apiUrl}/api/extension/jobs/${jid}/complete`, {
+                    method: 'POST',
+                    headers: { 'X-Extension-Key': conf.apiKey, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: "failed", error: "Browser window process physically terminated" })
+                }).catch(() => { });
+            }
+            activeJobs.delete(jid);
+        }
+    }
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "start_polling") {
         initPolling();
