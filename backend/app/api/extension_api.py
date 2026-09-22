@@ -193,21 +193,42 @@ def upload_tenders(
         try:
             if source == "google":
                 from app.models import GoogleResult
+                link = (t.get("href") or "")[:1000]
+                
+                # Simultaneous Live Duplicate Check for Google Results
+                if link:
+                    existing = db.query(GoogleResult).filter(GoogleResult.link == link).first()
+                    if existing:
+                        skipped += 1
+                        continue
+
                 db.add(GoogleResult(
                     result_type=t.get("result_type", "all")[:20],
                     title=(t.get("title") or "")[:800],
                     description=(t.get("summary") or "")[:5000],
-                    link=(t.get("href") or "")[:1000],
+                    link=link,
                     search_query=keyword[:500],
                     keywords=json.dumps([keyword]),
                     page_excerpt="",
                     is_pdf="true" if (t.get("href") and ".pdf" in str(t.get("href")).lower()) else "false"
                 ))
+                db.flush() # Secure assignment sequentially
                 saved += 1
             else:
+                tender_id = (t.get("tender_id") or t.get("tot_ref") or "")[:200]
+                if not tender_id:
+                    skipped += 1
+                    continue
+                
+                # Simultaneous Live Duplicate Check for Normal Tenders
+                existing = db.query(Tender).filter(Tender.source == source, Tender.tender_id == tender_id).first()
+                if existing:
+                    skipped += 1
+                    continue
+
                 tender_data = {
                     "source": source,
-                    "tender_id": (t.get("tender_id") or t.get("tot_ref") or "")[:200],
+                    "tender_id": tender_id,
                     "title": (t.get("title") or "")[:580],
                     "description": (t.get("description") or t.get("summary") or "")[:5000] if t.get("description") or t.get("summary") else None,
                     "location": (t.get("location") or t.get("country") or "")[:280],
@@ -220,23 +241,20 @@ def upload_tenders(
                 tender_data = {k: (v if v else None) for k, v in tender_data.items()}
                 tender_data["source"] = source
 
-                stmt = (
-                    pg_insert(Tender)
-                    .values(**tender_data)
-                    .on_conflict_do_nothing(constraint="uq_tender_source")
-                )
-                result = db.execute(stmt)
-
-                if result.rowcount > 0:
-                    saved += 1
-                else:
-                    skipped += 1
+                new_tender = Tender(**tender_data)
+                db.add(new_tender)
+                db.flush()
+                saved += 1
 
         except Exception as exc:
             db.rollback()
             skipped += 1
-            logger.debug(f"Upload upsert error: {exc}")
+            logger.error(f"Injection syntax fault on item: {exc}")
 
+    # Commit all validated insertions to database
+    db.commit()
+
+    logger.info(f"[Live Pipeline Sync] Source: {source} | Keyword: '{keyword}' | Total Payload: {len(tenders)} | Inserted: {saved} | Duplicates Blocked: {skipped}")
     if saved > 0:
         db.commit()
 
