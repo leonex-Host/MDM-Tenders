@@ -207,8 +207,8 @@ def upload_tenders(
                     title=(t.get("title") or "")[:800],
                     description=(t.get("summary") or "")[:5000],
                     link=link,
-                    search_query=keyword[:500],
-                    keywords=json.dumps([keyword]),
+                    search_query=(t.get("search_keyword") or t.get("keyword") or keyword)[:500],
+                    keywords=json.dumps([t.get("search_keyword") or t.get("keyword") or keyword]),
                     page_excerpt="",
                     is_pdf="true" if (t.get("href") and ".pdf" in str(t.get("href")).lower()) else "false"
                 ))
