@@ -83,8 +83,8 @@ function checkPageAvailable() {
         hasNoResultsText,
         reason: cloudflareActive ? "cloudflare_active" :
             !isSearchPage ? "not_search_page" :
-            !formReady ? "search_form_not_ready" :
-            !filterReady ? "filter_button_not_ready" : "advanced_search_form_ready"
+                !formReady ? "search_form_not_ready" :
+                    !filterReady ? "filter_button_not_ready" : "advanced_search_form_ready"
     };
 }
 
@@ -114,12 +114,12 @@ async function clickFilterButton(keyword) {
     const allInputs = [...document.querySelectorAll('input')].filter(visible);
     const input = allInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
         || allInputs.find(el => el.type === 'text' || el.type === 'search');
-    if (!input) return { success:false, clicked:false, verified:false, reason:'search_input_not_found' };
+    if (!input) return { success: false, clicked: false, verified: false, reason: 'search_input_not_found' };
 
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     if (setter) setter.call(input, keyword || ''); else input.value = keyword || '';
-    for (const type of ['input','change','keyup','blur']) {
-        input.dispatchEvent(new Event(type, { bubbles:true, cancelable:true }));
+    for (const type of ['input', 'change', 'keyup', 'blur']) {
+        input.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
     }
 
     let target = null;
@@ -140,25 +140,25 @@ async function clickFilterButton(keyword) {
                 if (/next|previous|login|register|reset|clear|logout|menu/.test(label)) score -= 1000;
                 if (el.tagName === 'A' && el.getAttribute('href') && !/^javascript:/i.test(el.getAttribute('href'))) score -= 200;
                 return { el, score };
-            }).filter(x => x.score > 0).sort((a,b) => b.score-a.score);
+            }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
         target = candidates[0]?.el || null;
     }
 
-    if (!target) return { success:false, clicked:false, verified:false, reason:'filter_button_not_found' };
+    if (!target) return { success: false, clicked: false, verified: false, reason: 'filter_button_not_found' };
 
-    target.scrollIntoView({ block:'center', inline:'center' });
+    target.scrollIntoView({ block: 'center', inline: 'center' });
     target.focus();
     const beforeUrl = location.href;
     const beforeText = document.body?.innerText || '';
 
     // Dispatch a real mouse sequence first; many Angular/jQuery handlers listen for it.
-    for (const type of ['mousedown','mouseup','click']) {
-        target.dispatchEvent(new MouseEvent(type, { bubbles:true, cancelable:true, view:window }));
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+        target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
     }
     // Native click fallback, but never navigate an ordinary anchor accidentally.
     if (target.tagName !== 'A' || /^javascript:/i.test(target.getAttribute('href') || '')) target.click();
 
-    console.log('[TENDER FILTER CLICKED]', { keyword, selector: target.outerHTML.slice(0,500) });
+    console.log('[TENDER FILTER CLICKED]', { keyword, selector: target.outerHTML.slice(0, 500) });
 
     // Accept one/two results. Only wait for the site to react, not for a minimum count.
     for (let i = 0; i < 25; i++) {
@@ -166,9 +166,9 @@ async function clickFilterButton(keyword) {
         const text = document.body?.innerText || '';
         const changed = text !== beforeText || location.href !== beforeUrl || document.querySelectorAll('div.listingbox, div.listingbox.ng-scope, div.tender-item').length > 0;
         const noResults = /no results|no records|no tenders|no data found|0 results/i.test(text);
-        if (changed || noResults) return { success:true, clicked:true, verified:true, reason:noResults ? 'no_results' : 'filter_reacted', target:target.outerHTML.slice(0,500) };
+        if (changed || noResults) return { success: true, clicked: true, verified: true, reason: noResults ? 'no_results' : 'filter_reacted', target: target.outerHTML.slice(0, 500) };
     }
-    return { success:true, clicked:true, verified:true, reason:'click_sent', target:target.outerHTML.slice(0,500) };
+    return { success: true, clicked: true, verified: true, reason: 'click_sent', target: target.outerHTML.slice(0, 500) };
 }
 async function extractListings() {
     if (document.title.includes("Just a moment") ||
@@ -230,6 +230,20 @@ async function extractDetails(keyword) {
                 found = true;
                 const idx = txt.indexOf(phrase);
                 descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
+                break;
+            }
+        }
+    }
+
+    // Strict fallback: search ONLY inside .strval nodes (NOT full page body)
+    if (!found) {
+        for (const s of strvals) {
+            const txt = s.innerText.toLowerCase();
+            if (txt.includes(phrase) && txt.length > 20) {
+                found = true;
+                const idx = txt.indexOf(phrase);
+                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
+                break;
             }
         }
     }
@@ -239,13 +253,6 @@ async function extractDetails(keyword) {
         if (par && par.innerText.includes("Posting Date:")) {
             postingDate = s.innerText.trim();
         }
-    }
-
-    if (!found && rawText.toLowerCase().includes(phrase)) {
-        found = true;
-        const txt = rawText.toLowerCase();
-        const idx = txt.indexOf(phrase);
-        descriptionSnippet = rawText.substring(Math.max(0, idx - 60), idx + phrase.length + 60).replace(/\n/g, ' ');
     }
 
     return {

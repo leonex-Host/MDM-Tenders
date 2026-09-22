@@ -35,7 +35,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return false;
     } else if (request.action === "abort_manual") {
         (async () => {
+            const conf = await chrome.storage.local.get(['apiUrl', 'apiKey']);
             for (const [jid, rt] of activeJobs.entries()) {
+                // Notify backend so Admin UI updates
+                if (conf.apiUrl && conf.apiKey) {
+                    await fetch(`${conf.apiUrl}/api/extension/jobs/${jid}/complete`, {
+                        method: 'POST',
+                        headers: { 'X-Extension-Key': conf.apiKey, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: "failed", error: "Aborted manually by operator" })
+                    }).catch(() => { });
+                }
                 if (rt.windowId) await chrome.windows.remove(rt.windowId).catch(() => { });
                 activeJobs.delete(jid);
             }
@@ -398,7 +407,7 @@ async function waitUntilPageAvailable(tabId, options = {}) {
             ? currentUrl.includes("google.com/search")
             : (currentUrl.includes("/tenders/advancesearch") || currentUrl.includes("advancesearch"));
 
-        if (isExpectedSearchPage && pageCheck.readyState === "complete" && (options.isGoogle || pageCheck.formReady === true)) {
+        if (isExpectedSearchPage && pageCheck.readyState === "complete" && !pageCheck.cloudflareActive) {
             await sleep(1500);
             return true;
         }
