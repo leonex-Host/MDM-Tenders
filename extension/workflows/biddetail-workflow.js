@@ -39,15 +39,7 @@ export async function runBidDetailWorkflow(runtime) {
                     await navigateAndWait(runtime.tabId, searchUrl);
                     await sleep(3000);
                     const sr = await executeContentScript(runtime.tabId, "setup_search");
-                    if (sr && sr.done) {
-                        if (sr.next15Id) {
-                            await chrome.scripting.executeScript({ target: { tabId: runtime.tabId }, world: "MAIN", func: (id) => { const el = document.getElementById(id); if (el) el.click(); }, args: [sr.next15Id] }).catch(() => { });
-                            await sleep(1000);
-                        }
-                        if (sr.searchBtnId) {
-                            await chrome.scripting.executeScript({ target: { tabId: runtime.tabId }, world: "MAIN", func: (id) => { const el = document.getElementById(id); if (el) el.click(); }, args: [sr.searchBtnId] }).catch(() => { });
-                        }
-                    }
+                    console.log(`[BidDetail][${runtime.jobId}] setup_search result:`, sr);
                     await sleep(4000);
                 } else if (runtime.pausedUrl) {
                     await navigateAndWait(runtime.tabId, runtime.pausedUrl);

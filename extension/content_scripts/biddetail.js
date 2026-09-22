@@ -1,21 +1,62 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "setup_search") {
-        try {
-            const drpDD = document.getElementById("drpDD");
-            if (drpDD) drpDD.click();
-            setTimeout(() => {
-                const els = [...document.querySelectorAll("a, li, span, div")];
-                const next15 = els.find(e => e.innerText && e.innerText.includes("Next 15 Days") && e.offsetWidth > 0);
-                if (next15) {
-                    if (!next15.id) next15.id = "mdm-next15-" + Date.now();
+        (async () => {
+            try {
+                // Step 1: Open the daterangepicker dropdown
+                const drpDD = document.getElementById("drpDD");
+                if (drpDD) drpDD.click();
+                await new Promise(r => setTimeout(r, 800));
+
+                // Step 2: Find "This Month" in the daterangepicker preset ranges
+                let thisMonthClicked = false;
+                const rangeItems = [...document.querySelectorAll(".ranges li, .daterangepicker li, .ranges ul li")];
+                for (const li of rangeItems) {
+                    const text = (li.innerText || "").trim().toLowerCase();
+                    if (text === "this month" || text.includes("this month")) {
+                        li.click();
+                        thisMonthClicked = true;
+                        console.log("[BidDetail] Clicked 'This Month' in daterangepicker");
+                        break;
+                    }
                 }
-                setTimeout(() => {
-                    const btn = document.getElementById("btnFilterTender") || document.querySelector("input[value='SEARCH']");
-                    if (btn && !btn.id) btn.id = "mdm-searchbtn-" + Date.now();
-                    sendResponse({ done: true, next15Id: next15 ? next15.id : null, searchBtnId: btn ? btn.id : null });
-                }, 1000);
-            }, 500);
-        } catch (e) { sendResponse({ done: false }); }
+
+                // Fallback: try button/anchor elements with "This Month" text
+                if (!thisMonthClicked) {
+                    const allEls = [...document.querySelectorAll("a, button, span, li, div")];
+                    const match = allEls.find(e => {
+                        const t = (e.innerText || "").trim();
+                        return t === "This Month" && e.offsetWidth > 0 && e.offsetHeight > 0;
+                    });
+                    if (match) {
+                        match.click();
+                        thisMonthClicked = true;
+                        console.log("[BidDetail] Clicked 'This Month' via fallback selector");
+                    }
+                }
+
+                await new Promise(r => setTimeout(r, 500));
+
+                // Step 3: Click the Apply button if daterangepicker has one
+                const applyBtn = document.querySelector(".daterangepicker .applyBtn, .daterangepicker button.applyBtn, .daterangepicker .btn-success");
+                if (applyBtn && applyBtn.offsetWidth > 0) {
+                    applyBtn.click();
+                    console.log("[BidDetail] Clicked Apply button in daterangepicker");
+                    await new Promise(r => setTimeout(r, 500));
+                }
+
+                // Step 4: Click the SEARCH button
+                const searchBtn = document.getElementById("btnFilterTender") || document.querySelector("input[value='SEARCH']");
+                if (searchBtn) {
+                    searchBtn.click();
+                    console.log("[BidDetail] Clicked SEARCH button");
+                }
+
+                sendResponse({ done: true, thisMonthClicked, searchClicked: !!searchBtn });
+            } catch (e) {
+                console.error("[BidDetail] setup_search error:", e);
+                sendResponse({ done: false, error: String(e) });
+            }
+        })();
         return true;
     } else if (request.action === "extract_links") {
         const rows = document.querySelectorAll("div.tender_row");
