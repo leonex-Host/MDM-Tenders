@@ -29,9 +29,38 @@ class EmailService:
         from_name: Optional[str] = None,
     ) -> Tuple[bool, Optional[str]]:
         """
-        Sends an email via Python's built-in smtplib using Gmail.
+        Sends an email. Routes to Node.js Microservice if MAILER_URL is set, otherwise reverts to native Python smtplib.
         """
         display_name = from_name or "Tender Intelligence"
+        
+        # Priority Microservice Routing (Production Render bypass)
+        if settings.MAILER_URL:
+            try:
+                import requests
+                logger.info(f"Routing generic email to Node.js Microservice at {settings.MAILER_URL}")
+                resp = requests.post(
+                    f"{settings.MAILER_URL}/send",
+                    json={
+                        "to": to,
+                        "subject": subject,
+                        "html": html_content,
+                        "fromName": display_name
+                    },
+                    timeout=15
+                )
+                if resp.status_code == 200 and resp.json().get("success"):
+                    logger.info("Email pushed securely through Mailer Microservice.")
+                    return True, None
+                else:
+                    err = resp.json().get("error", "Unknown microservice error")
+                    logger.error(f"Microservice Send Error: {err}")
+                    return False, err
+            except Exception as e:
+                err = f"Microservice Connection Error: {str(e)}"
+                logger.exception(err)
+                return False, err
+
+        # Fallback to Local SMTP
         from_formatted = f"{display_name} <{settings.SMTP_USER}>"
         
         try:
