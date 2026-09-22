@@ -98,7 +98,7 @@ export async function runBidDetailWorkflow(runtime) {
                         console.log(`[BidDetailTrace] extracted detail URL: ${item.href}`);
 
                         if (combinedCheck.includes(phrase)) {
-                            kwResults.push({
+                            const newMatch = {
                                 source: "biddetail",
                                 tender_id: item.bdr_no || (item.href.split("/").pop()),
                                 title: (item.description || item.organization).substring(0, 547),
@@ -108,15 +108,13 @@ export async function runBidDetailWorkflow(runtime) {
                                 end_date: item.deadline,
                                 link: item.href,
                                 keyword
-                            });
+                            };
+                            kwResults.push(newMatch);
+                            await enqueueUpload(runtime.jobId, { source: "biddetail", keyword, tenders: [newMatch] });
+                            allMatchesCount++;
+                            await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount });
                         }
                     }
-                }
-
-                if (kwResults.length > 0 && !runtime.uploadedBatch) {
-                    await enqueueUpload(runtime.jobId, { source: "biddetail", keyword, tenders: kwResults });
-                    allMatchesCount += kwResults.length;
-                    await updateRuntimeState(runtime.jobId, { uploadedBatch: true, resultsCollected: allMatchesCount });
                 }
             }
 

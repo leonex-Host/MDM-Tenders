@@ -73,7 +73,7 @@ export async function runTender247Workflow(runtime) {
                             // clean link
                             const link = href.split("?")[0];
                             const tID = details.tender_id || link.split("/").pop();
-                            kwResults.push({
+                            const newMatch = {
                                 source: "tender247",
                                 tender_id: tID,
                                 title: details.title,
@@ -83,15 +83,13 @@ export async function runTender247Workflow(runtime) {
                                 end_date: details.end_date,
                                 link,
                                 keyword
-                            });
+                            };
+                            kwResults.push(newMatch);
+                            await enqueueUpload(runtime.jobId, { source: "tender247", keyword, tenders: [newMatch] });
+                            allMatchesCount++;
+                            await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount });
                         }
                     }
-                }
-
-                if (kwResults.length > 0 && !runtime.uploadedBatch) {
-                    await enqueueUpload(runtime.jobId, { source: "tender247", keyword, tenders: kwResults });
-                    allMatchesCount += kwResults.length;
-                    await updateRuntimeState(runtime.jobId, { uploadedBatch: true, resultsCollected: allMatchesCount });
                 }
             }
 

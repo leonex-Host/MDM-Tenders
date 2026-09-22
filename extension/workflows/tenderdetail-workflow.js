@@ -81,7 +81,7 @@ export async function runTenderDetailWorkflow(runtime) {
                     if (details && details.brief) {
                         const briefText = details.brief.toLowerCase();
                         if (briefText.includes(phrase)) {
-                            kwResults.push({
+                            const newMatch = {
                                 source: "tenderdetail",
                                 tender_id: item.tender_id || (item.href.split("/").pop()),
                                 title: details.title || details.brief.substring(0, 250),
@@ -91,15 +91,13 @@ export async function runTenderDetailWorkflow(runtime) {
                                 end_date: item.due_date,
                                 link: item.href,
                                 keyword
-                            });
+                            };
+                            kwResults.push(newMatch);
+                            await enqueueUpload(runtime.jobId, { source: "tenderdetail", keyword, tenders: [newMatch] });
+                            allMatchesCount++;
+                            await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount });
                         }
                     }
-                }
-
-                if (kwResults.length > 0 && !runtime.uploadedBatch) {
-                    await enqueueUpload(runtime.jobId, { source: "tenderdetail", keyword, tenders: kwResults });
-                    allMatchesCount += kwResults.length;
-                    await updateRuntimeState(runtime.jobId, { uploadedBatch: true, resultsCollected: allMatchesCount });
                 }
             }
 

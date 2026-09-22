@@ -299,15 +299,12 @@ export async function runTendersOnTimeWorkflow(runtime) {
 
                     const detailData = await executeContentScript(runtime.tabId, "extract_details", { keyword });
                     if (detailData && detailData.found) {
-                        kwResults.push({ ...item, ...detailData });
+                        const newMatch = { ...item, ...detailData };
+                        kwResults.push(newMatch);
+                        await enqueueUpload(runtime.jobId, { source: "tenderontime", keyword: keyword, tenders: [newMatch] });
+                        allMatchesCount++;
+                        await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount });
                     }
-                }
-
-                if (kwResults.length > 0 && !runtime.uploadedBatch) {
-                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] UPLOAD Queuing batch transfer matrix containing ${kwResults.length} records...`);
-                    await enqueueUpload(runtime.jobId, { source: "tenderontime", keyword: keyword, tenders: kwResults });
-                    allMatchesCount += kwResults.length;
-                    await updateRuntimeState(runtime.jobId, { uploadedBatch: true, resultsCollected: allMatchesCount });
                 }
             }
 
