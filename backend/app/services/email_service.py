@@ -37,16 +37,17 @@ class EmailService:
         if settings.MAILER_URL:
             try:
                 import requests
-                logger.info(f"Routing generic email to Node.js Microservice at {settings.MAILER_URL}")
+                base_url = settings.MAILER_URL.rstrip("/")
+                logger.info(f"Routing generic email to Node.js Microservice at {base_url}")
                 resp = requests.post(
-                    f"{settings.MAILER_URL}/send",
+                    f"{base_url}/send",
                     json={
                         "to": to,
                         "subject": subject,
                         "html": html_content,
                         "fromName": display_name
                     },
-                    timeout=15
+                    timeout=65
                 )
                 if resp.status_code == 200 and resp.json().get("success"):
                     logger.info("Email pushed securely through Mailer Microservice.")
