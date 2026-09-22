@@ -230,6 +230,19 @@ async function extractDetails(keyword) {
                 found = true;
                 const idx = txt.indexOf(phrase);
                 descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
+                break;
+            }
+        }
+    }
+
+    if (!found) {
+        for (const s of strvals) {
+            const txt = s.innerText.toLowerCase();
+            if (txt.includes(phrase) && txt.length > 20) {
+                found = true;
+                const idx = txt.indexOf(phrase);
+                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
+                break;
             }
         }
     }
@@ -239,13 +252,6 @@ async function extractDetails(keyword) {
         if (par && par.innerText.includes("Posting Date:")) {
             postingDate = s.innerText.trim();
         }
-    }
-
-    if (!found && rawText.toLowerCase().includes(phrase)) {
-        found = true;
-        const txt = rawText.toLowerCase();
-        const idx = txt.indexOf(phrase);
-        descriptionSnippet = rawText.substring(Math.max(0, idx - 60), idx + phrase.length + 60).replace(/\n/g, ' ');
     }
 
     return {
