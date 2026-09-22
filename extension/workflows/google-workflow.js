@@ -42,10 +42,8 @@ const UNWANTED_DOMAINS = [
 
 const UNWANTED_PATHS = [
     "/jobs/", "/job/", "/careers/", "/career/", "/vacancy/", "/vacancies/", "/employment/", "/recruitment/",
-    "/blog/", "/blogs/", "/article/", "/articles/", "/news/", "/post/", "/posts/", "/story/", "/stories/",
-    "/forum/", "/forums/", "/community/", "/discussion/", "/discussions/", "/questions/", "/answers/",
-    "/docs/", "/documentation/", "/wiki/", "/knowledge-base/", "/login", "/signin", "/sign-in", "/signup",
-    "/sign-up", "/register", "/search", "/results"
+    "/blog/", "/blogs/", "/docs/", "/documentation/", "/wiki/", "/knowledge-base/",
+    "/login", "/signin", "/sign-in", "/signup", "/sign-up", "/register"
 ];
 
 function isUnwantedLink(url) {
