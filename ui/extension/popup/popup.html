@@ -218,10 +218,18 @@
 
 <body>
   <div class="header">
-    <h2>
-      <div class="dot" id="dot"></div> MDM Agent
-    </h2>
-    <span class="badge" id="job_count">0 JOBS</span>
+    <div style="display:flex; align-items:center;">
+      <h2 style="font-size: 13px;">
+        <div class="dot" id="dot" style="margin-right:2px;"></div> MDM Agent
+      </h2>
+    </div>
+    <div style="display: flex; gap: 6px; align-items: center;">
+      <a href="https://mdm-tenders-jsi3.vercel.app/#/scrapers" target="_blank"
+        style="background:#4b5563; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px; text-decoration:none; font-weight:700;">ADMIN</a>
+      <a href="https://mdm-tenders.vercel.app/#/portal" target="_blank"
+        style="background:#2563eb; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px; text-decoration:none; font-weight:700;">PUBLIC</a>
+      <span class="badge" id="job_count" style="margin-left: 4px;">0 JOBS</span>
+    </div>
   </div>
 
   <!-- Config Panel (shown when no connection) -->
