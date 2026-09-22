@@ -57,11 +57,12 @@ class EmailService:
                     logger.error(f"Microservice Send Error: {err}")
                     return False, err
             except Exception as e:
-                err = f"Microservice Connection Error: {str(e)}"
-                logger.exception(err)
-                return False, err
+                err = f"Microservice Connection Error: {str(e)}. Falling back to localized primitive SMTP."
+                logger.warning(err)
+                # Native Fallback automatically kicks in below organically
 
         # Fallback to Local SMTP
+        logger.info("Executing native Python SMTP Protocol (Port 465)...")
         from_formatted = f"{display_name} <{settings.SMTP_USER}>"
         
         try:
