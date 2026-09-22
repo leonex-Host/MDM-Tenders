@@ -21,6 +21,52 @@ async function checkChallenge(tabId) {
     return false;
 }
 
+const UNWANTED_DOMAINS = [
+    "linkedin.com", "facebook.com", "instagram.com", "twitter.com", "x.com", "youtube.com", "youtu.be",
+    "reddit.com", "quora.com", "pinterest.com", "threads.net", "tiktok.com", "t.me", "telegram.me",
+    "indeed.com", "glassdoor.com", "naukri.com", "foundit.in", "monster.com", "ziprecruiter.com",
+    "simplyhired.com", "careerbuilder.com", "shine.com", "internshala.com", "wellfound.com", "lever.co",
+    "greenhouse.io", "workday.com", "github.com", "gitlab.com", "bitbucket.org", "stackoverflow.com",
+    "stackexchange.com", "superuser.com", "askubuntu.com", "npmjs.com", "pypi.org", "readthedocs.io",
+    "readthedocs.org", "developer.mozilla.org", "developers.google.com", "docs.google.com", "docs.microsoft.com",
+    "learn.microsoft.com", "docs.aws.amazon.com", "docs.oracle.com", "medium.com", "substack.com",
+    "wordpress.com", "blogspot.com", "blogger.com", "tumblr.com", "reuters.com", "bbc.com", "cnn.com",
+    "forbes.com", "ndtv.com", "indiatoday.in", "thehindu.com", "hindustantimes.com", "timesofindia.indiatimes.com",
+    "economictimes.indiatimes.com", "moneycontrol.com", "business-standard.com", "researchgate.net",
+    "academia.edu", "sciencedirect.com", "springer.com", "springerlink.com", "ieee.org", "acm.org",
+    "jstor.org", "semanticscholar.org", "arxiv.org", "amazon.com", "amazon.in", "flipkart.com", "ebay.com",
+    "walmart.com", "aliexpress.com", "etsy.com", "justdial.com", "tradeindia.com", "indiamart.com",
+    "dropbox.com", "drive.google.com", "onedrive.live.com", "box.com", "scribd.com", "slideshare.net",
+    "issuu.com", "google.com", "google.co.in", "bing.com", "yahoo.com", "duckduckgo.com"
+];
+
+const UNWANTED_PATHS = [
+    "/jobs/", "/job/", "/careers/", "/career/", "/vacancy/", "/vacancies/", "/employment/", "/recruitment/",
+    "/blog/", "/blogs/", "/article/", "/articles/", "/news/", "/post/", "/posts/", "/story/", "/stories/",
+    "/forum/", "/forums/", "/community/", "/discussion/", "/discussions/", "/questions/", "/answers/",
+    "/docs/", "/documentation/", "/wiki/", "/knowledge-base/", "/login", "/signin", "/sign-in", "/signup",
+    "/sign-up", "/register", "/search", "/results"
+];
+
+function isUnwantedLink(url) {
+    try {
+        const u = new URL(url);
+        const hostname = u.hostname.toLowerCase();
+        const pathname = u.pathname.toLowerCase();
+
+        // Check domains (ending with, to handle subdomains like www.linkedin.com)
+        if (UNWANTED_DOMAINS.some(domain => hostname === domain || hostname.endsWith("." + domain))) {
+            return true;
+        }
+
+        // Check paths (exact matches or contains)
+        if (UNWANTED_PATHS.some(pth => pathname.includes(pth))) {
+            return true;
+        }
+    } catch (_) { }
+    return false;
+}
+
 export async function runGoogleWorkflow(runtime) {
     const keywords = runtime.keywords || [];
     let allMap = new Map((runtime.allResultsPhase1 || []).map(r => [canonicalUrl(r.href), r]));
@@ -83,10 +129,17 @@ export async function runGoogleWorkflow(runtime) {
                         const data = await executeContentScript(runtime.tabId, "extract_listings");
                         const listings = Array.isArray(data) ? data : (data?.listings || []);
                         const newFound = [];
+                        let localUnwanted = 0;
 
                         for (const item of listings) {
                             if (!item.href) continue;
                             const key = canonicalUrl(item.href);
+
+                            if (isUnwantedLink(item.href)) {
+                                localUnwanted++;
+                                continue;
+                            }
+
                             if (!allMap.has(key)) {
                                 const payload = { ...item, keyword, search_keyword: keyword, google_page: page + 1, result_type: "all" };
                                 allMap.set(key, payload);
@@ -94,7 +147,9 @@ export async function runGoogleWorkflow(runtime) {
                             }
                         }
 
-                        await updateRuntimeState(runtime.jobId, { allResultsPhase1: [...allMap.values()], resultsCollected: allMap.size });
+                        const updatedUnwanted = (runtime.unwantedLinks || 0) + localUnwanted;
+                        runtime.unwantedLinks = updatedUnwanted; // Sync active memory immediately
+                        await updateRuntimeState(runtime.jobId, { allResultsPhase1: [...allMap.values()], resultsCollected: allMap.size, unwantedLinks: updatedUnwanted });
 
                         if (newFound.length > 0) {
                             await enqueueUpload(runtime.jobId, { source: "google", keyword, result_type: "all", results: newFound, tenders: newFound });
