@@ -94,14 +94,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="metric-val hlt" title="${j.keyword ? j.keyword.replace(/"/g, '&quot;') : 'Wait...'}">${j.keyword || 'Wait...'} <span style="font-size:9px; color:#6b7280; font-weight:900;">(${j.current_keyword_index || 0}/${j.total_keywords || 0})</span></span>
                             </div>
                             <div class="metric-row">
-                                <span class="metric-label" style="display:flex; justify-content:space-between; width:100%;">
-                                    <span>ISOLATED</span>
-                                    <span>DUPES</span>
-                                </span>
-                                <span class="metric-val" style="display:flex; justify-content:space-between; width:100%; max-width:none;">
-                                    <span style="color:#fff;">${j.results || 0}</span>
-                                    <span style="color:var(--warning);">${j.duplicates || 0}</span>
-                                </span>
+                                <span class="metric-label">FOUNDED</span>
+                                <span class="metric-val" style="color:#fff;">${j.results || 0}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span class="metric-label">REMOVED</span>
+                                <span class="metric-val" style="color:var(--warning);">${j.duplicates || 0}</span>
                             </div>
                             <div class="metric-row" style="margin-top:2px;">
                                 <span class="metric-label">SAVED DATABASE</span>

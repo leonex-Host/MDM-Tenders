@@ -96,14 +96,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="metric-val hlt" style="color:var(--accent); font-weight:700;">${j.keyword || 'Wait...'} <span style="font-size:9px; color:#6b7280; font-weight:900;">(${j.current_keyword_index || 0}/${j.total_keywords || 0})</span></span>
                             </div>
                             <div class="metric-row" style="display:flex; justify-content:space-between; margin-bottom: 6px;">
-                                <span class="metric-label" style="color:var(--text-muted); font-size:9px; display:flex; justify-content:space-between; width:100%;">
-                                    <span>ISOLATED</span>
-                                    <span>DUPES</span>
-                                </span>
-                                <span class="metric-val" style="display:flex; justify-content:space-between; width:100%;">
-                                    <span style="color:#fff; font-weight:700;">${j.results || 0}</span>
-                                    <span style="color:var(--warning); font-weight:700;">${j.duplicates || 0}</span>
-                                </span>
+                                <span class="metric-label" style="color:var(--text-muted); font-size:9px;">FOUNDED</span>
+                                <span class="metric-val" style="color:#fff; font-weight:700;">${j.results || 0}</span>
+                            </div>
+                            <div class="metric-row" style="display:flex; justify-content:space-between; margin-bottom: 6px;">
+                                <span class="metric-label" style="color:var(--text-muted); font-size:9px;">REMOVED</span>
+                                <span class="metric-val" style="color:var(--warning); font-weight:700;">${j.duplicates || 0}</span>
                             </div>
                             <div class="metric-row" style="display:flex; justify-content:space-between; margin-top: 2px;">
                                 <span class="metric-label" style="color:var(--text-muted); font-size:9px;">SAVED DATABASE</span>
