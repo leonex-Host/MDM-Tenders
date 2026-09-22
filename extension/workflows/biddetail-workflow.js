@@ -71,7 +71,7 @@ export async function runBidDetailWorkflow(runtime) {
                         }).catch(() => { });
                     }
 
-                    await sleep(4000);
+                    await sleep(2500);
                     pageNum++;
                 }
                 await updateRuntimeState(runtime.jobId, { phase: 'details', currentDetailIndex: 0, kwResults: [] });
@@ -89,7 +89,7 @@ export async function runBidDetailWorkflow(runtime) {
 
                     await navigateAndWait(runtime.tabId, runtime.pausedUrl || item.href);
                     await updateRuntimeState(runtime.jobId, { pausedUrl: null });
-                    await sleep(2000);
+                    await sleep(800);
 
                     const details = await executeContentScript(runtime.tabId, "extract_details");
                     if (details) {

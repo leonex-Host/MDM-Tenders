@@ -57,7 +57,7 @@ export async function runTenderDetailWorkflow(runtime) {
                     const nr = await executeContentScript(runtime.tabId, "click_next");
                     if (!nr || !nr.clicked) break;
 
-                    await sleep(4000);
+                    await sleep(2500);
                     pageNum++;
                 }
                 await updateRuntimeState(runtime.jobId, { phase: 'details', currentDetailIndex: 0, kwResults: [] });
@@ -75,7 +75,7 @@ export async function runTenderDetailWorkflow(runtime) {
 
                     await navigateAndWait(runtime.tabId, runtime.pausedUrl || item.href);
                     await updateRuntimeState(runtime.jobId, { pausedUrl: null });
-                    await sleep(2000);
+                    await sleep(800);
 
                     const details = await executeContentScript(runtime.tabId, "extract_details");
                     if (details && details.brief) {
