@@ -285,8 +285,7 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     }
 
                     console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] DETAIL Fetching specific document signature... ${currentDetailIndex + 1}/${allListings.length}`);
-                    await navigateAndWait(runtime.tabId, targetUrl);
-                    await sleep(2000);
+                    await navigateAndWait(runtime.tabId, targetUrl, 120000, true);
 
                     // check Challenge manually for detail
                     const chk = await executeContentScript(runtime.tabId, "check_page_available");

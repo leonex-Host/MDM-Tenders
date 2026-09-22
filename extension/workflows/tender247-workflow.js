@@ -63,9 +63,8 @@ export async function runTender247Workflow(runtime) {
                     await updateRuntimeState(runtime.jobId, { currentDetailIndex, kwResults });
                     const href = allListings[currentDetailIndex];
 
-                    await navigateAndWait(runtime.tabId, runtime.pausedUrl || href);
+                    await navigateAndWait(runtime.tabId, runtime.pausedUrl || href, 120000, true);
                     await updateRuntimeState(runtime.jobId, { pausedUrl: null });
-                    await sleep(800);
 
                     const details = await executeContentScript(runtime.tabId, "extract_details");
                     if (details && details.brief) {

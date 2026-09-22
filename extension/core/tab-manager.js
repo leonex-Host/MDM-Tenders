@@ -21,22 +21,22 @@ export async function closeJobTab(tabId) {
     }
 }
 
-export async function navigateAndWait(tabId, url, timeout = CONFIG.TAB_TIMEOUT_MS) {
+export async function navigateAndWait(tabId, url, timeout = CONFIG.TAB_TIMEOUT_MS, fast = false) {
     await chrome.tabs.update(tabId, { url });
-    return await waitForComplete(tabId, timeout);
+    return await waitForComplete(tabId, timeout, fast);
 }
 
-export async function waitForComplete(tabId, timeout = CONFIG.TAB_TIMEOUT_MS) {
+export async function waitForComplete(tabId, timeout = CONFIG.TAB_TIMEOUT_MS, fast = false) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
         try {
             const tab = await chrome.tabs.get(tabId);
             if (tab.status === "complete" && tab.url && !tab.url.startsWith("about:")) {
-                await new Promise(r => setTimeout(r, 1800)); // stabilization
+                await new Promise(r => setTimeout(r, fast ? 400 : 1800)); // stabilization
                 return tab;
             }
         } catch (e) { return null; } // Tab closed or unavailable
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, fast ? 300 : 800));
     }
     return null;
 }
