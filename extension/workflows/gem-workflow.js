@@ -41,12 +41,16 @@ export async function runGemWorkflow(runtime) {
                 while (pageNum <= maxPages) {
                     await updateRuntimeState(runtime.jobId, { currentPage: pageNum });
 
+                    let previousFirstId = null;
                     const dat = await executeContentScript(runtime.tabId, "extract_cards", { keyword });
 
-                    if (dat && dat.results && dat.results.length > 0 && !runtime.uploadedBatch) {
-                        await enqueueUpload(runtime.jobId, { source: "gem", keyword, tenders: dat.results });
-                        allMatchesCount += dat.results.length;
-                        await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount, uploadedBatch: true });
+                    if (dat && dat.results && dat.results.length > 0) {
+                        previousFirstId = dat.results[0].tender_id;
+                        if (!runtime.uploadedBatch) {
+                            await enqueueUpload(runtime.jobId, { source: "gem", keyword, tenders: dat.results });
+                            allMatchesCount += dat.results.length;
+                            await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount, uploadedBatch: true });
+                        }
                     }
 
                     if (pageNum >= maxPages) break;
@@ -54,7 +58,32 @@ export async function runGemWorkflow(runtime) {
                     const nr = await executeContentScript(runtime.tabId, "click_next");
                     if (!nr || !nr.clicked) break;
 
-                    await sleep(4000);
+                    // Poll up to 24s for the DOM to update to the next page mathematically
+                    let loaded = false;
+                    for (let attempt = 0; attempt < 8; attempt++) {
+                        await sleep(3000);
+                        const chk = await executeContentScript(runtime.tabId, "extract_cards", { keyword });
+                        if (chk && chk.results && chk.results.length > 0 && chk.results[0].tender_id !== previousFirstId) {
+                            loaded = true;
+                            break;
+                        }
+                    }
+
+                    // Soft Recovery Trigger if React infinite-loader stalls
+                    if (!loaded) {
+                        console.warn(`[GeM] Pager stall detected on page ${pageNum + 1}. Firing autonomous physical recovery routine.`);
+                        await navigateAndWait(runtime.tabId, searchUrl);
+                        await sleep(3000);
+                        await executeContentScript(runtime.tabId, "setup_search", { keyword });
+                        await sleep(4000);
+
+                        // Fast-forward pagination back to identical parity
+                        for (let r = 1; r <= pageNum; r++) {
+                            await executeContentScript(runtime.tabId, "click_next");
+                            await sleep(2500);
+                        }
+                    }
+
                     pageNum++;
                     await updateRuntimeState(runtime.jobId, { uploadedBatch: false });
                 }
