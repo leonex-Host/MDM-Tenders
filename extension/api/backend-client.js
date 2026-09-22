@@ -68,6 +68,10 @@ export async function uploadResults(payload) {
             headers: { 'X-Extension-Key': creds.apiKey, 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            return { ok: true, status: res.status, data };
+        }
         return { ok: res.ok, status: res.status };
     } catch (e) { return { ok: false, status: 0 }; }
 }

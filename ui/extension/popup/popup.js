@@ -80,10 +80,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 jobsList.innerHTML = jobs.map(j => `
                     <div class="job-card">
                         <div class="job-header">
-                            <span class="job-source">${(j.source || 'unknown').toUpperCase()}</span>
-                            <span class="job-status ${j.status || 'running'}">${(j.status || 'running').toUpperCase()}</span>
+                            <div>
+                                <span class="job-source">${j.source}</span>
+                                <span class="job-id">ID: ${j.job_id}</span>
+                            </div>
+                            <span class="job-status ${j.status || 'starting'}">${(j.status || 'STARTING').toUpperCase()}</span>
                         </div>
-                        <div class="job-id">ID: ${j.job_id || '?'}</div>
+                        <div class="job-metrics" style="background: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size:11px;">
+                            <div class="metric-row" style="display:flex; justify-content:space-between; margin-bottom: 6px;">
+                                <span class="metric-label" style="color:var(--text-muted); font-size:9px;">PHASE ACTIVITY</span>
+                                <span class="metric-val" style="color:#fff; font-weight:700;">${(j.phase || 'BOOTING').toUpperCase()}</span>
+                            </div>
+                            <div class="metric-row" style="display:flex; justify-content:space-between; margin-bottom: 6px;">
+                                <span class="metric-label" style="color:var(--text-muted); font-size:9px;">CURRENT KEYWORD</span>
+                                <span class="metric-val hlt" style="color:var(--accent); font-weight:700;">${j.keyword || 'Wait...'} <span style="font-size:9px; color:#6b7280; font-weight:900;">(${j.current_keyword_index || 0}/${j.total_keywords || 0})</span></span>
+                            </div>
+                            <div class="metric-row" style="display:flex; justify-content:space-between; margin-bottom: 6px;">
+                                <span class="metric-label" style="color:var(--text-muted); font-size:9px; display:flex; justify-content:space-between; width:100%;">
+                                    <span>ISOLATED</span>
+                                    <span>DUPES</span>
+                                </span>
+                                <span class="metric-val" style="display:flex; justify-content:space-between; width:100%;">
+                                    <span style="color:#fff; font-weight:700;">${j.results || 0}</span>
+                                    <span style="color:var(--warning); font-weight:700;">${j.duplicates || 0}</span>
+                                </span>
+                            </div>
+                            <div class="metric-row" style="display:flex; justify-content:space-between; margin-top: 2px;">
+                                <span class="metric-label" style="color:var(--text-muted); font-size:9px;">SAVED DATABASE</span>
+                                <span class="metric-val" style="color:var(--success); font-weight:700; font-size:12px;">${j.inserted || 0} ITEMS</span>
+                            </div>
+                        </div>
+                        <div class="job-actions" style="display: flex; gap: 8px; justify-content: flex-end;">
+                            ${(j.inserted > 0 || j.results > 0) ? `<a href="${j.source === 'google' ? 'https://mdm-tenders.vercel.app/#/google' : 'https://mdm-tenders.vercel.app/#/mdm-tenders'}" target="_blank" class="btn btn-sm" style="background:#2563eb; color:#fff; text-decoration:none; padding: 6px 12px; border-radius: 6px; font-weight:700; font-size:10px; display:inline-block; text-align:center;">VISIT DB</a>` : ''}
+                        </div>
                     </div>
                 `).join('');
             }

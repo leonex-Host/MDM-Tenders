@@ -91,14 +91,25 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div class="metric-row">
                                 <span class="metric-label">CURRENT KEYWORD</span>
-                                <span class="metric-val hlt" title="${j.keyword ? j.keyword.replace(/"/g, '&quot;') : 'Wait...'}">${j.keyword || 'Wait...'}</span>
+                                <span class="metric-val hlt" title="${j.keyword ? j.keyword.replace(/"/g, '&quot;') : 'Wait...'}">${j.keyword || 'Wait...'} <span style="font-size:9px; color:#6b7280; font-weight:900;">(${j.current_keyword_index || 0}/${j.total_keywords || 0})</span></span>
                             </div>
                             <div class="metric-row">
-                                <span class="metric-label">RESULTS ISOLATED</span>
-                                <span class="metric-val">${j.results || 0} ITEMS</span>
+                                <span class="metric-label" style="display:flex; justify-content:space-between; width:100%;">
+                                    <span>ISOLATED</span>
+                                    <span>DUPES</span>
+                                </span>
+                                <span class="metric-val" style="display:flex; justify-content:space-between; width:100%; max-width:none;">
+                                    <span style="color:#fff;">${j.results || 0}</span>
+                                    <span style="color:var(--warning);">${j.duplicates || 0}</span>
+                                </span>
+                            </div>
+                            <div class="metric-row" style="margin-top:2px;">
+                                <span class="metric-label">SAVED DATABASE</span>
+                                <span class="metric-val" style="color:var(--success); font-size:12px;">${j.inserted || 0} ITEMS</span>
                             </div>
                         </div>
                         <div class="job-actions">
+                            ${(j.inserted > 0 || j.results > 0) ? `<a href="${j.source === 'google' ? 'https://mdm-tenders.vercel.app/#/google' : 'https://mdm-tenders.vercel.app/#/mdm-tenders'}" target="_blank" class="btn btn-sm" style="background:#2563eb; color:#fff; text-decoration:none; padding-top:6px; display:inline-block; text-align:center;">VISIT DB</a>` : ''}
                             ${j.status === 'paused' ?
                         `<button class="btn btn-success btn-sm resume-job-btn" data-id="${j.job_id}">RESUME ENGINE</button>`
                         : ''}

@@ -29,7 +29,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "get_status") {
         const jobs = [];
         for (const [id, rt] of activeJobs.entries()) {
-            jobs.push({ job_id: id, source: rt.job.source, status: rt.status });
+            jobs.push({
+                job_id: id,
+                source: rt.job.source,
+                status: rt.status,
+                phase: rt.phase || 'running',
+                results: rt.results || 0,
+                inserted: rt.inserted || 0,
+                duplicates: rt.duplicates || 0,
+                total_keywords: rt.job.keywords ? rt.job.keywords.length : 0,
+                current_keyword_index: (rt.current_keyword_index || 0) + 1,
+                keyword: rt.keyword || (rt.job.keywords ? rt.job.keywords[0] : null)
+            });
         }
         sendResponse({ jobs, count: jobs.length });
         return false;
@@ -156,8 +167,19 @@ async function runTenderJob(job, conf, tid, windowId) {
     const jid = job.job_id;
     const maxPages = job.max_pages || 7;
     let allTenders = [];
+    const rt = activeJobs.get(jid);
+    if (rt) {
+        rt.phase = 'search';
+        rt.results = 0; rt.inserted = 0; rt.duplicates = 0;
+    }
 
+    let kwIndex = 0;
     for (const keyword of job.keywords) {
+        if (rt) {
+            rt.keyword = keyword;
+            rt.current_keyword_index = kwIndex;
+            rt.phase = 'search';
+        }
         console.log(`[JOB][${jid}] Keyword: "${keyword}" [${job.source}]`);
         const escaped = encodeURIComponent(keyword.trim());
         const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
@@ -248,6 +270,7 @@ async function runTenderJob(job, conf, tid, windowId) {
             pageNum++;
         }
 
+        if (rt) rt.phase = 'details';
         console.log(`[JOB][${jid}] Collected ${allListings.length} listings across ${pageNum} pages for "${keyword}".`);
 
         // ── Detail Phase ──
@@ -263,13 +286,22 @@ async function runTenderJob(job, conf, tid, windowId) {
         }
 
         if (kwResults.length > 0) {
-            await fetch(`${conf.apiUrl}/api/extension/upload`, {
+            if (rt) rt.results += kwResults.length;
+            const res = await fetch(`${conf.apiUrl}/api/extension/upload`, {
                 method: 'POST',
                 headers: { 'X-Extension-Key': conf.apiKey, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ source: job.source || "tenderontime", keyword, tenders: kwResults })
             });
+            if (res.ok) {
+                const data = await res.json().catch(() => ({}));
+                if (rt) {
+                    rt.inserted += (data.inserted || 0);
+                    rt.duplicates += (data.duplicates_blocked || 0);
+                }
+            }
             allTenders.push(...kwResults);
         }
+        kwIndex++;
         await sleep(2000);
     }
 }
@@ -279,6 +311,13 @@ async function runGoogleTwoPhaseJob(job, conf, tid, windowId) {
     const jid = job.job_id;
     const allMap = new Map();
     const filtered = [];
+    const rt = activeJobs.get(jid);
+    if (rt) {
+        rt.phase = 'search';
+        rt.results = 0; rt.inserted = 0; rt.duplicates = 0;
+        rt.current_keyword_index = 0;
+        rt.keyword = job.keywords ? job.keywords[0] : 'ALL';
+    }
 
     // PHASE 1
     for (const keyword of (job.keywords || [])) {
@@ -300,8 +339,12 @@ async function runGoogleTwoPhaseJob(job, conf, tid, windowId) {
     }
 
     const allResults = [...allMap.values()];
+    if (rt) {
+        rt.results = allResults.length;
+        rt.phase = 'details';
+    }
     console.log(`[JOB][${jid}][GOOGLE] Phase 1 complete: ${allResults.length} unique results.`);
-    await uploadGoogleResults(conf, job, allResults, "all");
+    await uploadGoogleResults(conf, job, allResults, "all", rt);
 
     // PHASE 2
     for (let i = 0; i < allResults.length; i++) {
@@ -317,7 +360,8 @@ async function runGoogleTwoPhaseJob(job, conf, tid, windowId) {
     }
 
     console.log(`[JOB][${jid}][GOOGLE] Phase 2 complete: ${filtered.length} verified results.`);
-    await uploadGoogleResults(conf, job, filtered, "filtered");
+    if (rt) rt.results = filtered.length;
+    await uploadGoogleResults(conf, job, filtered, "filtered", rt);
 
     // Override the generic complete with Google-specific summary
     await fetch(`${conf.apiUrl}/api/extension/jobs/${jid}/complete`, {
@@ -356,13 +400,18 @@ function googleSearchUrl(keyword, page) {
     return `https://www.google.com/search?q=${encodeURIComponent(query)}&start=${page * 10}&num=10`;
 }
 
-async function uploadGoogleResults(conf, job, results, resultType) {
+async function uploadGoogleResults(conf, job, results, resultType, rt) {
     if (!results.length) return;
-    await fetch(`${conf.apiUrl}/api/extension/upload`, {
+    const res = await fetch(`${conf.apiUrl}/api/extension/upload`, {
         method: "POST",
         headers: { "X-Extension-Key": conf.apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({ source: "google", keyword: "ALL", result_type: resultType, results, tenders: results })
     });
+    if (res.ok && rt) {
+        const data = await res.json().catch(() => ({}));
+        rt.inserted += (data.inserted || 0);
+        rt.duplicates += (data.duplicates_blocked || 0);
+    }
     console.log(`[GOOGLE][SAVE ${resultType.toUpperCase()}] Sent ${results.length} results.`);
 }
 

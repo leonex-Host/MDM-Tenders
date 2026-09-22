@@ -312,8 +312,15 @@ export async function processUploadQueue(jobId) {
             runtime.lastActivityAt = Date.now(); // bump heartbeat
 
             if (res.ok) {
+                const data = res.data || {};
+                runtime.tenders_inserted = (runtime.tenders_inserted || 0) + (data.inserted || 0);
+                runtime.tenders_duplicates = (runtime.tenders_duplicates || 0) + (data.duplicates_blocked || 0);
                 remainingQueue.shift();
-                await updateRuntimeState(jobId, { uploadQueue: remainingQueue });
+                await updateRuntimeState(jobId, {
+                    uploadQueue: remainingQueue,
+                    tenders_inserted: runtime.tenders_inserted,
+                    tenders_duplicates: runtime.tenders_duplicates
+                });
             } else if ([400, 422].includes(res.status)) {
                 batch.status = 'validation_error';
                 await updateRuntimeState(jobId, { uploadQueue: remainingQueue });

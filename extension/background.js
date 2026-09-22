@@ -61,6 +61,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     status: rt.status,
                     phase: rt.phase || 'unknown',
                     results: rt.resultsCollected || 0,
+                    inserted: rt.tenders_inserted || 0,
+                    duplicates: rt.tenders_duplicates || 0,
+                    total_keywords: rt.keywords ? rt.keywords.length : 0,
+                    current_keyword_index: (rt.currentKeywordIndex || 0) + 1,
                     keyword: (rt.keywords && rt.keywords.length > 0) ? rt.keywords[rt.currentKeywordIndex || 0] : null
                 });
             }
