@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div class="metric-row" style="display:flex; justify-content:space-between; margin-bottom: 6px;">
                                 <span class="metric-label" style="color:var(--text-muted); font-size:9px;">CURRENT KEYWORD</span>
-                                <span class="metric-val hlt" style="color:var(--accent); font-weight:700;">${j.keyword || 'Wait...'} <span style="font-size:9px; color:#6b7280; font-weight:900;">(${j.current_keyword_index || 0}/${j.total_keywords || 0})</span></span>
+                                <span class="metric-val hlt" style="color:var(--accent); font-weight:700;"><span style="font-size:9px; color:#fff; font-weight:900; margin-right:4px;">(${j.current_keyword_index || 0}/${j.total_keywords || 0})</span>${j.keyword || 'Wait...'}</span>
                             </div>
                             <div class="metric-row" style="display:flex; justify-content:space-between; margin-bottom: 6px;">
                                 <span class="metric-label" style="color:var(--text-muted); font-size:9px;">FOUNDED</span>

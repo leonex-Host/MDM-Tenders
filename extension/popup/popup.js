@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div class="metric-row">
                                 <span class="metric-label">CURRENT KEYWORD</span>
-                                <span class="metric-val hlt" title="${j.keyword ? j.keyword.replace(/"/g, '&quot;') : 'Wait...'}">${j.keyword || 'Wait...'} <span style="font-size:9px; color:#6b7280; font-weight:900;">(${j.current_keyword_index || 0}/${j.total_keywords || 0})</span></span>
+                                <span class="metric-val hlt" title="${j.keyword ? j.keyword.replace(/"/g, '&quot;') : 'Wait...'}"><span style="font-size:9px; color:#fff; font-weight:900; margin-right:4px;">(${j.current_keyword_index || 0}/${j.total_keywords || 0})</span>${j.keyword || 'Wait...'}</span>
                             </div>
                             <div class="metric-row">
                                 <span class="metric-label">FOUNDED</span>
