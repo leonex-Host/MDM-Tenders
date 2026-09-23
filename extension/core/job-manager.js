@@ -20,6 +20,16 @@ export async function setExtensionState(updates) {
     const state = await getExtensionState();
     const newState = { ...state, ...updates };
     await chrome.storage.local.set({ extensionState: newState });
+
+    if (updates.blocked !== undefined) {
+        if (updates.blocked) {
+            chrome.action.setBadgeText({ text: '!' }).catch(() => { });
+            chrome.action.setBadgeBackgroundColor({ color: '#ef4444' }).catch(() => { });
+        } else {
+            chrome.action.setBadgeText({ text: '' }).catch(() => { });
+        }
+    }
+
     return newState;
 }
 
