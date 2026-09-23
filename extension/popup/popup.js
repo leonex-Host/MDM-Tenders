@@ -20,8 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btnHistory.addEventListener('click', () => {
             const isShowing = historyPanel.style.display === 'block';
             historyPanel.style.display = isShowing ? 'none' : 'block';
+            const jobsPanel = document.getElementById('jobs_panel');
+            if (jobsPanel) jobsPanel.style.display = isShowing ? 'block' : 'none';
         });
-        closeHistory.addEventListener('click', () => historyPanel.style.display = 'none');
+        closeHistory.addEventListener('click', () => {
+            historyPanel.style.display = 'none';
+            const jobsPanel = document.getElementById('jobs_panel');
+            if (jobsPanel) jobsPanel.style.display = 'block';
+        });
     }
 
     let connected = false;
