@@ -1,8 +1,42 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "extract_links") {
-        const links = [...document.querySelectorAll("a[href*='/tender-details/']")].map(a => a.href);
-        sendResponse({ links: [...new Set(links)] });
+    if (request.action === "extract_grid") {
+        try {
+            const links = [...document.querySelectorAll("a[href*='/tender-details/']")].filter(a => !a.innerText.trim().toUpperCase().includes("BID NOW"));
+            const results = links.map(a => {
+                let card = a;
+                for (let i = 0; i < 5; i++) {
+                    if (card.parentElement && card.parentElement.innerText.includes("T247 ID")) card = card.parentElement;
+                }
+                const fullText = card.innerText || "";
+
+                let title = a.innerText.trim();
+                const idMatch = fullText.match(/T247\s*ID[\s-:]*(\d+)/i) || a.href.match(/(\d{8,11})/);
+                const endMatch = fullText.match(/(\d{1,2}-\d{1,2}-\d{4})\s*\d+\s+Day/i) || fullText.match(/EMD.*?(\d{1,2}-\d{1,2}-\d{4})/i);
+                const locMatch = fullText.match(/([^,\n]+,\s*[^,\n]+,\s*India)/i);
+
+                let brief = "";
+                const boqIdx = fullText.indexOf("Matching BOQ Items");
+                if (boqIdx !== -1) {
+                    brief = fullText.substring(boqIdx + 18).trim();
+                } else {
+                    brief = fullText.substring(0, 800);
+                }
+
+                return {
+                    href: a.href.split("?")[0].split("#")[0],
+                    title: title,
+                    tender_id: idMatch ? idMatch[1] : a.href.split("/").pop(),
+                    end_date: endMatch ? endMatch[1] : "",
+                    location: locMatch ? locMatch[1] : "",
+                    brief: brief
+                };
+            });
+            sendResponse({ results });
+        } catch (e) {
+            sendResponse({ results: [] });
+        }
         return true;
+    } else if (request.action === "extract_links") {
     } else if (request.action === "click_next") {
         const els = [...document.querySelectorAll("a")].filter(a => a.innerText.includes("Next") || a.innerText.includes('›'));
         const next = els.find(el => el.offsetWidth > 0 && el.offsetHeight > 0);

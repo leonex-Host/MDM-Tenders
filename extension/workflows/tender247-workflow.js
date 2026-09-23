@@ -24,78 +24,58 @@ export async function runTender247Workflow(runtime) {
             const searchUrl = `https://www.tender247.com/keyword/${cleanKw}+tenders`;
 
             let phase = runtime.phase || 'search';
-            let allListings = runtime.allListings || [];
             let pageNum = runtime.currentPage || 1;
+            let currentKeywordMatchCount = runtime.currentKeywordMatchCount || 0;
 
-            if (phase === 'search') {
-                await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword, phase: 'search' });
-                await navigateAndWait(runtime.tabId, runtime.pausedUrl || searchUrl);
+            await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword, phase: 'search' });
+
+            if (pageNum === 1 && !runtime.pausedUrl) {
+                await navigateAndWait(runtime.tabId, searchUrl);
+                await sleep(4000);
+            } else if (runtime.pausedUrl) {
+                await navigateAndWait(runtime.tabId, runtime.pausedUrl);
                 await updateRuntimeState(runtime.jobId, { pausedUrl: null });
-                await sleep(5000); // Allow JS loads
-
-                while (pageNum <= maxPages) {
-                    await updateRuntimeState(runtime.jobId, { currentPage: pageNum });
-                    const dat = await executeContentScript(runtime.tabId, "extract_links");
-                    if (dat && dat.links && dat.links.length > 0) {
-                        for (const raw of dat.links) {
-                            const link = raw.split("?")[0].split("#")[0];
-                            if (!allListings.includes(link)) allListings.push(link);
-                        }
-                    } else break; // No more
-
-                    await updateRuntimeState(runtime.jobId, { allListings });
-
-                    if (pageNum >= maxPages) break;
-
-                    const nr = await executeContentScript(runtime.tabId, "click_next");
-                    if (!nr || !nr.clicked) break;
-
-                    await sleep(2500);
-                    pageNum++;
-                }
-                await updateRuntimeState(runtime.jobId, { phase: 'details', currentDetailIndex: 0, kwResults: [] });
-                phase = 'details';
+                await sleep(2000);
             }
 
-            if (phase === 'details') {
-                let currentDetailIndex = runtime.currentDetailIndex || 0;
-                let kwResults = runtime.kwResults || [];
-                const phrase = keyword.toLowerCase().trim();
+            const phrase = keyword.toLowerCase().trim();
 
-                for (; currentDetailIndex < allListings.length; currentDetailIndex++) {
-                    await updateRuntimeState(runtime.jobId, { currentDetailIndex, kwResults });
-                    const href = allListings[currentDetailIndex];
+            while (pageNum <= maxPages) {
+                await updateRuntimeState(runtime.jobId, { currentPage: pageNum });
 
-                    await navigateAndWait(runtime.tabId, runtime.pausedUrl || href, 120000, true);
-                    await updateRuntimeState(runtime.jobId, { pausedUrl: null });
-
-                    const details = await executeContentScript(runtime.tabId, "extract_details");
-                    if (details && details.brief) {
-                        if (details.brief.toLowerCase().includes(phrase)) {
-                            // clean link
-                            const link = href.split("?")[0];
-                            const tID = details.tender_id || link.split("/").pop();
+                const dat = await executeContentScript(runtime.tabId, "extract_grid");
+                if (dat && dat.results && dat.results.length > 0) {
+                    for (const item of dat.results) {
+                        const combinedCheck = (item.title + " " + item.brief).toLowerCase();
+                        if (combinedCheck.includes(phrase)) {
                             const newMatch = {
                                 source: "tender247",
-                                tender_id: tID,
-                                title: details.title,
-                                description: details.brief,
-                                location: details.location,
-                                start_date: details.start_date,
-                                end_date: details.end_date,
-                                link,
+                                tender_id: item.tender_id || item.href.split("/").pop(),
+                                title: item.title,
+                                description: item.brief,
+                                location: item.location,
+                                end_date: item.end_date,
+                                link: item.href,
                                 keyword
                             };
-                            kwResults.push(newMatch);
                             await enqueueUpload(runtime.jobId, { source: "tender247", keyword, tenders: [newMatch] });
                             allMatchesCount++;
-                            await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount });
+                            currentKeywordMatchCount++;
+                            await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount, currentKeywordMatchCount });
                         }
                     }
-                }
+                } else break; // No more
+
+                if (pageNum >= maxPages) break;
+
+                const nr = await executeContentScript(runtime.tabId, "click_next");
+                if (!nr || !nr.clicked) break;
+
+                await sleep(2500);
+                pageNum++;
             }
 
-            await updateRuntimeState(runtime.jobId, { phase: 'search', currentPage: 1, allListings: [], kwResults: [], currentDetailIndex: 0, resultsCollected: allMatchesCount, uploadedBatch: false });
+            await updateRuntimeState(runtime.jobId, { currentPage: 1, currentKeywordMatchCount: 0 });
         }
         await finishJob(runtime.jobId, allMatchesCount);
     } finally {
