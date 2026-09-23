@@ -90,7 +90,12 @@ async function syncMapToStorage() {
 
     for (const [key, val] of activeJobs.entries()) {
         raw[key] = val;
-        if (val.status === 'paused') pausedCount++;
+        if (val.status === 'paused') {
+            pausedCount++;
+            if (val.tabId) chrome.tabs.sendMessage(val.tabId, { action: "show_captcha_bell" }).catch(() => { });
+        } else {
+            if (val.tabId) chrome.tabs.sendMessage(val.tabId, { action: "hide_captcha_bell" }).catch(() => { });
+        }
 
         if (!firstJob) {
             firstJob = {
