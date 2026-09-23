@@ -158,7 +158,7 @@ export async function runGoogleWorkflow(runtime) {
                         await updateRuntimeState(runtime.jobId, { allResultsPhase1: [...allMap.values()], resultsCollected: allMap.size, unwantedLinks: updatedUnwanted });
 
                         if (newFound.length > 0) {
-                            await enqueueUpload(runtime.jobId, { source: "google", phase: "search", data: newFound });
+                            await enqueueUpload(runtime.jobId, { source: "google", phase: "search", keyword, result_type: "all", results: newFound, tenders: newFound });
                         }
 
                         if (!data || !listings || listings.length === 0) {
