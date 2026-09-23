@@ -372,7 +372,21 @@ export async function renderGoogle(container) {
     // ── Results ────────────────────────────────────────────────────────────
     async function loadResults() {
         const area = document.getElementById('goog-results-area');
-        area.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-tertiary);font-size:13px;">Loading…</div>`;
+        area.innerHTML = `
+            <div class="goog-cards-grid">
+                ${Array(6).fill(`
+                    <div class="skeleton-card">
+                        <div class="skeleton-block skeleton-title"></div>
+                        <div class="skeleton-block skeleton-desc"></div>
+                        <div class="skeleton-block skeleton-desc short"></div>
+                        <div class="skeleton-tags">
+                            <div class="skeleton-block skeleton-tag"></div>
+                            <div class="skeleton-block skeleton-tag"></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
         let url = `${API}/results?result_type=${state.type}`;
         const qs = buildDateQS(state);
         if (qs) url += `&${qs}`;
@@ -422,20 +436,45 @@ export async function renderGoogle(container) {
                 return da.localeCompare(db);
             });
 
-            area.innerHTML = `
-                <div class="goog-cards-grid">
-                    ${allItems.map(r => resultCard(r)).join('')}
-                </div>
-            `;
+            const maxLen = allItems.length;
+            let visibleCount = 100;
 
-            if (window.lucide) window.lucide.createIcons();
+            function renderGrid() {
+                const slice = allItems.slice(0, visibleCount);
+                let html = `
+                    <div class="goog-cards-grid">
+                        ${slice.map(r => resultCard(r)).join('')}
+                    </div>
+                 `;
+
+                if (visibleCount < maxLen) {
+                    html += `
+                        <button id="goog-load-more" class="btn-load-more">
+                            Load More 
+                            <span style="opacity:0.5; font-size:12px; margin-left:4px;">(${visibleCount} of ${maxLen})</span>
+                        </button>
+                     `;
+                }
+                area.innerHTML = html;
+
+                if (window.lucide) window.lucide.createIcons();
+                bindActions();
+
+                const lmBtn = document.getElementById('goog-load-more');
+                if (lmBtn) {
+                    lmBtn.addEventListener('click', () => {
+                        visibleCount += 100;
+                        renderGrid();
+                    });
+                }
+            }
 
             function bindActions() {
-                const area = document.getElementById('goog-results-area');
-                if (!area) return;
+                const curArea = document.getElementById('goog-results-area');
+                if (!curArea) return;
 
                 // Bookmarks
-                area.querySelectorAll('.bookmark-btn').forEach(btn => {
+                curArea.querySelectorAll('.bookmark-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const b = e.currentTarget;
                         const obj = JSON.parse(b.getAttribute('data-google'));
@@ -445,7 +484,7 @@ export async function renderGoogle(container) {
                 });
 
                 // Deletes
-                area.querySelectorAll('.delete-btn').forEach(btn => {
+                curArea.querySelectorAll('.delete-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         const b = e.currentTarget;
                         const id = b.getAttribute('data-id');
@@ -461,7 +500,6 @@ export async function renderGoogle(container) {
                             const res = await authFetch(`${API}/results/${id}`, { cache: "no-store", method: 'DELETE' });
                             if (res.ok) {
                                 if (card) card.remove();
-                                // Optional: Unbookmark if it was saved
                                 const relatedBmBtn = card.querySelector(`[data-google]`);
                                 if (relatedBmBtn) {
                                     const objForStore = JSON.parse(relatedBmBtn.getAttribute('data-google'));
@@ -469,7 +507,7 @@ export async function renderGoogle(container) {
                                         toggleBookmark(objForStore, 'google');
                                     }
                                 }
-                                loadStats(); // Reload stats behind scenes
+                                loadStats();
                             } else {
                                 alert("Failed to delete record.");
                                 if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
@@ -482,7 +520,8 @@ export async function renderGoogle(container) {
                     });
                 });
             }
-            bindActions();
+
+            renderGrid(); // Initial paint bounds natively
         } catch (e) {
             area.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-tertiary);font-size:13px;">Failed to load results.</div>`;
         }

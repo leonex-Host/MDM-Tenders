@@ -48,7 +48,7 @@ export async function renderSourcePage(container, config) {
     // ── Fetch tenders ──────────────────────────────────────────────────────
     let allTenders = [];
     try {
-        const res  = await authFetch(`${getApiBase()}/tenders?source=${config.source}&limit=500`, { cache: "no-store" });
+        const res = await authFetch(`${getApiBase()}/tenders?source=${config.source}&limit=500`, { cache: "no-store" });
         const data = await res.json();
         allTenders = data.results || [];
     } catch (err) {
@@ -100,17 +100,27 @@ function _statsSkeletons() {
 }
 
 function _loadingSpinner() {
-    return `<div style="text-align:center;padding:60px;color:var(--text-tertiary);">
-        <i data-lucide="loader" style="width:32px;height:32px;animation:spin 1s linear infinite;"></i>
-        <p style="margin-top:12px;font-size:14px;">Fetching tenders from database…</p>
+    return `
+    <div class="tender-cards-grid">
+        ${Array(6).fill(`
+            <div class="skeleton-card">
+                <div class="skeleton-block skeleton-title"></div>
+                <div class="skeleton-block skeleton-desc"></div>
+                <div class="skeleton-block skeleton-desc short"></div>
+                <div class="skeleton-tags">
+                    <div class="skeleton-block skeleton-tag"></div>
+                    <div class="skeleton-block skeleton-tag"></div>
+                </div>
+            </div>
+        `).join('')}
     </div>`;
 }
 
 async function _loadStats(container, source) {
     try {
-        const res  = await authFetch(`${getApiBase()}/stats`, { cache: "no-store" });
+        const res = await authFetch(`${getApiBase()}/stats`, { cache: "no-store" });
         const data = await res.json();
-        const total    = data.tenders_by_source?.[source] ?? 0;
+        const total = data.tenders_by_source?.[source] ?? 0;
         const allTotal = data.total_tenders ?? 0;
         const statsRow = container.querySelector('#sp-stats-row');
         if (!statsRow) return;
@@ -163,96 +173,118 @@ function _renderTable(container, tenders, config) {
         return;
     }
 
-    area.innerHTML = `
-        <div class="tender-cards-grid">
-            ${tenders.map(t => {
-                const keyword = (t.keyword || t.matched_keyword || '—');
-                const isActive = isBookmarked(t.tender_id) ? 'active' : '';
-                return `
-                <div class="tender-card">
-                    <div class="tender-card-top">
-                        <div class="tender-card-id">
-                            <span class="tc-id-label">Tender ID :</span>
-                            ${_esc(t.tender_id || '—')}
-                        </div>
-                        <div class="tender-card-dates">
-                            <span class="tc-date"><i data-lucide="calendar" style="width:11px;height:11px;"></i> ${t.start_date || '—'}</span>
-                            <span class="tc-date-sep">→</span>
-                            <span class="tc-date end"><i data-lucide="clock" style="width:11px;height:11px;"></i> ${t.end_date || '—'}</span>
-                        </div>
-                    </div>
-                    <div class="tender-card-desc">
-                        ${_esc(t.title || t.description || '—')}
-                    </div>
-                    <div class="tender-card-bottom">
-                        <div class="tender-card-tags">
-                            <span class="tc-tag keyword"><i data-lucide="tag" style="width:10px;height:10px;"></i> ${_esc(keyword)}</span>
-                            <span class="tc-tag source">${_esc((t.source||config.source||'').toUpperCase())}</span>
-                            <span class="tc-tag location"><i data-lucide="map-pin" style="width:10px;height:10px;"></i> ${_esc(t.location || '—')}</span>
-                        </div>
-                        <div class="tender-card-link" style="display:flex; gap:8px; align-items:center;">
-                            <button class="btn-icon bookmark-btn ${isActive}" data-tender='${JSON.stringify(t).replace(/'/g, "&#39;")}' title="Bookmark">
-                                <i data-lucide="bookmark" style="width:18px;height:18px;"></i>
-                            </button>
-                            <button class="btn-icon delete-btn" data-id="${t.id}" title="Permanently Delete" style="background:rgba(255,50,50,0.1); color:var(--accent-red, #ef4444); cursor:pointer;">
-                                <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
-                            </button>
-                            ${t.link
-                                ? '<a href="' + t.link + '" target="_blank" rel="noopener" class="tc-link-btn"><i data-lucide="external-link" style="width:13px;height:13px;"></i> View</a>'
-                                : '<span class="tc-no-link">—</span>'
-                            }
-                        </div>
-                    </div>
-                </div>`;
-            }).join('')}
-        </div>
-        <div class="pagination-area" style="padding:16px 0;">
-            <div class="pagination-info">Showing ${tenders.length} tender${tenders.length !== 1 ? 's' : ''}</div>
-        </div>`;
-    if (window.lucide) window.lucide.createIcons();
+    let visibleCount = 100;
+    const maxLen = tenders.length;
 
-    const bmBtns = area.querySelectorAll('.bookmark-btn');
-    bmBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const b = e.currentTarget;
-            const tenderObj = JSON.parse(b.getAttribute('data-tender'));
-            const isNowSaved = toggleBookmark(tenderObj);
-            if (isNowSaved) {
-                b.classList.add('active');
-            } else {
-                b.classList.remove('active');
-            }
+    function drawGrid() {
+        const slice = tenders.slice(0, visibleCount);
+        const hasMoreClient = visibleCount < maxLen;
+
+        area.innerHTML = `
+            <div class="tender-cards-grid">
+                ${slice.map(t => {
+            const keyword = (t.keyword || t.matched_keyword || '—');
+            const isActive = isBookmarked(t.tender_id) ? 'active' : '';
+            return `
+                    <div class="tender-card">
+                        <div class="tender-card-top">
+                            <div class="tender-card-id">
+                                <span class="tc-id-label">Tender ID :</span>
+                                ${_esc(t.tender_id || '—')}
+                            </div>
+                            <div class="tender-card-dates">
+                                <span class="tc-date"><i data-lucide="calendar" style="width:11px;height:11px;"></i> ${t.start_date || '—'}</span>
+                                <span class="tc-date-sep">→</span>
+                                <span class="tc-date end"><i data-lucide="clock" style="width:11px;height:11px;"></i> ${t.end_date || '—'}</span>
+                            </div>
+                        </div>
+                        <div class="tender-card-desc">
+                            ${_esc(t.title || t.description || '—')}
+                        </div>
+                        <div class="tender-card-bottom">
+                            <div class="tender-card-tags">
+                                <span class="tc-tag keyword"><i data-lucide="tag" style="width:10px;height:10px;"></i> ${_esc(keyword)}</span>
+                                <span class="tc-tag source">${_esc((t.source || config.source || '').toUpperCase())}</span>
+                                <span class="tc-tag location"><i data-lucide="map-pin" style="width:10px;height:10px;"></i> ${_esc(t.location || '—')}</span>
+                            </div>
+                            <div class="tender-card-link" style="display:flex; gap:8px; align-items:center;">
+                                <button class="btn-icon bookmark-btn ${isActive}" data-tender='${JSON.stringify(t).replace(/'/g, "&#39;")}' title="Bookmark">
+                                    <i data-lucide="bookmark" style="width:18px;height:18px;"></i>
+                                </button>
+                                <button class="btn-icon delete-btn" data-id="${t.id}" title="Permanently Delete" style="background:rgba(255,50,50,0.1); color:var(--accent-red, #ef4444); cursor:pointer;">
+                                    <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+                                </button>
+                                ${t.link
+                    ? '<a href="' + t.link + '" target="_blank" rel="noopener" class="tc-link-btn"><i data-lucide="external-link" style="width:13px;height:13px;"></i> View</a>'
+                    : '<span class="tc-no-link">—</span>'
+                }
+                            </div>
+                        </div>
+                    </div>`;
+        }).join('')}
+            </div>
+            <div class="pagination-area" style="padding:40px 0 20px 0; display:flex; flex-direction:column; align-items:center; gap:12px;">
+                <div class="pagination-info" style="color:var(--text-tertiary); font-size:13px;">Showing <strong>${slice.length}</strong> localized rows (Database limit buffer: <strong>${maxLen}</strong>)</div>
+                ${hasMoreClient ? `
+                    <button class="btn-load-more" id="client-load-more-btn">
+                        Load More Results
+                        <span style="opacity:0.5; font-size:12px; margin-left:4px;">(${slice.length} of ${maxLen})</span>
+                    </button>
+                ` : ''}
+            </div>`;
+
+        if (window.lucide) window.lucide.createIcons();
+
+        area.querySelector('#client-load-more-btn')?.addEventListener('click', () => {
+            visibleCount += 100;
+            drawGrid();
         });
-    });
 
-    const delBtns = area.querySelectorAll('.delete-btn');
-    delBtns.forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const b = e.currentTarget;
-            const id = b.getAttribute('data-id');
-            if(!confirm("Are you sure you want to permanently delete this tender from the database?")) return;
-            
-            const card = b.closest('.tender-card');
-            if (card) {
-                card.style.opacity = '0.5';
-                card.style.pointerEvents = 'none';
-            }
-
-            try {
-                const res = await authFetch(`${getApiBase()}/tenders/${id}`, { cache: "no-store", method: 'DELETE' });
-                if (res.ok) {
-                    if (card) card.remove();
+        const bmBtns = area.querySelectorAll('.bookmark-btn');
+        bmBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const b = e.currentTarget;
+                const tenderObj = JSON.parse(b.getAttribute('data-tender'));
+                const isNowSaved = toggleBookmark(tenderObj);
+                if (isNowSaved) {
+                    b.classList.add('active');
                 } else {
-                    alert("Failed to delete tender.");
+                    b.classList.remove('active');
+                }
+            });
+        });
+
+        const delBtns = area.querySelectorAll('.delete-btn');
+        delBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const b = e.currentTarget;
+                const id = b.getAttribute('data-id');
+                if (!confirm("Are you sure you want to permanently delete this tender from the database?")) return;
+
+                const card = b.closest('.tender-card');
+                if (card) {
+                    card.style.opacity = '0.5';
+                    card.style.pointerEvents = 'none';
+                }
+
+                try {
+                    const res = await authFetch(`${getApiBase()}/tenders/${id}`, { cache: "no-store", method: 'DELETE' });
+                    if (res.ok) {
+                        if (card) card.remove();
+                    } else {
+                        alert("Failed to delete tender.");
+                        if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
+                    }
+                } catch (err) {
+                    console.error("Delete failed", err);
+                    alert("Delete failed.");
                     if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
                 }
-            } catch(err) {
-                console.error("Delete failed", err);
-                alert("Delete failed.");
-                if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
-            }
+            });
         });
-    });
+    }
+
+    drawGrid();
 }
 
 function _esc(str) {
