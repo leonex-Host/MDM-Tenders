@@ -143,6 +143,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        const historyList = document.getElementById('history_list');
+        if (historyList) {
+            chrome.storage.local.get(['jobHistory'], (data) => {
+                const hist = data.jobHistory || [];
+                if (hist.length > 0) {
+                    historyList.innerHTML = `<div style="font-size:10px; font-weight:800; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; margin-top:8px;">Recent History</div>` + hist.map(h => `
+                        <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between;">
+                                <span style="font-size:10px; font-weight:800; color:#fff; text-transform:uppercase;">${h.source}</span>
+                                <span style="font-size:9px; font-weight:700; color:${h.status === 'completed' ? 'var(--success)' : (h.status === 'aborted' ? 'var(--warning)' : 'var(--danger)')}; text-transform:uppercase;">${h.status}</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--text-muted); font-weight:600;">
+                                <span>FOUND: <span style="color:#fff;">${h.found || 0}</span></span>
+                                <span>SAVED: <span style="color:var(--success);">${h.inserted || 0}</span></span>
+                                <span>DUP: <span style="color:var(--warning);">${h.duplicates || 0}</span></span>
+                            </div>
+                            <div style="font-size:8px; color:var(--text-dim); text-align:right;">${new Date(h.endedAt).toLocaleTimeString()}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    historyList.innerHTML = '';
+                }
+            });
+        }
+
         chrome.storage.local.get(['extensionState'], (data) => {
             if (data.extensionState && data.extensionState.blocked) {
                 log(`STRUCTURAL BLOCK: ${data.extensionState.blockReason || 'Manual Check Needed'}`);

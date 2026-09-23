@@ -251,6 +251,26 @@ export async function setManualActionRequired(jobId, reason, url) {
     await setExtensionState({ blocked: true, blockReason: reason });
 }
 
+async function recordJobHistory(runtime, finalStatus, errorMsg = null) {
+    try {
+        const historyItem = {
+            job_id: runtime.jobId,
+            source: runtime.jobType || runtime.source || 'uknown',
+            status: finalStatus,
+            found: runtime.resultsCollected || 0,
+            inserted: runtime.tenders_inserted || 0,
+            duplicates: runtime.tenders_duplicates || 0,
+            endedAt: Date.now(),
+            error: errorMsg
+        };
+        const data = await chrome.storage.local.get(['jobHistory']);
+        let history = data.jobHistory || [];
+        history.unshift(historyItem);
+        if (history.length > 10) history = history.slice(0, 10);
+        await chrome.storage.local.set({ jobHistory: history });
+    } catch (e) { console.error("History logging failed", e); }
+}
+
 export async function finishJob(jobId, matches = 0, summaryData = {}) {
     const runtime = activeJobs.get(jobId);
     if (!runtime) return;
@@ -265,6 +285,7 @@ export async function finishJob(jobId, matches = 0, summaryData = {}) {
 
     console.log(`[JOB][${jobId}] completed natively. Matched: ${matches}`);
     await completeJobOnServer(jobId, { status: "completed", summary: { total_matches: matches, ...summaryData } });
+    await recordJobHistory(runtime, "completed");
 
     activeJobs.delete(jobId);
     if (runtime.tabId) await closeJobTab(runtime.tabId);
@@ -277,6 +298,9 @@ export async function failJob(jobId, errorMsg) {
 
     console.error(`[JOB][${jobId}] FAILED: ${errorMsg}`);
     await completeJobOnServer(jobId, { status: "failed", error: errorMsg });
+
+    const finalStatus = (errorMsg && errorMsg.includes("Aborted")) ? "aborted" : "failed";
+    await recordJobHistory(runtime, finalStatus, errorMsg);
 
     activeJobs.delete(jobId);
     if (runtime.tabId) await closeJobTab(runtime.tabId);
