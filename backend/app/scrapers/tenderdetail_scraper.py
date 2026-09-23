@@ -56,7 +56,9 @@ class TenderDetailScraper(BaseScraper):
             
             self._set_date_filter_next_15_days()
             self._click_search_button()
-            time.sleep(5)
+            time.sleep(3)
+            self._sort_closing_date()
+            time.sleep(4)
             
             # Wait for results to load
             rows = self._find_tender_rows()
@@ -259,14 +261,35 @@ class TenderDetailScraper(BaseScraper):
         self.logger.error("[TenderDetail] Could not find SEARCH button")
         return False
 
+    def _sort_closing_date(self) -> bool:
+        """Clicks the sort dropdown and picks 'Closing Date' sorting"""
+        try:
+            # 1. Click the sort dropdown
+            sort_btn = self.driver.find_element(By.CSS_SELECTOR, "button .fa-sort-amount-down, button .fa-sort")
+            self.js_click(sort_btn.find_element(By.XPATH, ".."))
+            time.sleep(1)
+            
+            # 2. Click Closing Date
+            sort_opts = self.driver.find_elements(By.XPATH, "//a[contains(text(), 'Closing Date')] | //span[contains(text(), 'Closing Date')] | //button[contains(text(), 'Closing Date')]")
+            for opt in sort_opts:
+                if opt.is_displayed():
+                    self.js_click(opt)
+                    self.logger.info("[TenderDetail] Selected 'Closing Date' sorting filter")
+                    return True
+        except Exception as e:
+            self.logger.debug(f"[TenderDetail] Could not sort by closing date natively: {e}")
+        
+        return False
+
     def _find_tender_rows(self) -> List:
         """Find tender rows with multiple selector attempts"""
         selectors = [
+            "div.card",
+            ".tender-card",
             "div.tender_row",
             "div.tender-item",
             "div.search-result div.list div.tender_row",
-            ".tender-row",
-            "div[class*='tender_row']"
+            ".tender-row"
         ]
         
         for selector in selectors:
@@ -277,7 +300,7 @@ class TenderDetailScraper(BaseScraper):
         return []
 
     def _process_tender_row(self, row, keyword: str, seen_urls: set) -> Optional[Dict]:
-        """Process a single tender row"""
+        """Process a single tender row entirely natively from the list"""
         try:
             # Extract link
             href = self._extract_link_from_row(row)
@@ -285,46 +308,49 @@ class TenderDetailScraper(BaseScraper):
                 return None
             seen_urls.add(href)
             
-            # Extract listing metadata
+            row_text = row.text or ""
+            
             tender_id = self._extract_tender_id_from_row(row)
             due_date = self._extract_due_date_from_row(row)
             
-            self.logger.info(f"[TenderDetail] Checking tender: {tender_id or href.split('/')[-1]}")
+            # Natively extract new card parameters
+            title = ""
+            for t_sel in ["a.tc-title", "h2.tc-title a", "h2 a"]:
+                try:
+                    title_el = row.find_element(By.CSS_SELECTOR, t_sel)
+                    title = title_el.text.strip()
+                    if title: break
+                except:
+                    pass
+            if not title: title = row_text[:150]
             
-            # Visit detail page
-            self.safe_get(href, delay=2)
+            desc = row_text.replace('\n', ' ')
             
-            # Check if keyword appears in Tender Brief
-            found, excerpt = self._check_tender_brief(keyword)
+            loc = ""
+            match = re.search(r'(Haryana|Pradesh|Delhi|Bengal|Maharashtra|Jharkhand|Gujarat|Rajasthan|Tamil|Karnataka|Assam|Punjab|Bihar|Odisha)', row_text, re.IGNORECASE)
+            if match: loc = match.group(0)
+
+            val = ""
+            val_match = re.search(r'(?:₹|INR)?\s*[\d,.]+(?:\s*)(?:Lakh|Crore|Cr|L|Thousand)', row_text, re.IGNORECASE)
+            if val_match: val = val_match.group(0)
             
-            if not found:
-                self.logger.debug(f"[TenderDetail] Keyword not found, skipping")
-                self.driver.back()
-                time.sleep(1)
+            phrase = keyword.lower().strip()
+            if phrase not in (title + " " + desc).lower():
                 return None
             
-            self.logger.info(f"[TenderDetail] ✅ Keyword found in Tender Brief")
-            
-            # Extract details
-            title = self._extract_title()
-            start_date = self._extract_start_date()
-            location = self._extract_location()
-            value = self._extract_tender_value()
+            self.logger.info(f"[TenderDetail] ✅ Keyword found natively in Card")
             
             tender_data = self.normalize(
                 source="tenderdetail",
                 tender_id=tender_id or (href.strip("/").split("/")[-1] if href else ""),
-                title=title or excerpt[:250],
-                description=excerpt,
-                location=location,
-                start_date=start_date,
+                title=title,
+                description=desc[:500],
+                location=loc,
+                start_date="",
                 end_date=due_date,
                 link=href,
                 keyword=keyword,
             )
-            
-            self.driver.back()
-            time.sleep(2)
             
             return tender_data
             
@@ -334,7 +360,7 @@ class TenderDetailScraper(BaseScraper):
 
     def _extract_link_from_row(self, row) -> Optional[str]:
         """Extract detail page link from row"""
-        selectors = ["a.m-brief", "a.detail-link", "h2 a", "a[href*='tender']"]
+        selectors = ["a.tc-title", "a.m-brief", "a.detail-link", "h2 a", "a[href*='tender']"]
         
         for selector in selectors:
             try:
