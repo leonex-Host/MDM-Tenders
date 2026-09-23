@@ -13,7 +13,7 @@ export async function renderGoogle(container) {
         <div class="page-header anim-in">
             <div class="page-header-text">
                 <h1>Google Search</h1>
-                <p>MDM keyword results scraped from Google — all results &amp; filtered results</p>
+                <p>MDM keyword results scraped from Google all results &amp; filtered results</p>
             </div>
             <div class="page-header-actions" style="display:flex; gap:12px; align-items:center;">
                 <div id="goog-captcha-container"></div>
@@ -377,41 +377,44 @@ export async function renderGoogle(container) {
     // ── Data Cache (filled once per session / refresh) ────────────────────────
     const cache = { all: [], filtered: [], unwanted: [] };
 
-    // fetchAllData: hits the API, populates cache for all 3 types
+    // fetchAllData: priority-loads the active tab first → renders → backfills others silently
     async function fetchAllData() {
         const area = document.getElementById('goog-results-area');
-        // Skeleton is already set synchronously at page init.
-        // Only set it again when explicitly refreshing.
         if (area && !area.querySelector('.skeleton-card')) {
             area.innerHTML = skeletonGrid(6, 'goog-cards-grid');
         }
 
+        function flatten(d) {
+            const arr = [];
+            Object.values(d.groups || {}).forEach(a => arr.push(...a));
+            return arr;
+        }
+
+        // ── Step 1: fetch priority type (current tab) first so skeleton clears ASAP ──
+        const priority = state.type || 'all';
         try {
-            // Load all three type buckets in parallel
-            const [resAll, resFilt, resUnw] = await Promise.all([
-                authFetch(`${API}/results?result_type=all`, { cache: 'no-store' }),
-                authFetch(`${API}/results?result_type=filtered`, { cache: 'no-store' }),
-                authFetch(`${API}/results?result_type=unwanted`, { cache: 'no-store' }),
-            ]);
-            const [dAll, dFilt, dUnw] = await Promise.all([resAll.json(), resFilt.json(), resUnw.json()]);
-
-            function flatten(d) {
-                const arr = [];
-                Object.values(d.groups || {}).forEach(a => arr.push(...a));
-                return arr;
-            }
-
-            cache.all = flatten(dAll);
-            cache.filtered = flatten(dFilt);
-            cache.unwanted = flatten(dUnw);
-
+            const res = await authFetch(`${API}/results?result_type=${priority}`, { cache: 'no-store' });
+            const d = await res.json();
+            cache[priority] = flatten(d);
         } catch (e) {
-            area.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-tertiary);font-size:13px;">Failed to load results.</div>';
+            if (area) area.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-tertiary);font-size:13px;">Failed to load results.</div>';
             return;
         }
 
-        applyAndRender(); // Paint immediately from fresh cache
+        applyAndRender(); // ← skeleton disappears HERE, as fast as possible
+
+        // ── Step 2: silently fetch the other 2 types in the background ──
+        const others = ['all', 'filtered', 'unwanted'].filter(t => t !== priority);
+        Promise.all(
+            others.map(t =>
+                authFetch(`${API}/results?result_type=${t}`, { cache: 'no-store' })
+                    .then(r => r.json())
+                    .then(d => { cache[t] = flatten(d); })
+                    .catch(() => { }) // silent fail for background types
+            )
+        );
     }
+
 
     // applyAndRender: purely in-memory — filter/sort/slice the cache, no API, no skeleton
     function applyAndRender() {
