@@ -66,6 +66,21 @@ export async function initializeJobManager() {
             pollAndProcess();
             checkStaleJobs();
         }, 5000);
+
+        // Global Tab Tracking for Bell
+        chrome.tabs.onActivated.addListener((activeInfo) => {
+            let paused = 0;
+            activeJobs.forEach(rt => { if (rt.status === 'paused') paused++; });
+            if (paused > 0) chrome.tabs.sendMessage(activeInfo.tabId, { action: "show_captcha_bell" }).catch(() => { });
+        });
+
+        chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+            if (changeInfo.status === 'complete' && tab.active) {
+                let paused = 0;
+                activeJobs.forEach(rt => { if (rt.status === 'paused') paused++; });
+                if (paused > 0) chrome.tabs.sendMessage(tabId, { action: "show_captcha_bell" }).catch(() => { });
+            }
+        });
     }
 
     // Recovery of local storage jobs on boot
@@ -92,9 +107,6 @@ async function syncMapToStorage() {
         raw[key] = val;
         if (val.status === 'paused') {
             pausedCount++;
-            if (val.tabId) chrome.tabs.sendMessage(val.tabId, { action: "show_captcha_bell" }).catch(() => { });
-        } else {
-            if (val.tabId) chrome.tabs.sendMessage(val.tabId, { action: "hide_captcha_bell" }).catch(() => { });
         }
 
         if (!firstJob) {
@@ -114,8 +126,14 @@ async function syncMapToStorage() {
     if (pausedCount > 0) {
         chrome.action.setBadgeText({ text: String(pausedCount) }).catch(() => { });
         chrome.action.setBadgeBackgroundColor({ color: '#ef4444' }).catch(() => { });
+        chrome.tabs.query({ active: true }, (tabs) => {
+            tabs.forEach(t => chrome.tabs.sendMessage(t.id, { action: "show_captcha_bell" }).catch(() => { }));
+        });
     } else {
         chrome.action.setBadgeText({ text: '' }).catch(() => { });
+        chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(t => chrome.tabs.sendMessage(t.id, { action: "hide_captcha_bell" }).catch(() => { }));
+        });
     }
 }
 

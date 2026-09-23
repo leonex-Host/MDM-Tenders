@@ -15,7 +15,7 @@
         y: 0,
         vx: 0,
         vy: 0,
-        originX: window.innerWidth / 2,
+        originX: window.innerWidth - 150,
         originY: -50,
         targetY: 200,
         k: 0.05,        // Spring stiffness
@@ -123,16 +123,6 @@
             <div id="bell-wrapper" style="position:absolute; left:0; top:0; transform: translate(-50%, -10px);">
                 <img id="bell-mesh" class="bell-img" src="${extURL}" draggable="false" />
             </div>
-            
-            <div id="alert-pill" style="
-                position:absolute; top: 120px; left:50%; transform: translateX(-50%);
-                background: linear-gradient(135deg, #ef4444, #dc2626); color: white;
-                padding: 8px 16px; border-radius: 20px; font-family: sans-serif; font-weight: bold;
-                font-size: 13px; letter-spacing: 0.5px; opacity: 0; transition: opacity 0.3s;
-                pointer-events: none; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-            ">
-                CAPTCHA BLOCKED 
-            </div>
         `;
 
         shadow.appendChild(styles);
@@ -142,17 +132,11 @@
         const bell = shadow.getElementById("bell-mesh");
         const wrapper = shadow.getElementById("bell-wrapper");
         const rope = shadow.getElementById("rope-path");
-        const pill = shadow.getElementById("alert-pill");
 
-        state.originX = window.innerWidth / 2;
+        state.originX = window.innerWidth - 150;
         state.x = state.originX;
         state.y = -50;
         state.targetY = 250;
-
-        // Intro animation
-        setTimeout(() => {
-            pill.style.opacity = '1';
-        }, 500);
 
         // Interaction
         bell.addEventListener("pointerdown", (e) => {
@@ -235,7 +219,7 @@
 
     // Window resize handling
     window.addEventListener("resize", () => {
-        state.originX = window.innerWidth / 2;
+        state.originX = window.innerWidth - 150;
     });
 
     // Message Hub
