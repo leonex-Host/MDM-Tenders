@@ -16,12 +16,12 @@
         vx: 0,
         vy: 0,
         originX: window.innerWidth - 150,
-        originY: -50,
-        targetY: 200,
+        originY: -10,
+        targetY: 100,
         k: 0.15,        // Spring stiffness
         damping: 0.95,  // Fiction / Energy loss
         mass: 0.8,
-        restLength: 250 // Rope length
+        restLength: 110 // Rope length
     };
 
     // Synthesize a beautiful crisp brass bell sound using Web Audio API
@@ -89,8 +89,8 @@
             }
             .bell-img {
                 position: absolute;
-                width: 80px;
-                height: 80px;
+                width: 50px;
+                height: 50px;
                 cursor: grab;
                 pointer-events: auto;
                 transform-origin: top center;
@@ -104,11 +104,10 @@
             }
             .rope {
                 fill: none;
-                stroke: rgba(255, 255, 255, 0.4);
-                stroke-width: 2px;
+                stroke: #2d3748;
+                stroke-width: 1.5px;
                 stroke-linecap: round;
                 pointer-events: none;
-                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
             }
         `;
 
@@ -120,8 +119,8 @@
             <svg id="rope-svg" style="position:absolute; top:0; left:0; width:100%; height:100%; overflow:visible;">
                 <path id="rope-path" class="rope" d="M0,0 L0,0" />
             </svg>
-            <div id="bell-wrapper" style="position:absolute; left:0; top:0; transform: translate(-50%, -10px);">
-                <img id="bell-mesh" class="bell-img" src="${extURL}" draggable="false" />
+            <div id="bell-wrapper" style="position:absolute; left:0; top:0; width:0; height:0;">
+                <img id="bell-mesh" class="bell-img" style="margin-left:-25px; margin-top:-5px;" src="${extURL}" draggable="false" />
             </div>
         `;
 
@@ -135,8 +134,8 @@
 
         state.originX = window.innerWidth - 150;
         state.x = state.originX;
-        state.y = -50;
-        state.targetY = 250;
+        state.y = -10;
+        state.targetY = 100;
 
         // Interaction
         bell.addEventListener("pointerdown", (e) => {
