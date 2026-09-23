@@ -2780,8 +2780,8 @@ input[type="date"].goog-date-inp {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  max-width: 680px;
-  /* Authentic Google Result Width + padding */
+  max-width: 860px;
+  /* Wider result column to use available space */
   padding-bottom: 40px;
   padding-left: 16px;
 }

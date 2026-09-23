@@ -12,12 +12,12 @@ export async function renderMDMTenders(container) {
     // ── State ──────────────────────────────────
     let allTenders = [];
     let state = {
-        dateFrom      : '',
-        dateTo        : '',
-        selectedSource  : 'all',
-        selectedKeyword : 'all',
-        searchQuery     : '',
-        tenderId        : '',
+        dateFrom: '',
+        dateTo: '',
+        selectedSource: 'all',
+        selectedKeyword: 'all',
+        searchQuery: '',
+        tenderId: '',
     };
 
     // ── Helpers ────────────────────────────────
@@ -33,15 +33,15 @@ export async function renderMDMTenders(container) {
     function fmtDateLabel(dateKey) {
         if (!dateKey) return '—';
         const [y, m, d] = dateKey.split('-');
-        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
     }
 
     function getFiltered() {
         return allTenders.filter(t => {
             const dk = toLocalDateKey(t.created_at || t.scraped_at) || '';
             if (state.dateFrom && dk && dk < state.dateFrom) return false;
-            if (state.dateTo   && dk && dk > state.dateTo)   return false;
+            if (state.dateTo && dk && dk > state.dateTo) return false;
             if (state.selectedSource !== 'all') {
                 if ((t.source || '').toLowerCase() !== state.selectedSource) return false;
             }
@@ -54,7 +54,7 @@ export async function renderMDMTenders(container) {
             }
             if (state.searchQuery) {
                 const q = state.searchQuery.toLowerCase();
-                const blob = `${t.title||''} ${t.description||''} ${t.tender_id||''}`.toLowerCase();
+                const blob = `${t.title || ''} ${t.description || ''} ${t.tender_id || ''}`.toLowerCase();
                 if (!blob.includes(q)) return false;
             }
             return true;
@@ -125,29 +125,42 @@ export async function renderMDMTenders(container) {
         <!-- TENDER LIST AREA -->
         <div class="anim-in anim-d2" style="margin-top: 20px;">
             <div id="mdm-table-area">
-                <div style="text-align:center;padding:48px;color:var(--text-tertiary);">
-                    <p style="font-size:14px;">Fetching MDM Tenders...</p>
-                </div>
+                <div id="mdm-skeleton-init"></div>
             </div>
         </div>
     `;
 
-
     if (window.lucide) window.lucide.createIcons();
+
+    // Inject skeleton immediately (safe single-quote method)
+    (function () {
+        var el = container.querySelector('#mdm-skeleton-init');
+        if (!el) return;
+        var card = '<div class="skeleton-card">'
+            + '<div class="skeleton-block skeleton-title"></div>'
+            + '<div class="skeleton-block skeleton-desc w80"></div>'
+            + '<div class="skeleton-block skeleton-desc w60"></div>'
+            + '<div class="skeleton-tags">'
+            + '<div class="skeleton-block skeleton-tag"></div>'
+            + '<div class="skeleton-block skeleton-tag"></div>'
+            + '</div>'
+            + '</div>';
+        el.outerHTML = '<div class="tender-cards-grid">' + Array(6).fill(card).join('') + '</div>';
+    })();
 
     // ── Fetch Data ─────────────────────────────
     try {
         const r = await authFetch(`${getApiBase()}/tenders?limit=1000`, { cache: "no-store" });
         const d = await r.json();
         allTenders = d.results || [];
-    } catch(e) { console.warn('Fetch error', e); }
+    } catch (e) { console.warn('Fetch error', e); }
 
     // Populate sources & keywords
-    const sources  = [...new Set(allTenders.map(t => (t.source || '').trim().toLowerCase()).filter(Boolean))].sort();
+    const sources = [...new Set(allTenders.map(t => (t.source || '').trim().toLowerCase()).filter(Boolean))].sort();
     const keywords = [...new Set(allTenders.map(t => (t.keyword || t.matched_keyword || '').trim().toLowerCase()).filter(Boolean))].sort();
 
     const srcSel = container.querySelector('#mdm-source-sel');
-    const kwSel  = container.querySelector('#mdm-kw-sel');
+    const kwSel = container.querySelector('#mdm-kw-sel');
 
     sources.forEach(s => {
         const o = document.createElement('option');
@@ -164,7 +177,7 @@ export async function renderMDMTenders(container) {
     // ── Render ─────────────────────────────────
     function renderTenders() {
         const filtered = getFiltered();
-        const countEl  = container.querySelector('#mdm-result-count');
+        const countEl = container.querySelector('#mdm-result-count');
         if (countEl) {
             countEl.innerHTML = `Found <strong>${filtered.length}</strong> tender${filtered.length !== 1 ? 's' : ''} matching search`;
         }
@@ -191,25 +204,54 @@ export async function renderMDMTenders(container) {
         });
         const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
 
-        area.innerHTML = sortedKeys.map(dk => `
-            <div class="mdm-date-group">
-                <div class="mdm-date-group-header">
-                    <i data-lucide="calendar" style="width:14px;height:14px;"></i>
-                    ${dk === 'Unknown' ? 'Unknown Date' : fmtDateLabel(dk)}
-                    <span class="mdm-group-count">${groups[dk].length}</span>
-                </div>
-                <div class="tender-cards-grid">
-                    ${groups[dk].map(m => tenderCardHTML(m)).join('')}
-                </div>
-            </div>
-        `).join('');
+        // Client-side pagination: show 100 cards at a time
+        let visibleCount = 100;
+        const maxLen = filtered.length;
 
-        if (window.lucide) window.lucide.createIcons();
-        bindBookmarks(area);
+        function drawPage() {
+            const slice = filtered.slice(0, visibleCount);
+
+            // Re-group the slice
+            const sliceGroups = {};
+            slice.forEach(t => {
+                const dk = toLocalDateKey(t.created_at || t.scraped_at) || 'Unknown';
+                if (!sliceGroups[dk]) sliceGroups[dk] = [];
+                sliceGroups[dk].push(t);
+            });
+            const sliceKeys = Object.keys(sliceGroups).sort((a, b) => b.localeCompare(a));
+
+            area.innerHTML = sliceKeys.map(dk => `
+                <div class="mdm-date-group">
+                    <div class="mdm-date-group-header">
+                        <i data-lucide="calendar" style="width:14px;height:14px;"></i>
+                        ${dk === 'Unknown' ? 'Unknown Date' : fmtDateLabel(dk)}
+                        <span class="mdm-group-count">${sliceGroups[dk].length}</span>
+                    </div>
+                    <div class="tender-cards-grid">
+                        ${sliceGroups[dk].map(m => tenderCardHTML(m)).join('')}
+                    </div>
+                </div>
+            `).join('')
+                + (visibleCount < maxLen ? `
+                <div class="load-more-wrap">
+                    <span class="load-more-info">Showing ${slice.length} of ${maxLen} tenders</span>
+                    <button class="btn-load-more" id="mdm-load-more">Load More <span class="lm-count">(+100)</span></button>
+                </div>` : '');
+
+            if (window.lucide) window.lucide.createIcons();
+            bindBookmarks(area);
+
+            area.querySelector('#mdm-load-more')?.addEventListener('click', () => {
+                visibleCount += 100;
+                drawPage();
+            });
+        }
+
+        drawPage();
     }
 
     function tenderCardHTML(m) {
-        const keyword  = esc(m.keyword || m.matched_keyword || '—');
+        const keyword = esc(m.keyword || m.matched_keyword || '—');
         const isActive = isBookmarked(m.tender_id) ? 'active' : '';
         const dk = toLocalDateKey(m.created_at || m.scraped_at);
         return `
@@ -229,7 +271,7 @@ export async function renderMDMTenders(container) {
             <div class="tender-card-bottom">
                 <div class="tender-card-tags">
                     <span class="tc-tag keyword"><i data-lucide="tag" style="width:10px;height:10px;"></i> ${keyword}</span>
-                    <span class="tc-tag source">${esc((m.source||'').toUpperCase())}</span>
+                    <span class="tc-tag source">${esc((m.source || '').toUpperCase())}</span>
                     ${dk ? `<span class="tc-tag scraped-date"><i data-lucide="calendar-check" style="width:10px;height:10px;"></i> ${fmtDateLabel(dk)}</span>` : ''}
                 </div>
                 <div class="tender-card-link" style="display:flex; gap:8px; align-items:center;">
@@ -240,9 +282,9 @@ export async function renderMDMTenders(container) {
                         <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
                     </button>
                     ${m.link
-                        ? `<a href="${m.link}" target="_blank" rel="noopener" class="tc-link-btn"><i data-lucide="external-link" style="width:13px;height:13px;"></i> View</a>`
-                        : '<span class="tc-no-link">—</span>'
-                    }
+                ? `<a href="${m.link}" target="_blank" rel="noopener" class="tc-link-btn"><i data-lucide="external-link" style="width:13px;height:13px;"></i> View</a>`
+                : '<span class="tc-no-link">—</span>'
+            }
                 </div>
             </div>
         </div>`;
@@ -262,8 +304,8 @@ export async function renderMDMTenders(container) {
             btn.addEventListener('click', async (e) => {
                 const b = e.currentTarget;
                 const id = b.getAttribute('data-id');
-                if(!confirm("Are you sure you want to permanently delete this tender from the database?")) return;
-                
+                if (!confirm("Are you sure you want to permanently delete this tender from the database?")) return;
+
                 const card = b.closest('.tender-card');
                 if (card) {
                     card.style.opacity = '0.5';
@@ -280,7 +322,7 @@ export async function renderMDMTenders(container) {
                         alert("Failed to delete tender.");
                         if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
                     }
-                } catch(err) {
+                } catch (err) {
                     console.error("Delete failed", err);
                     alert("Delete failed.");
                     if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
@@ -295,25 +337,25 @@ export async function renderMDMTenders(container) {
         if (filtered.length === 0) { alert('No tenders to export with current filters.'); return; }
         const params = new URLSearchParams();
         if (state.dateFrom) params.set('from', state.dateFrom);
-        if (state.dateTo)   params.set('to',   state.dateTo);
+        if (state.dateTo) params.set('to', state.dateTo);
         if (state.selectedSource !== 'all') params.set('source', state.selectedSource);
-        if (state.keyword)  params.set('keyword', state.keyword);
+        if (state.keyword) params.set('keyword', state.keyword);
         // Fallback: build CSV in browser from filtered data
-        const headers = ['Tender ID','Title','Source','Keyword','Start Date','End Date','Link','Scraped Date'];
+        const headers = ['Tender ID', 'Title', 'Source', 'Keyword', 'Start Date', 'End Date', 'Link', 'Scraped Date'];
         const rows = filtered.map(t => [
             t.tender_id || '',
             (t.title || t.description || '').replace(/,/g, ';'),
             t.source || '',
             t.keyword || t.matched_keyword || '',
             t.start_date || '',
-            t.end_date   || '',
-            t.link       || '',
+            t.end_date || '',
+            t.link || '',
             toLocalDateKey(t.created_at || t.scraped_at) || ''
         ]);
         const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
         const label = state.dateFrom || state.dateTo
             ? `${state.dateFrom || 'start'}_to_${state.dateTo || 'end'}`
             : 'all';
@@ -327,7 +369,7 @@ export async function renderMDMTenders(container) {
     container.querySelector('#mdm-search-input')?.addEventListener('input', e => {
         state.searchQuery = e.target.value.trim();
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(renderTenders, 400); 
+        searchTimer = setTimeout(renderTenders, 400);
     });
     container.querySelector('#mdm-search-input')?.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
@@ -336,25 +378,25 @@ export async function renderMDMTenders(container) {
         }
     });
     container.querySelector('#mdm-kw-sel')?.addEventListener('change', e => { state.selectedKeyword = e.target.value; renderTenders(); });
-    container.querySelector('#mdm-id-input')?.addEventListener('input', e => { 
-        state.tenderId = e.target.value.trim(); 
+    container.querySelector('#mdm-id-input')?.addEventListener('input', e => {
+        state.tenderId = e.target.value.trim();
     });
     container.querySelector('#mdm-id-input')?.addEventListener('keydown', e => {
         if (e.key === 'Enter') renderTenders();
     });
     container.querySelector('#mdm-source-sel')?.addEventListener('change', e => { state.selectedSource = e.target.value; renderTenders(); });
     container.querySelector('#mdm-date-from')?.addEventListener('change', e => { state.dateFrom = e.target.value; renderTenders(); });
-    container.querySelector('#mdm-date-to')?.addEventListener('change',   e => { state.dateTo   = e.target.value; renderTenders(); });
+    container.querySelector('#mdm-date-to')?.addEventListener('change', e => { state.dateTo = e.target.value; renderTenders(); });
     container.querySelector('#mdm-search-btn')?.addEventListener('click', renderTenders);
     container.querySelector('#mdm-export-btn')?.addEventListener('click', exportFiltered);
     container.querySelector('#mdm-clear-all')?.addEventListener('click', () => {
-        state = { dateFrom:'', dateTo:'', selectedSource:'all', selectedKeyword:'all', searchQuery:'', tenderId:'' };
+        state = { dateFrom: '', dateTo: '', selectedSource: 'all', selectedKeyword: 'all', searchQuery: '', tenderId: '' };
         container.querySelector('#mdm-search-input').value = '';
-        container.querySelector('#mdm-kw-sel').value       = 'all';
-        container.querySelector('#mdm-id-input').value     = '';
-        container.querySelector('#mdm-source-sel').value   = 'all';
-        container.querySelector('#mdm-date-from').value    = '';
-        container.querySelector('#mdm-date-to').value      = '';
+        container.querySelector('#mdm-kw-sel').value = 'all';
+        container.querySelector('#mdm-id-input').value = '';
+        container.querySelector('#mdm-source-sel').value = 'all';
+        container.querySelector('#mdm-date-from').value = '';
+        container.querySelector('#mdm-date-to').value = '';
         renderTenders();
     });
 
