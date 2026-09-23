@@ -118,7 +118,7 @@ export async function renderGoogle(container) {
         if (window.lucide) window.lucide.createIcons();
 
         await loadStats();
-        await loadResults();
+        await fetchAllData(); // Full reload: API + skeleton
 
         btn.innerHTML = `<i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Refresh Data`;
         if (window.lucide) window.lucide.createIcons();
@@ -130,7 +130,7 @@ export async function renderGoogle(container) {
             document.querySelectorAll('.goog-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             state.type = tab.dataset.type;
-            loadResults();
+            applyAndRender(); // Client memory only — instant
         });
     });
 
@@ -142,21 +142,20 @@ export async function renderGoogle(container) {
         state.search = document.getElementById('goog-search-input').value.toLowerCase().trim();
         state.keyword = document.getElementById('goog-keyword-input').value.toLowerCase();
         state.sort = document.getElementById('goog-sort-input').value;
-        loadResults();
+        applyAndRender(); // Client memory only — no API, no skeleton
     }
 
-    // Instantly responsive search and filter dropdowns
     document.getElementById('goog-search-input')?.addEventListener('input', () => {
         state.search = document.getElementById('goog-search-input').value.toLowerCase().trim();
-        loadResults();
+        applyAndRender();
     });
     document.getElementById('goog-keyword-input')?.addEventListener('change', () => {
         state.keyword = document.getElementById('goog-keyword-input').value.toLowerCase();
-        loadResults();
+        applyAndRender();
     });
     document.getElementById('goog-sort-input')?.addEventListener('change', () => {
         state.sort = document.getElementById('goog-sort-input').value;
-        loadResults();
+        applyAndRender();
     });
     document.getElementById('goog-date-from')?.addEventListener('change', applyAllFilters);
     document.getElementById('goog-date-to')?.addEventListener('change', applyAllFilters);
@@ -170,7 +169,7 @@ export async function renderGoogle(container) {
         document.getElementById('goog-search-input').value = '';
         document.getElementById('goog-keyword-input').value = '';
         document.getElementById('goog-sort-input').value = 'newest';
-        loadResults();
+        applyAndRender();
     });
 
     // ── Excel download (Client-side CSV generator) ─────────────────────────
@@ -369,154 +368,157 @@ export async function renderGoogle(container) {
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // ── Results ────────────────────────────────────────────────────────────
-    async function loadResults() {
+    // ── Data Cache (filled once per session / refresh) ────────────────────────
+    const cache = { all: [], filtered: [], unwanted: [] };
+
+    // fetchAllData: hits the API, shows skeleton ONCE, populates cache for all 3 types
+    async function fetchAllData() {
         const area = document.getElementById('goog-results-area');
         area.innerHTML = skeletonGrid(6, 'goog-cards-grid');
-        let url = `${API}/results?result_type=${state.type}`;
-        const qs = buildDateQS(state);
-        if (qs) url += `&${qs}`;
 
         try {
-            const res = await authFetch(url, { cache: "no-store" });
-            const d = await res.json();
+            // Load all three type buckets in parallel
+            const [resAll, resFilt, resUnw] = await Promise.all([
+                authFetch(`${API}/results?result_type=all`, { cache: 'no-store' }),
+                authFetch(`${API}/results?result_type=filtered`, { cache: 'no-store' }),
+                authFetch(`${API}/results?result_type=unwanted`, { cache: 'no-store' }),
+            ]);
+            const [dAll, dFilt, dUnw] = await Promise.all([resAll.json(), resFilt.json(), resUnw.json()]);
 
-            // Re-flatten items to apply JS-side filters (search and keyword)
-            let allItems = [];
-            Object.values(d.groups || {}).forEach(arr => allItems.push(...arr));
-
-            if (state.search) {
-                allItems = allItems.filter(r =>
-                    (r.title || '').toLowerCase().includes(state.search) ||
-                    (r.description || '').toLowerCase().includes(state.search) ||
-                    (r.search_query || '').toLowerCase().includes(state.search)
-                );
+            function flatten(d) {
+                const arr = [];
+                Object.values(d.groups || {}).forEach(a => arr.push(...a));
+                return arr;
             }
 
-            if (state.keyword) {
-                allItems = allItems.filter(r => {
-                    const kws = Array.isArray(r.keywords) ? r.keywords.map(k => k.toLowerCase()) : [];
-                    const q = (r.search_query || '').toLowerCase();
-                    return kws.includes(state.keyword) || q.includes(state.keyword) || kws.some(k => k.includes(state.keyword));
-                });
-            }
+            cache.all = flatten(dAll);
+            cache.filtered = flatten(dFilt);
+            cache.unwanted = flatten(dUnw);
 
-            // Attach data globally for Export Excel
-            window.__currentGoogleData = allItems;
+        } catch (e) {
+            area.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-tertiary);font-size:13px;">Failed to load results.</div>';
+            return;
+        }
 
-            const countEl = document.getElementById('goog-result-count');
-            let typeLabel = state.type === 'filtered' ? 'filtered' : (state.type === 'unwanted' ? 'unwanted' : 'all');
-            if (countEl) countEl.innerHTML = `Showing <strong>${allItems.length}</strong> ${typeLabel} results`;
+        applyAndRender(); // Paint immediately from fresh cache
+    }
 
-            if (allItems.length === 0) {
-                area.innerHTML = emptyState();
-                if (window.lucide) window.lucide.createIcons();
-                return;
-            }
+    // applyAndRender: purely in-memory — filter/sort/slice the cache, no API, no skeleton
+    function applyAndRender() {
+        const area = document.getElementById('goog-results-area');
+        if (!area) return;
 
-            // Sort all items globally based on date
-            allItems.sort((a, b) => {
-                const da = a.scraped_at ? a.scraped_at : '';
-                const db = b.scraped_at ? b.scraped_at : '';
-                if (state.sort === 'newest') return db.localeCompare(da);
-                return da.localeCompare(db);
+        // Pick correct cache bucket by active tab
+        let items = (cache[state.type] || []).slice(); // shallow copy
+
+        // Apply date filter (server does heavy lifting, but if dates changed after fetch re-filter)
+        if (state.dateFrom) items = items.filter(r => r.scraped_at && r.scraped_at.split('T')[0] >= state.dateFrom);
+        if (state.dateTo) items = items.filter(r => r.scraped_at && r.scraped_at.split('T')[0] <= state.dateTo);
+
+        // Text search
+        if (state.search) {
+            items = items.filter(r =>
+                (r.title || '').toLowerCase().includes(state.search) ||
+                (r.description || '').toLowerCase().includes(state.search) ||
+                (r.search_query || '').toLowerCase().includes(state.search)
+            );
+        }
+
+        // Keyword filter
+        if (state.keyword) {
+            items = items.filter(r => {
+                const kws = Array.isArray(r.keywords) ? r.keywords.map(k => k.toLowerCase()) : [];
+                const q = (r.search_query || '').toLowerCase();
+                return kws.includes(state.keyword) || q.includes(state.keyword) || kws.some(k => k.includes(state.keyword));
             });
+        }
 
-            const maxLen = allItems.length;
-            let visibleCount = 100;
+        // Sort
+        items.sort((a, b) => {
+            const da = a.scraped_at || '';
+            const db = b.scraped_at || '';
+            return state.sort === 'newest' ? db.localeCompare(da) : da.localeCompare(db);
+        });
 
-            function renderGrid() {
-                const slice = allItems.slice(0, visibleCount);
-                let html = `
-                    <div class="goog-cards-grid">
-                        ${slice.map(r => resultCard(r)).join('')}
-                    </div>
-                 `;
+        window.__currentGoogleData = items;
 
-                if (visibleCount < maxLen) {
-                    html += `
-                        <div class="load-more-wrap">
-                            <span class="load-more-info">Showing ${visibleCount} of ${maxLen} results</span>
-                            <button id="goog-load-more" class="btn-load-more">
-                                Load More <span class="lm-count">(+100)</span>
-                            </button>
-                        </div>
-                     `;
-                }
-                area.innerHTML = html;
+        const countEl = document.getElementById('goog-result-count');
+        const typeLabel = state.type === 'filtered' ? 'filtered' : (state.type === 'unwanted' ? 'unwanted' : 'all');
+        if (countEl) countEl.innerHTML = `Showing <strong>${items.length}</strong> ${typeLabel} results`;
 
-                if (window.lucide) window.lucide.createIcons();
-                bindActions();
+        if (items.length === 0) {
+            area.innerHTML = emptyState();
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
 
-                const lmBtn = document.getElementById('goog-load-more');
-                if (lmBtn) {
-                    lmBtn.addEventListener('click', () => {
-                        visibleCount += 100;
-                        renderGrid();
-                    });
-                }
+        const maxLen = items.length;
+        let visibleCount = 100;
+
+        function renderGrid() {
+            const slice = items.slice(0, visibleCount);
+            let html = '<div class="goog-cards-grid">' + slice.map(r => resultCard(r)).join('') + '</div>';
+
+            if (visibleCount < maxLen) {
+                html += '<div class="load-more-wrap">'
+                    + '<span class="load-more-info">Showing ' + visibleCount + ' of ' + maxLen + ' results</span>'
+                    + '<button id="goog-load-more" class="btn-load-more">Load More <span class="lm-count">(+100)</span></button>'
+                    + '</div>';
             }
+            area.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+            bindActions();
+            document.getElementById('goog-load-more')?.addEventListener('click', () => {
+                visibleCount += 100;
+                renderGrid();
+            });
+        }
 
-            function bindActions() {
-                const curArea = document.getElementById('goog-results-area');
-                if (!curArea) return;
-
-                // Bookmarks
-                curArea.querySelectorAll('.bookmark-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const b = e.currentTarget;
-                        const obj = JSON.parse(b.getAttribute('data-google'));
-                        const saved = toggleBookmark(obj, 'google');
-                        saved ? b.classList.add('active') : b.classList.remove('active');
-                    });
+        function bindActions() {
+            const curArea = document.getElementById('goog-results-area');
+            if (!curArea) return;
+            curArea.querySelectorAll('.bookmark-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const b = e.currentTarget;
+                    const obj = JSON.parse(b.getAttribute('data-google'));
+                    const saved = toggleBookmark(obj, 'google');
+                    saved ? b.classList.add('active') : b.classList.remove('active');
                 });
-
-                // Deletes
-                curArea.querySelectorAll('.delete-btn').forEach(btn => {
-                    btn.addEventListener('click', async (e) => {
-                        const b = e.currentTarget;
-                        const id = b.getAttribute('data-id');
-                        if (!confirm("Are you sure you want to permanently delete this Google result from the database?")) return;
-
-                        const card = b.closest('.goog-result-card');
-                        if (card) {
-                            card.style.opacity = '0.5';
-                            card.style.pointerEvents = 'none';
-                        }
-
-                        try {
-                            const res = await authFetch(`${API}/results/${id}`, { cache: "no-store", method: 'DELETE' });
-                            if (res.ok) {
-                                if (card) card.remove();
-                                const relatedBmBtn = card.querySelector(`[data-google]`);
-                                if (relatedBmBtn) {
-                                    const objForStore = JSON.parse(relatedBmBtn.getAttribute('data-google'));
-                                    if (isBookmarked(objForStore.link)) {
-                                        toggleBookmark(objForStore, 'google');
-                                    }
-                                }
-                                loadStats();
-                            } else {
-                                alert("Failed to delete record.");
-                                if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
-                            }
-                        } catch (err) {
-                            console.error("Delete failed", err);
-                            alert("Delete failed.");
+            });
+            curArea.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const b = e.currentTarget;
+                    const id = b.getAttribute('data-id');
+                    if (!confirm('Are you sure you want to permanently delete this Google result from the database?')) return;
+                    const card = b.closest('.goog-result-card');
+                    if (card) { card.style.opacity = '0.5'; card.style.pointerEvents = 'none'; }
+                    try {
+                        const res = await authFetch(`${API}/results/${id}`, { cache: 'no-store', method: 'DELETE' });
+                        if (res.ok) {
+                            if (card) card.remove();
+                            // Also remove from cache so it doesn't come back on filter
+                            ['all', 'filtered', 'unwanted'].forEach(t => {
+                                cache[t] = cache[t].filter(r => String(r.id) !== String(id));
+                            });
+                            loadStats();
+                        } else {
+                            alert('Failed to delete record.');
                             if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
                         }
-                    });
+                    } catch (err) {
+                        console.error('Delete failed', err);
+                        alert('Delete failed.');
+                        if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
+                    }
                 });
-            }
-
-            renderGrid(); // Initial paint bounds natively
-        } catch (e) {
-            area.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-tertiary);font-size:13px;">Failed to load results.</div>`;
+            });
         }
+
+        renderGrid();
     }
 
     await loadStats();
-    await loadResults();
+    await fetchAllData(); // Single API fetch on page init
 }
 
 // ── Template helpers ──────────────────────────────────────────────────────────
