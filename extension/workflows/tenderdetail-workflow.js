@@ -33,9 +33,9 @@ export async function runTenderDetailWorkflow(runtime) {
 
                 if (pageNum === 1 && !runtime.pausedUrl) {
                     await navigateAndWait(runtime.tabId, searchUrl);
-                    await sleep(3000);
+                    await sleep(1200);
                     await executeContentScript(runtime.tabId, "setup_search");
-                    await sleep(4000);
+                    await sleep(1500);
                 } else if (runtime.pausedUrl) {
                     await navigateAndWait(runtime.tabId, runtime.pausedUrl);
                     await updateRuntimeState(runtime.jobId, { pausedUrl: null });
@@ -57,7 +57,7 @@ export async function runTenderDetailWorkflow(runtime) {
                     const nr = await executeContentScript(runtime.tabId, "click_next");
                     if (!nr || !nr.clicked) break;
 
-                    await sleep(2500);
+                    await sleep(1000);
                     pageNum++;
                 }
                 await updateRuntimeState(runtime.jobId, { phase: 'details', currentDetailIndex: 0, kwResults: [] });
@@ -75,7 +75,7 @@ export async function runTenderDetailWorkflow(runtime) {
 
                     await navigateAndWait(runtime.tabId, runtime.pausedUrl || item.href);
                     await updateRuntimeState(runtime.jobId, { pausedUrl: null });
-                    await sleep(800);
+                    await sleep(300);
 
                     const details = await executeContentScript(runtime.tabId, "extract_details");
                     if (details && details.brief) {

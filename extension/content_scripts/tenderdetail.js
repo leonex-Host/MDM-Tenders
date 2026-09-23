@@ -13,8 +13,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     if (btn) {
                         setTimeout(() => btn.click(), 50);
                     }
-                }, 1000);
-            }, 500);
+                }, 400);
+            }, 200);
         } catch (e) { sendResponse({ done: false }); }
         return true;
     } else if (request.action === "extract_links") {
