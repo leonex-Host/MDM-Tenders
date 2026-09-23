@@ -45,12 +45,25 @@ export async function runTenderDetailWorkflow(runtime) {
                     await updateRuntimeState(runtime.jobId, { currentPage: pageNum });
                     const dat = await executeContentScript(runtime.tabId, "extract_links");
                     if (dat && dat.results && dat.results.length > 0) {
+                        const phrase = keyword.toLowerCase().trim();
+                        const newMatches = [];
                         for (const item of dat.results) {
-                            if (!allListings.find(x => x.href === item.href)) allListings.push(item);
+                            if (!allListings.find(x => x.href === item.href)) {
+                                allListings.push(item);
+                                const briefText = String(item.title + " " + item.description).toLowerCase();
+                                if (briefText.includes(phrase)) {
+                                    item.keyword = keyword;
+                                    newMatches.push(item);
+                                    allMatchesCount++;
+                                }
+                            }
+                        }
+                        if (newMatches.length > 0) {
+                            await enqueueUpload(runtime.jobId, { source: "tenderdetail", keyword, tenders: newMatches });
                         }
                     } else break;
 
-                    await updateRuntimeState(runtime.jobId, { allListings });
+                    await updateRuntimeState(runtime.jobId, { allListings, resultsCollected: allMatchesCount });
 
                     if (pageNum >= maxPages) break;
 
@@ -60,52 +73,16 @@ export async function runTenderDetailWorkflow(runtime) {
                     await sleep(1000);
                     pageNum++;
                 }
-                await updateRuntimeState(runtime.jobId, { phase: 'details', currentDetailIndex: 0, kwResults: [] });
-                phase = 'details';
+
+                await updateRuntimeState(runtime.jobId, { currentPage: 1, allListings: [], resultsCollected: allMatchesCount, pausedUrl: null });
             }
-
-            if (phase === 'details') {
-                let currentDetailIndex = runtime.currentDetailIndex || 0;
-                let kwResults = runtime.kwResults || [];
-                const phrase = keyword.toLowerCase().trim();
-
-                for (; currentDetailIndex < allListings.length; currentDetailIndex++) {
-                    await updateRuntimeState(runtime.jobId, { currentDetailIndex, kwResults });
-                    const item = allListings[currentDetailIndex];
-
-                    await navigateAndWait(runtime.tabId, runtime.pausedUrl || item.href);
-                    await updateRuntimeState(runtime.jobId, { pausedUrl: null });
-                    await sleep(300);
-
-                    const details = await executeContentScript(runtime.tabId, "extract_details");
-                    if (details && details.brief) {
-                        const briefText = details.brief.toLowerCase();
-                        if (briefText.includes(phrase)) {
-                            const newMatch = {
-                                source: "tenderdetail",
-                                tender_id: item.tender_id || (item.href.split("/").pop()),
-                                title: details.title || details.brief.substring(0, 250),
-                                description: details.brief,
-                                location: details.location,
-                                start_date: details.start_date,
-                                end_date: item.due_date,
-                                link: item.href,
-                                keyword
-                            };
-                            kwResults.push(newMatch);
-                            await enqueueUpload(runtime.jobId, { source: "tenderdetail", keyword, tenders: [newMatch] });
-                            allMatchesCount++;
-                            await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount });
-                        }
-                    }
-                }
-            }
-
-            await updateRuntimeState(runtime.jobId, { phase: 'search', currentPage: 1, allListings: [], kwResults: [], currentDetailIndex: 0, resultsCollected: allMatchesCount, uploadedBatch: false });
         }
         await finishJob(runtime.jobId, allMatchesCount);
+    } catch (e) {
+        console.error("TenderDetail Error:", e);
+        throw e;
     } finally {
-        await closeJobTab(runtime.tabId);
+        await closeJobTab(tabInfo.tabId);
         await updateRuntimeState(runtime.jobId, { tabId: null, windowId: null });
     }
 }
