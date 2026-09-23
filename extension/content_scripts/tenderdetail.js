@@ -18,18 +18,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         } catch (e) { sendResponse({ done: false }); }
         return true;
     } else if (request.action === "extract_links") {
-        const rows = [...document.querySelectorAll("div.tender_row, div.tender-item, .tender-row")];
+        const rows = [...document.querySelectorAll("div.tender_row, div.tender-item, .tender-row, div.card, .tender-card")];
         let results = [];
         rows.forEach(r => {
-            const a = r.querySelector("a.m-brief, a.detail-link, h2 a, a[href*='tender']");
+            const a = r.querySelector("a.tc-title, h2.tc-title a, a.m-brief, a.detail-link, h2 a, a[href*='tender'], a[href*='TenderNotice']");
             if (a && a.href) {
-                const tIDElem = r.querySelector("span.m-tender-id, .tender-id");
+                const tIDElem = r.querySelector("small, span.m-tender-id, .tender-id");
                 let due = "";
-                const month = r.querySelector("span.month"), day = r.querySelector("span.day"), year = r.querySelector("span.year");
-                if (month && day && year) due = `${month.innerText} ${day.innerText}, ${year.innerText}`;
+                const month = r.querySelector("span.month");
+                const day = r.querySelector("span.day");
+                const year = r.querySelector("span.year");
+                const tcMeta = [...r.querySelectorAll("span.tc-meta-val")];
+                if (month && day && year) {
+                    due = `${month.innerText} ${day.innerText}, ${year.innerText}`;
+                } else if (tcMeta.length > 0) {
+                    due = tcMeta[0].innerText.trim();
+                }
+
+                let t_id = tIDElem ? tIDElem.innerText.trim() : "";
+                if (t_id.includes("#")) t_id = t_id.replace("#", "").trim();
+
                 results.push({
                     href: a.href,
-                    tender_id: tIDElem ? tIDElem.innerText.trim() : "",
+                    tender_id: t_id,
                     due_date: due
                 });
             }
@@ -48,19 +59,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     } else if (request.action === "extract_details") {
         try {
-            const briefDiv = [...document.querySelectorAll("div")].find(d =>
+            const briefDiv = document.querySelector("#overview, .tender-overview") || [...document.querySelectorAll("div")].find(d =>
                 (d.className && typeof d.className === 'string' && (d.className.includes("brief") || d.className.includes("tender-brief"))) ||
                 (d.innerText && d.innerText.toLowerCase() === "tender brief")
             );
 
-            let brief = briefDiv ? (briefDiv.nextElementSibling ? briefDiv.nextElementSibling.innerText : briefDiv.innerText) : "";
+            let brief = briefDiv ? (briefDiv.id === 'overview' ? briefDiv.innerText : (briefDiv.nextElementSibling ? briefDiv.nextElementSibling.innerText : briefDiv.innerText)) : "";
 
-            const titleEl = document.querySelector("h2.workDesc strong, h1, h2, .tender-title");
+            const titleEl = document.querySelector(".dh-header h1, h2.workDesc strong, h1, h2, .tender-title");
             const title = titleEl ? titleEl.innerText : "";
 
             const txt = document.body.innerText;
             const startM = txt.match(/(?:Start|Publish|Publication)\s*Date[:\s]*(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i);
-            const locM = txt.match(/Location[:\s]*([^,\n]+(?:,\s*[^,\n]+)*)/i);
+            const locM = txt.match(/LOCATION\s*\/\s*STATE.*?\n(.*?)\n/i) || txt.match(/Location[:\s]*([^,\n]+(?:,\s*[^,\n]+)*)/i);
 
             sendResponse({
                 brief: brief.trim(),
