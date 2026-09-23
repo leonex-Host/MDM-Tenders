@@ -26,8 +26,8 @@ export async function renderGoogle(container) {
 
         <!-- ── Stat Cards ── -->
         <div class="goog-stats-grid anim-in anim-d1">
-            ${statCard('goog-s1', 'Today — All Results', '—')}
-            ${statCard('goog-s2', 'Today — Filtered', '—')}
+            ${statCard('goog-s1', 'Today All Results', '—')}
+            ${statCard('goog-s2', 'Today Filtered', '—')}
             ${statCard('goog-s3', 'Total All Results', '—')}
             ${statCard('goog-s4', 'Total Filtered', '—')}
             ${statCard('goog-s5', 'Last Scrape', '—', true)}
@@ -108,6 +108,12 @@ export async function renderGoogle(container) {
     `;
 
     if (window.lucide) window.lucide.createIcons();
+
+    // Show skeleton IMMEDIATELY — synchronous, before any await
+    (function () {
+        var a = document.getElementById('goog-results-area');
+        if (a) a.innerHTML = skeletonGrid(6, 'goog-cards-grid');
+    })();
 
     let state = { type: 'all', dateFrom: '', dateTo: '', search: '', keyword: '', sort: 'newest' };
 
@@ -371,10 +377,14 @@ export async function renderGoogle(container) {
     // ── Data Cache (filled once per session / refresh) ────────────────────────
     const cache = { all: [], filtered: [], unwanted: [] };
 
-    // fetchAllData: hits the API, shows skeleton ONCE, populates cache for all 3 types
+    // fetchAllData: hits the API, populates cache for all 3 types
     async function fetchAllData() {
         const area = document.getElementById('goog-results-area');
-        area.innerHTML = skeletonGrid(6, 'goog-cards-grid');
+        // Skeleton is already set synchronously at page init.
+        // Only set it again when explicitly refreshing.
+        if (area && !area.querySelector('.skeleton-card')) {
+            area.innerHTML = skeletonGrid(6, 'goog-cards-grid');
+        }
 
         try {
             // Load all three type buckets in parallel
@@ -517,8 +527,8 @@ export async function renderGoogle(container) {
         renderGrid();
     }
 
-    await loadStats();
-    await fetchAllData(); // Single API fetch on page init
+    // Run stats and data fetch in PARALLEL — skeleton already visible, no sequential wait
+    await Promise.all([loadStats(), fetchAllData()]);
 }
 
 // ── Template helpers ──────────────────────────────────────────────────────────
