@@ -89,13 +89,13 @@ export async function runGoogleWorkflow(runtime) {
 
                 for (; kwIndex < keywords.length; kwIndex++) {
                     const keyword = keywords[kwIndex];
-                    await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword });
+                    if (!await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword })) return;
 
                     // Restore proper page resetting organically!
                     let page = (kwIndex === (runtime.currentKeywordIndex || 0)) ? (runtime.currentPage || 0) : 0;
 
                     for (; page < (runtime.max_pages || 7); page++) {
-                        await updateRuntimeState(runtime.jobId, { currentPage: page });
+                        if (!await updateRuntimeState(runtime.jobId, { currentPage: page })) return;
 
                         let didNavigate = false;
                         if (runtime.pausedUrl) {
@@ -184,7 +184,7 @@ export async function runGoogleWorkflow(runtime) {
                 let currentDetailIndex = runtime.currentDetailIndex || 0;
 
                 for (; currentDetailIndex < allResults.length; currentDetailIndex++) {
-                    await updateRuntimeState(runtime.jobId, { currentDetailIndex, kwResults: filtered });
+                    if (!await updateRuntimeState(runtime.jobId, { currentDetailIndex, kwResults: filtered })) return;
                     const item = allResults[currentDetailIndex];
 
                     if (item.result_type === "unwanted") continue;
