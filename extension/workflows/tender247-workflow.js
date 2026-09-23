@@ -37,7 +37,10 @@ export async function runTender247Workflow(runtime) {
                     await updateRuntimeState(runtime.jobId, { currentPage: pageNum });
                     const dat = await executeContentScript(runtime.tabId, "extract_links");
                     if (dat && dat.links && dat.links.length > 0) {
-                        for (const link of dat.links) if (!allListings.includes(link)) allListings.push(link);
+                        for (const raw of dat.links) {
+                            const link = raw.split("?")[0].split("#")[0];
+                            if (!allListings.includes(link)) allListings.push(link);
+                        }
                     } else break; // No more
 
                     await updateRuntimeState(runtime.jobId, { allListings });
