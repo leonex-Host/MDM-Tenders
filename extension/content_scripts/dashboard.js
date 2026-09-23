@@ -44,3 +44,41 @@ document.addEventListener('click', (e) => {
         }, 300); // 300ms latency to allow the POST /start request to hit Render
     }
 });
+
+// ZERO-LATENCY TELEMETRY: Proxy UI requests to Extension Service Worker securely natively.
+window.addEventListener("message", (event) => {
+    if (event.source !== window || !event.data || !event.data.action) return;
+
+    if (event.data.action === "LOCAL_EXT_GET_STATUS") {
+        try {
+            chrome.runtime.sendMessage({ action: "get_status" }, (res) => {
+                if (chrome.runtime.lastError) return;
+                // Bounce back natively to the Vue DOM Context
+                window.postMessage({ action: "LOCAL_EXT_STATUS_PAYLOAD", payload: res }, "*");
+            });
+        } catch (e) { }
+    } else if (event.data.action === "LOCAL_EXT_ABORT") {
+        try {
+            chrome.runtime.sendMessage({ action: "abort_job", jobId: event.data.jobId }, (res) => {
+                if (chrome.runtime.lastError) return;
+            });
+        } catch (e) { }
+    } else if (event.data.action === "LOCAL_EXT_ABORT_ALL") {
+        try {
+            chrome.runtime.sendMessage({ action: "abort_manual" }, (res) => {
+                if (chrome.runtime.lastError) return;
+            });
+        } catch (e) { }
+    } else if (event.data.action === "LOCAL_EXT_ABORT_SOURCE") {
+        try {
+            chrome.runtime.sendMessage({ action: "get_status" }, (res) => {
+                if (!res || !res.jobs) return;
+                res.jobs.forEach(j => {
+                    if (j.source && j.source.toLowerCase() === event.data.source.toLowerCase()) {
+                        chrome.runtime.sendMessage({ action: "abort_job", jobId: j.job_id });
+                    }
+                });
+            });
+        } catch (e) { }
+    }
+});

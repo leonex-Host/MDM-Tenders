@@ -5,6 +5,25 @@ import { getApiBase, adminFetch } from '../utils/api.js';
 
 let pollTimer = null;
 
+function getLocalStatus() {
+    return new Promise((resolve) => {
+        const handler = (event) => {
+            if (event.data && event.data.action === "LOCAL_EXT_STATUS_PAYLOAD") {
+                window.removeEventListener("message", handler);
+                resolve(event.data.payload);
+            }
+        };
+        window.addEventListener("message", handler);
+        window.postMessage({ action: "LOCAL_EXT_GET_STATUS" }, "*");
+
+        setTimeout(() => {
+            window.removeEventListener("message", handler);
+            resolve(null);
+        }, 500);
+    });
+}
+
+
 export async function renderScrapers(container) {
     container.innerHTML = `
         <div class="section-header anim-in">
@@ -86,6 +105,8 @@ export async function renderScrapers(container) {
     });
 
     container.querySelector('#adm-stop-all')?.addEventListener('click', async () => {
+        window.postMessage({ action: "LOCAL_EXT_ABORT_ALL" }, "*");
+
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
         const baseUrl = getApiBase();
         try {
@@ -110,7 +131,27 @@ async function loadScraperStatus() {
         if (!res.ok) return;
         const d = await res.json();
 
+        const localTelemetry = await getLocalStatus();
+        let runningSources = new Set();
+        let localJobs = false;
+        if (localTelemetry && localTelemetry.jobs && localTelemetry.jobs.length > 0) {
+            localJobs = true;
+            localTelemetry.jobs.forEach(j => {
+                if (j.status !== 'failed' && j.status !== 'completed' && j.status !== 'aborted') {
+                    runningSources.add(j.source.toLowerCase());
+                }
+            });
+        }
+
         const tenderScrapers = d.scrapers || {};
+
+        // Force the dashboard to strictly represent LOCAL running reality, overriding remote DB logs.
+        Object.keys(tenderScrapers).forEach(k => {
+            if (localTelemetry != null) {
+                tenderScrapers[k].is_running = runningSources.has(k.toLowerCase());
+            }
+        });
+
         const anyRunning = Object.values(tenderScrapers).some(s => s.is_running);
 
         const syncAllBtn = document.getElementById('adm-sync-all');
@@ -250,7 +291,7 @@ async function loadScraperStatus() {
         if (gPanel) {
             const g = d.google || {};
             const isCaptcha = !!g.captcha_detected;
-            const isRunning = g.running;
+            const isRunning = localTelemetry != null ? runningSources.has('google') : g.running;
 
             if (isCaptcha && !window._captchaSoundPlayed) {
                 const beep = new Audio('https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg');
@@ -350,6 +391,8 @@ window._startScraper = async (event, source) => {
 };
 
 window._stopScraper = async (event, source) => {
+    window.postMessage({ action: "LOCAL_EXT_ABORT_SOURCE", source: source }, "*");
+
     const isHeadless = localStorage.getItem('admin_headless') !== 'false';
     const baseUrl = getApiBase();
     await adminFetch(`${baseUrl}/admin/scrapers/stop?source=${source}`, { method: 'POST' });
@@ -391,6 +434,8 @@ window._stopGoogle = async (event) => {
     btn.disabled = true;
     btn.style.opacity = '0.5';
     btn.innerHTML = '⏹ Stopping...';
+
+    window.postMessage({ action: "LOCAL_EXT_ABORT_SOURCE", source: "google" }, "*");
 
     try {
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
