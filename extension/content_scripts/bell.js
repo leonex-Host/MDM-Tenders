@@ -18,9 +18,9 @@
         originX: window.innerWidth - 150,
         originY: -50,
         targetY: 200,
-        k: 0.05,        // Spring stiffness
-        damping: 0.92,  // Fiction / Energy loss
-        mass: 1.5,
+        k: 0.15,        // Spring stiffness
+        damping: 0.95,  // Fiction / Energy loss
+        mass: 0.8,
         restLength: 250 // Rope length
     };
 
@@ -198,10 +198,8 @@
             const swingAngle = (state.x - state.originX) / 10;
             bell.style.transform = "rotate(" + swingAngle + "deg)";
 
-            // Update rope SVG
-            const cpX = state.originX;
-            const cpY = state.originY + (state.y - state.originY) / 2;
-            rope.setAttribute("d", "M " + state.originX + "," + state.originY + " Q " + cpX + "," + cpY + " " + state.x + "," + state.y);
+            // Update rope SVG strictly as a rigid straight line
+            rope.setAttribute("d", "M " + state.originX + "," + state.originY + " L " + state.x + "," + state.y);
 
             physicsId = requestAnimationFrame(updatePhysics);
         }
