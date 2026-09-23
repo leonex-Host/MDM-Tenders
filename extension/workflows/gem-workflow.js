@@ -26,7 +26,7 @@ export async function runGemWorkflow(runtime) {
             let pageNum = runtime.currentPage || 1;
 
             if (phase === 'search') {
-                await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword, phase: 'search' });
+                if (!await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword, phase: 'search' })) return;
 
                 if (pageNum === 1 && !runtime.pausedUrl) {
                     await navigateAndWait(runtime.tabId, searchUrl);
@@ -39,7 +39,7 @@ export async function runGemWorkflow(runtime) {
                 }
 
                 while (pageNum <= maxPages) {
-                    await updateRuntimeState(runtime.jobId, { currentPage: pageNum });
+                    if (!await updateRuntimeState(runtime.jobId, { currentPage: pageNum })) return;
 
                     let previousFirstId = null;
                     const dat = await executeContentScript(runtime.tabId, "extract_cards", { keyword });
@@ -69,26 +69,17 @@ export async function runGemWorkflow(runtime) {
                         }
                     }
 
-                    // Soft Recovery Trigger if React infinite-loader stalls
+                    // Intelligent termination matching flawless legacy behavior
                     if (!loaded) {
-                        console.warn(`[GeM] Pager stall detected on page ${pageNum + 1}. Firing autonomous physical recovery routine.`);
-                        await navigateAndWait(runtime.tabId, searchUrl);
-                        await sleep(3000);
-                        await executeContentScript(runtime.tabId, "setup_search", { keyword });
-                        await sleep(4000);
-
-                        // Fast-forward pagination back to identical parity
-                        for (let r = 1; r <= pageNum; r++) {
-                            await executeContentScript(runtime.tabId, "click_next");
-                            await sleep(2500);
-                        }
+                        console.log(`[GeM] Pager stall/exhaustion natively detected on page ${pageNum + 1}. Breaking to next keyword organically.`);
+                        break;
                     }
 
                     pageNum++;
-                    await updateRuntimeState(runtime.jobId, { uploadedBatch: false });
+                    if (!await updateRuntimeState(runtime.jobId, { uploadedBatch: false })) return;
                 }
 
-                await updateRuntimeState(runtime.jobId, { currentPage: 1, uploadedBatch: false });
+                if (!await updateRuntimeState(runtime.jobId, { currentPage: 1, uploadedBatch: false })) return;
             }
         }
         await finishJob(runtime.jobId, allMatchesCount);
