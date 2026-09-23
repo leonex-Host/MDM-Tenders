@@ -316,6 +316,14 @@ class TenderDetailScraper(BaseScraper):
                 if any("closed" in b.text.lower() for b in badges):
                     self.logger.debug(f"[TenderDetail] Skipping closed tender")
                     return None
+                
+                live_badges = row.find_elements(By.CSS_SELECTOR, ".labelGreensuccess, .badge")
+                has_live = any("live" in str(b.text).lower() for b in live_badges)
+                has_urgent = len(row.find_elements(By.CSS_SELECTOR, ".td-urgent")) > 0
+                
+                if not (has_live or has_urgent):
+                    self.logger.debug(f"[TenderDetail] Skipping tender - neither Live nor Urgent tag found")
+                    return None
             except:
                 pass
             

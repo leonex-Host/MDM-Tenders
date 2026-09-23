@@ -54,6 +54,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     return; // Skip closed tenders
                 }
 
+                const isLive = [...r.querySelectorAll(".labelGreensuccess, .badge")].find(x => x.innerText && x.innerText.match(/Live/i));
+                const isUrgent = r.querySelector(".td-urgent");
+
+                if (!isLive && !isUrgent) {
+                    return; // Only take Live or Urgent tenders
+                }
+
                 results.push({
                     source: "tenderdetail",
                     href: a.href,
