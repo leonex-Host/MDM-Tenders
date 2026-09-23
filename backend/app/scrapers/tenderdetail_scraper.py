@@ -310,6 +310,15 @@ class TenderDetailScraper(BaseScraper):
             
             row_text = row.text or ""
             
+            # Check for explicitly closed tender badges
+            try:
+                badges = row.find_elements(By.CSS_SELECTOR, ".labelReddanger, .badge")
+                if any("closed" in b.text.lower() for b in badges):
+                    self.logger.debug(f"[TenderDetail] Skipping closed tender")
+                    return None
+            except:
+                pass
+            
             tender_id = self._extract_tender_id_from_row(row)
             due_date = self._extract_due_date_from_row(row)
             

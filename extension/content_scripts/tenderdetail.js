@@ -8,11 +8,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 const next15 = els.find(e => e.innerText && e.innerText.includes("Next 15 Days") && e.offsetWidth > 0);
                 if (next15) next15.click();
                 setTimeout(() => {
-                    const btn = document.getElementById("btnFilterTender") || document.querySelector("input[value='SEARCH']");
-                    sendResponse({ done: true });
-                    if (btn) {
-                        setTimeout(() => btn.click(), 50);
+                    // Try sorting by Closing Date
+                    const sortBtn = document.querySelector(".fa-sort-amount-down, .fa-sort")?.closest("button");
+                    if (sortBtn) {
+                        sortBtn.click();
+                        setTimeout(() => {
+                            const sortOpts = [...document.querySelectorAll("a, span, li, button")];
+                            const cDate = sortOpts.find(e => e.innerText && e.innerText.includes("Closing Date") && e.offsetWidth > 0);
+                            if (cDate) cDate.click();
+                        }, 250);
                     }
+
+                    setTimeout(() => {
+                        const btn = document.getElementById("btnFilterTender") || document.querySelector("input[value='SEARCH']");
+                        sendResponse({ done: true });
+                        if (btn) btn.click();
+                    }, 500);
                 }, 400);
             }, 200);
         } catch (e) { sendResponse({ done: false }); }
@@ -38,10 +49,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 let t_id = tIDElem ? tIDElem.innerText.trim() : "";
                 if (t_id.includes("#")) t_id = t_id.replace("#", "").trim();
 
+                const isClosedB = [...r.querySelectorAll(".labelReddanger, .badge")].find(x => x.innerText && x.innerText.includes("Closed"));
+                if (isClosedB) {
+                    return; // Skip closed tenders
+                }
+
                 results.push({
+                    source: "tenderdetail",
                     href: a.href,
                     tender_id: t_id,
-                    due_date: due
+                    title: a.innerText.trim(),
+                    description: (r.innerText || "").replace(/\n/g, ' ').substring(0, 480).trim(),
+                    location: ((r.innerText || "").match(/Haryana|Pradesh|Delhi|Bengal|Maharashtra|Jharkhand|Gujarat|Rajasthan|Tamil|Karnataka|Assam|Punjab|Bihar|Odisha/i) || [""])[0],
+                    value: ((r.innerText || "").match(/(?:₹|INR)?\s*[\d,]+\s*(?:Lakh|Crore|Cr|L|Thousand)/i) || [""])[0].trim(),
+                    start_date: "",
+                    end_date: due
                 });
             }
         });
