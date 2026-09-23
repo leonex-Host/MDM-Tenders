@@ -98,13 +98,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="metric-val" style="color:#fff;">${j.results || 0}</span>
                             </div>
                             <div class="metric-row">
-                                <span class="metric-label">REMOVED</span>
+                                <span class="metric-label">DUPLICATE</span>
                                 <span class="metric-val" style="color:var(--warning);">${j.duplicates || 0}</span>
                             </div>
+                            ${j.source === 'google' ? `
                             <div class="metric-row">
                                 <span class="metric-label">UNWANTED LINK</span>
                                 <span class="metric-val" style="color:#ef4444;">${j.unwantedLinks || 0}</span>
                             </div>
+                            ` : ''}
                             <div class="metric-row" style="margin-top:2px;">
                                 <span class="metric-label">SAVED DATABASE</span>
                                 <span class="metric-val" style="color:var(--success); font-size:12px;">${j.inserted || 0} ITEMS</span>

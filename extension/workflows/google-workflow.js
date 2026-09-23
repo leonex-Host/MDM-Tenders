@@ -86,13 +86,15 @@ export async function runGoogleWorkflow(runtime) {
             // Phase 1: Search URLs
             if (phase === 'search') {
                 let kwIndex = runtime.currentKeywordIndex || 0;
-                let page = runtime.currentPage || 0;
 
                 for (; kwIndex < keywords.length; kwIndex++) {
                     const keyword = keywords[kwIndex];
                     await updateRuntimeState(runtime.jobId, { currentKeywordIndex: kwIndex, keyword });
 
-                    for (; page < 7; page++) {
+                    // Restore proper page resetting organically!
+                    let page = (kwIndex === (runtime.currentKeywordIndex || 0)) ? (runtime.currentPage || 0) : 0;
+
+                    for (; page < (runtime.max_pages || 7); page++) {
                         await updateRuntimeState(runtime.jobId, { currentPage: page });
 
                         let didNavigate = false;
@@ -150,15 +152,26 @@ export async function runGoogleWorkflow(runtime) {
                             }
                         }
 
+                        runtime.resultsCollected = allMap.size;
                         const updatedUnwanted = (runtime.unwantedLinks || 0) + localUnwanted;
                         runtime.unwantedLinks = updatedUnwanted; // Sync active memory immediately
                         await updateRuntimeState(runtime.jobId, { allResultsPhase1: [...allMap.values()], resultsCollected: allMap.size, unwantedLinks: updatedUnwanted });
 
                         if (newFound.length > 0) {
-                            await enqueueUpload(runtime.jobId, { source: "google", keyword, result_type: "all", results: newFound, tenders: newFound });
+                            await enqueueUpload(runtime.jobId, { source: "google", phase: "search", data: newFound });
+                        }
+
+                        if (!data || !listings || listings.length === 0) {
+                            console.log(`[Google][${runtime.jobId}] Exhausted all real results entirely on page ${page + 1}`);
+                            break;
+                        }
+
+                        // Intelligent exit trap matching python loop dynamics!
+                        if (newFound.length === 0 && localUnwanted === 0) {
+                            console.log(`[Google][${runtime.jobId}] Zero new yield natively tracked. Breaking pagination organically to save cycles.`);
+                            break;
                         }
                     }
-                    page = 0; // reset page array for next keyword
                 }
 
                 await updateRuntimeState(runtime.jobId, { phase: 'details', currentDetailIndex: 0, kwResults: [] });
