@@ -16,6 +16,7 @@
         "alarms"
     ],
     "host_permissions": [
+        "<all_urls>",
         "https://www.tendersontime.com/*",
         "https://www.google.com/*",
         "*://*.tender247.com/*",
