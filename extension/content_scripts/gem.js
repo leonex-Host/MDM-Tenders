@@ -64,10 +64,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ results });
         return true;
     } else if (request.action === "click_next") {
-        const els = [...document.querySelectorAll("a, button")];
-        const next = els.find(el => (el.innerText.includes("Next") || el.getAttribute("rel") === "next") && el.offsetWidth > 0 && el.offsetHeight > 0 && !el.disabled);
-        if (next) { next.click(); sendResponse({ clicked: true }); }
-        else sendResponse({ clicked: false });
+        const els = [...document.querySelectorAll("a, button, li")];
+        const next = els.find(el => {
+            const hasNextText = (el.innerText || "").includes("Next") || el.getAttribute("rel") === "next" || (el.innerText || "").includes("»");
+            if (!hasNextText) return false;
+            if (el.offsetWidth === 0 || el.offsetHeight === 0) return false;
+            if (el.disabled || el.getAttribute("aria-disabled") === "true") return false;
+            if (el.classList && el.classList.contains("disabled")) return false;
+            if (el.parentElement && el.parentElement.classList && el.parentElement.classList.contains("disabled")) return false;
+            // If it's an <li> tag itself containing a disabled state, catching it securely
+            return true;
+        });
+
+        if (next) {
+            // In case the detected element is an li wrapper, click its inner anchor gracefully
+            const clickableNode = next.querySelector("a, button") || next;
+            clickableNode.click();
+            sendResponse({ clicked: true });
+        } else {
+            sendResponse({ clicked: false });
+        }
         return true;
     }
 });
