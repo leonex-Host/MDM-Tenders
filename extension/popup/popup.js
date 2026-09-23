@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="job-header">
                                 <div>
                                     <span class="job-source">${h.source || 'UNKNOWN'}</span>
-                                    <span class="job-id">${new Date(h.endedAt).toLocaleTimeString()}</span>
+                                    <span class="job-id">${new Date(h.endedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
                                 </div>
                                 <span class="job-status ${h.status}">${h.status}</span>
                             </div>
