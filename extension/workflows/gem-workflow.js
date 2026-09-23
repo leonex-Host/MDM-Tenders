@@ -58,23 +58,7 @@ export async function runGemWorkflow(runtime) {
                     const nr = await executeContentScript(runtime.tabId, "click_next");
                     if (!nr || !nr.clicked) break;
 
-                    // Poll up to 24s for the DOM to update to the next page mathematically
-                    let loaded = false;
-                    for (let attempt = 0; attempt < 8; attempt++) {
-                        await sleep(3000);
-                        const chk = await executeContentScript(runtime.tabId, "extract_cards", { keyword });
-                        if (chk && chk.results && chk.results.length > 0 && chk.results[0].tender_id !== previousFirstId) {
-                            loaded = true;
-                            break;
-                        }
-                    }
-
-                    // Intelligent termination matching flawless legacy behavior
-                    if (!loaded) {
-                        console.log(`[GeM] Pager stall/exhaustion natively detected on page ${pageNum + 1}. Breaking to next keyword organically.`);
-                        break;
-                    }
-
+                    await sleep(4000);
                     pageNum++;
                     if (!await updateRuntimeState(runtime.jobId, { uploadedBatch: false })) return;
                 }
