@@ -199,7 +199,17 @@ def upload_tenders(
                 if link:
                     existing = db.query(GoogleResult).filter(GoogleResult.link == link).first()
                     if existing:
-                        skipped += 1
+                        new_type = t.get("result_type", "all")
+                        if existing.result_type == "all" and new_type == "filtered":
+                            # Upgrade Phase 1 (Search) to Phase 2 (Filtered with content)
+                            existing.result_type = "filtered"
+                            if t.get("summary"):
+                                existing.description = str(t.get("summary"))[:5000]
+                            existing.is_pdf = "true" if (t.get("href") and ".pdf" in str(t.get("href")).lower()) else "false"
+                            db.flush()
+                            # It's an upgrade, so it's not a new insert but not a duplicate block realistically.
+                        else:
+                            skipped += 1
                         continue
 
                 db.add(GoogleResult(
