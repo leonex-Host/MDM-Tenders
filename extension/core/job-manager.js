@@ -20,16 +20,6 @@ export async function setExtensionState(updates) {
     const state = await getExtensionState();
     const newState = { ...state, ...updates };
     await chrome.storage.local.set({ extensionState: newState });
-
-    if (updates.blocked !== undefined) {
-        if (updates.blocked) {
-            chrome.action.setBadgeText({ text: '!' }).catch(() => { });
-            chrome.action.setBadgeBackgroundColor({ color: '#ef4444' }).catch(() => { });
-        } else {
-            chrome.action.setBadgeText({ text: '' }).catch(() => { });
-        }
-    }
-
     return newState;
 }
 
@@ -96,8 +86,12 @@ async function syncMapToStorage() {
     // Basic sync logic to ensure MV3 persistence survives organic teardowns
     const raw = {};
     let firstJob = null;
+    let pausedCount = 0;
+
     for (const [key, val] of activeJobs.entries()) {
         raw[key] = val;
+        if (val.status === 'paused') pausedCount++;
+
         if (!firstJob) {
             firstJob = {
                 job_id: val.jobId,
@@ -111,6 +105,13 @@ async function syncMapToStorage() {
         }
     }
     await chrome.storage.local.set({ activeJobsSync: raw, activeJob: firstJob });
+
+    if (pausedCount > 0) {
+        chrome.action.setBadgeText({ text: String(pausedCount) }).catch(() => { });
+        chrome.action.setBadgeBackgroundColor({ color: '#ef4444' }).catch(() => { });
+    } else {
+        chrome.action.setBadgeText({ text: '' }).catch(() => { });
+    }
 }
 
 export function getRuntime(jobId) {
