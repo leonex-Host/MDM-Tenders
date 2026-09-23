@@ -70,9 +70,12 @@ export async function renderScrapers(container) {
         const baseUrl = getApiBase();
         const sources = ['gem', 'tender247', 'tenderdetail', 'tenderontime', 'biddetail'];
 
+        const extMachine = document.getElementById('extension_client_id');
+        const cid = extMachine ? `&client_id=${extMachine.dataset.clientId}` : '';
+
         try {
             await Promise.all(sources.map(src =>
-                adminFetch(`${baseUrl}/admin/scrapers/start?source=${src}&headless=${isHeadless}`, { method: 'POST' })
+                adminFetch(`${baseUrl}/admin/scrapers/start?source=${src}&headless=${isHeadless}${cid}`, { method: 'POST' })
             ));
         } catch (err) { console.error(err); }
 
@@ -328,7 +331,11 @@ window._startScraper = async (event, source) => {
     try {
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
         const baseUrl = getApiBase();
-        const res = await adminFetch(`${baseUrl}/admin/scrapers/start?source=${source}&headless=${isHeadless}`, { method: 'POST' });
+
+        const extMachine = document.getElementById('extension_client_id');
+        const cid = extMachine && extMachine.dataset.clientId ? `&client_id=${extMachine.dataset.clientId}` : '';
+
+        const res = await adminFetch(`${baseUrl}/admin/scrapers/start?source=${source}&headless=${isHeadless}${cid}`, { method: 'POST' });
         if (!res.ok) {
             alert(`Could not start ${source} locally. Make sure the local server is running and you are logged in locally. (HTTP ${res.status})`);
         }
@@ -359,7 +366,11 @@ window._startGoogle = async (event) => {
     try {
         const isHeadless = localStorage.getItem('admin_headless') !== 'false';
         const baseUrl = getApiBase();
-        const res = await adminFetch(`${baseUrl}/admin/scrapers/start?source=google&headless=${isHeadless}`, { method: 'POST' });
+
+        const extMachine = document.getElementById('extension_client_id');
+        const cid = extMachine && extMachine.dataset.clientId ? `&client_id=${extMachine.dataset.clientId}` : '';
+
+        const res = await adminFetch(`${baseUrl}/admin/scrapers/start?source=google&headless=${isHeadless}${cid}`, { method: 'POST' });
         if (!res.ok) {
             const d = await res.json().catch(() => ({}));
             alert('Launch Failed: ' + (d.detail || 'Internal Server Error'));

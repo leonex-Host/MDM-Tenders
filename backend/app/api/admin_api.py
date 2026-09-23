@@ -122,6 +122,7 @@ def scraper_status(db: Session = Depends(get_db), _admin=Depends(require_admin) 
 def start_scraper(
     source: str = Query(..., description="gem|tender247|tenderdetail|tenderontime|biddetail|google"),
     headless: bool = Query(True),
+    client_id: str = Query(None),
     _admin=Depends(require_admin) if not settings.DEBUG else None,
 ):
     """Start a scraper by source name."""
@@ -162,6 +163,7 @@ def start_scraper(
             "keywords": settings.SEARCH_KEYWORDS,
             "max_pages": getattr(settings, "MAX_PAGES", 5),
             "created_at": datetime.now(timezone.utc).isoformat(),
+            "target_client": client_id,
         }
         
         if not job.get("job_id"):

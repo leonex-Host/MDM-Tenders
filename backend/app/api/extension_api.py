@@ -75,9 +75,16 @@ def create_extension_job(
 
 # ── GET /jobs — Extension polls for pending jobs ─────────────────────────────
 @router.get("/jobs")
-def get_pending_jobs(_key=Depends(_validate_extension_key)):
+def get_pending_jobs(client_id: str = Query(None), _key=Depends(_validate_extension_key)):
     """Extension calls this periodically to check for new scrape jobs."""
-    pending = [j for j in _pending_jobs if j["status"] == "pending"]
+    pending = []
+    for j in _pending_jobs:
+        if j["status"] == "pending":
+            tgt = j.get("target_client")
+            # Only adopt if NO target client exist or if it explicitly matches my machine
+            if tgt and tgt != client_id:
+                continue
+            pending.append(j)
     return {"jobs": pending, "count": len(pending)}
 
 

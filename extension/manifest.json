@@ -23,7 +23,8 @@
         "*://*.tenderdetail.com/*",
         "*://gem.gov.in/*",
         "*://*.onrender.com/*",
-        "*://localhost/*"
+        "*://localhost/*",
+        "*://mdm-tenders.vercel.app/*"
     ],
     "background": {
         "service_worker": "background.js",
@@ -90,7 +91,8 @@
         {
             "matches": [
                 "*://*.onrender.com/*",
-                "*://localhost/*"
+                "*://localhost/*",
+                "*://mdm-tenders.vercel.app/*"
             ],
             "js": [
                 "content_scripts/dashboard.js"

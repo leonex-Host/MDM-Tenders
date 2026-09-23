@@ -6,6 +6,20 @@
 
 console.log("[MDM Agent] Dashboard connection active. Extension is awake and listening.");
 
+chrome.storage.local.get(['clientId'], (data) => {
+    let clientId = data.clientId;
+    if (!clientId) {
+        clientId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        chrome.storage.local.set({ clientId });
+    }
+    const div = document.createElement('div');
+    div.id = 'extension_client_id';
+    div.dataset.clientId = clientId;
+    div.style.display = 'none';
+    document.body.appendChild(div);
+    console.log("[MDM Agent] Core Hardware UUID bridged to dashboard safely:", clientId);
+});
+
 // Ping the background worker every 10 seconds to strictly prevent MV3 sleep
 setInterval(() => {
     try {

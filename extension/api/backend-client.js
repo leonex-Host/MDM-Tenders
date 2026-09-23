@@ -14,7 +14,10 @@ export async function fetchJobs() {
         console.log(`[BidDetailTrace] request method: GET`);
         console.log(`[BidDetailTrace] request endpoint: ${creds.apiUrl}/api/extension/jobs`);
 
-        const res = await fetch(`${creds.apiUrl}/api/extension/jobs`, {
+        const dataObj = await chrome.storage.local.get(['clientId']);
+        const clientId = dataObj.clientId ? `?client_id=${dataObj.clientId}` : '';
+
+        const res = await fetch(`${creds.apiUrl}/api/extension/jobs${clientId}`, {
             headers: { 'X-Extension-Key': creds.apiKey }
         });
 
