@@ -17,7 +17,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyDot = document.getElementById('history-dot');
 
     if (btnHistory && closeHistory && historyPanel) {
-        btnHistory.addEventListener('click', () => historyPanel.style.display = 'block');
+        btnHistory.addEventListener('click', () => {
+            const isShowing = historyPanel.style.display === 'block';
+            historyPanel.style.display = isShowing ? 'none' : 'block';
+        });
         closeHistory.addEventListener('click', () => historyPanel.style.display = 'none');
     }
 
@@ -161,17 +164,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (hist.length > 0) {
                     historyList.innerHTML = hist.map(h => `
-                        <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:4px;">
-                            <div style="display:flex; justify-content:space-between;">
-                                <span style="font-size:10px; font-weight:800; color:#fff; text-transform:uppercase;">${h.source}</span>
-                                <span style="font-size:9px; font-weight:700; color:${h.status === 'completed' ? 'var(--success)' : (h.status === 'aborted' ? 'var(--warning)' : 'var(--danger)')}; text-transform:uppercase;">${h.status}</span>
+                        <div class="job-card">
+                            <div class="job-header">
+                                <div>
+                                    <span class="job-source">${h.source || 'UNKNOWN'}</span>
+                                    <span class="job-id">${new Date(h.endedAt).toLocaleTimeString()}</span>
+                                </div>
+                                <span class="job-status ${h.status}">${h.status}</span>
                             </div>
-                            <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--text-muted); font-weight:600;">
-                                <span>FOUND: <span style="color:#fff;">${h.found || 0}</span></span>
-                                <span>SAVED: <span style="color:var(--success);">${h.inserted || 0}</span></span>
-                                <span>DUP: <span style="color:var(--warning);">${h.duplicates || 0}</span></span>
+                            <div class="job-metrics">
+                                <div class="metric-row">
+                                    <span class="metric-label">FOUNDED</span>
+                                    <span class="metric-val" style="color:#fff;">${h.found || 0}</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">SAVED TENDERS</span>
+                                    <span class="metric-val" style="color:var(--success);">${h.inserted || 0}</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">DUPLICATES</span>
+                                    <span class="metric-val" style="color:var(--warning);">${h.duplicates || 0}</span>
+                                </div>
                             </div>
-                            <div style="font-size:8px; color:var(--text-dim); text-align:right;">${new Date(h.endedAt).toLocaleTimeString()}</div>
                         </div>
                     `).join('');
                 } else {

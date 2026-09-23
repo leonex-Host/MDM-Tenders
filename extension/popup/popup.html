@@ -158,16 +158,19 @@
     }
 
     /* Scrollbar */
-    #jobs_list::-webkit-scrollbar {
+    #jobs_list::-webkit-scrollbar,
+    #history_panel::-webkit-scrollbar {
       width: 6px;
     }
 
-    #jobs_list::-webkit-scrollbar-track {
+    #jobs_list::-webkit-scrollbar-track,
+    #history_panel::-webkit-scrollbar-track {
       background: rgba(0, 0, 0, 0.1);
       border-radius: 10px;
     }
 
-    #jobs_list::-webkit-scrollbar-thumb {
+    #jobs_list::-webkit-scrollbar-thumb,
+    #history_panel::-webkit-scrollbar-thumb {
       background: rgba(255, 255, 255, 0.1);
       border-radius: 10px;
     }
@@ -232,6 +235,16 @@
     .job-status.failed {
       background: rgba(239, 68, 68, 0.15);
       color: var(--danger);
+    }
+
+    .job-status.completed {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+    }
+
+    .job-status.aborted {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
     }
 
     .job-metrics {
