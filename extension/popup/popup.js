@@ -11,6 +11,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const abortAllBtn = document.getElementById('abort_all_btn');
 
+    const btnHistory = document.getElementById('btn-history');
+    const closeHistory = document.getElementById('close-history');
+    const historyPanel = document.getElementById('history_panel');
+    const historyDot = document.getElementById('history-dot');
+
+    if (btnHistory && closeHistory && historyPanel) {
+        btnHistory.addEventListener('click', () => historyPanel.style.display = 'block');
+        closeHistory.addEventListener('click', () => historyPanel.style.display = 'none');
+    }
+
     let connected = false;
 
     function log(msg) { logs.innerText = msg; }
@@ -147,8 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (historyList) {
             chrome.storage.local.get(['jobHistory'], (data) => {
                 const hist = data.jobHistory || [];
+                if (historyDot) historyDot.style.display = hist.length > 0 ? 'block' : 'none';
+
                 if (hist.length > 0) {
-                    historyList.innerHTML = `<div style="font-size:10px; font-weight:800; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; margin-top:8px;">Recent History</div>` + hist.map(h => `
+                    historyList.innerHTML = hist.map(h => `
                         <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:4px;">
                             <div style="display:flex; justify-content:space-between;">
                                 <span style="font-size:10px; font-weight:800; color:#fff; text-transform:uppercase;">${h.source}</span>
@@ -163,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `).join('');
                 } else {
-                    historyList.innerHTML = '';
+                    historyList.innerHTML = '<div class="empty-state">No history recorded yet.</div>';
                 }
             });
         }

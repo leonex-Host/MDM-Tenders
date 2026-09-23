@@ -315,9 +315,21 @@
   <div class="header">
     <div class="header-logo" style="gap: 6px;">
       <img src="../icons/icon.png" alt="Logo" onerror="this.style.display='none'" style="width: 22px; height: 22px;">
-      <h2 style="font-size: 13px; white-space: nowrap; margin: 0; letter-spacing: -0.2px;">MDM Tender Extension</h2>
+      <h2 style="font-size: 13px; white-space: nowrap; margin: 0; letter-spacing: -0.2px;">MDM Tenders</h2>
     </div>
     <div style="display: flex; gap: 4px; align-items: center;">
+      <div id="btn-history"
+        style="cursor:pointer; position:relative; display:flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; background:rgba(255,255,255,0.05); margin-right:2px; transition:0.2s;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          style="color:var(--text-muted);">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <div id="history-dot"
+          style="position:absolute; top:4px; right:4px; width:4px; height:4px; border-radius:50%; background:var(--accent);">
+        </div>
+      </div>
       <a href="https://mdm-tenders-jsi3.vercel.app/#/scrapers" target="_blank"
         style="background:#4b5563; color:#fff; font-size:10px; padding:4px 6px; border-radius:4px; text-decoration:none; font-weight:700;">ADMIN</a>
       <a href="https://mdm-tenders.vercel.app/#/portal" target="_blank"
@@ -346,13 +358,21 @@
       <div class="empty-state">No Active Jobs.</div>
     </div>
 
-    <div id="history_list" style="margin-top: 12px; display:flex; flex-direction:column; gap:8px;">
-    </div>
-
     <div class="footer-actions">
       <button class="btn btn-danger btn-sm" id="abort_all_btn" style="display:none; width:100%;">ABORT ALL
         SYSTEMS</button>
     </div>
+  </div>
+
+  <!-- Notification Overlay -->
+  <div id="history_panel"
+    style="display:none; position:absolute; top:48px; left:0; width:100%; height:calc(100% - 75px); background:var(--bg); z-index:100; padding:8px 16px; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <span style="font-size:11px; font-weight:800; color:#fff; text-transform:uppercase;">Notification Log</span>
+      <span id="close-history"
+        style="cursor:pointer; background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:4px; color:var(--text-muted); font-size:9px; font-weight:bold;">CLOSE</span>
+    </div>
+    <div id="history_list" style="display:flex; flex-direction:column; gap:8px; padding-bottom:20px;"></div>
   </div>
 
   <div class="logs" id="logs">Booting engine...</div>
