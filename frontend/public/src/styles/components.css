@@ -969,3 +969,95 @@
  } 
   
  
+
+/* ── SKELETON LOADERS & PAGINATION ── */
+@keyframes skeletonPulse {
+    0%   { background-color: rgba(255,255,255,0.04); }
+    50%  { background-color: rgba(255,255,255,0.10); }
+    100% { background-color: rgba(255,255,255,0.04); }
+}
+
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 4px 0;
+}
+
+.skeleton-card {
+    background: var(--surface, #1e1e2e);
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-radius: 12px;
+    padding: 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 180px;
+}
+
+.skeleton-block {
+    animation: skeletonPulse 1.6s ease-in-out infinite;
+    border-radius: 6px;
+    background-color: rgba(255,255,255,0.06);
+}
+
+.skeleton-title  { height: 20px; width: 70%; }
+.skeleton-desc   { height: 13px; width: 100%; }
+.skeleton-desc.w60 { width: 60%; }
+.skeleton-desc.w80 { width: 80%; }
+
+.skeleton-tags {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 8px;
+}
+
+.skeleton-tag { height: 24px; width: 64px; border-radius: 20px; }
+
+/* ── LOAD MORE BUTTON ── */
+.load-more-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 36px 0 20px;
+}
+
+.load-more-info {
+    font-size: 12px;
+    color: var(--text-tertiary, rgba(255,255,255,0.4));
+    letter-spacing: 0.03em;
+}
+
+.btn-load-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 28px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: var(--text-primary, #fff);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+    letter-spacing: 0.01em;
+}
+
+.btn-load-more:hover {
+    background: rgba(255,255,255,0.11);
+    border-color: rgba(255,255,255,0.22);
+    transform: translateY(-1px);
+}
+
+.btn-load-more:active {
+    transform: translateY(0);
+}
+
+.btn-load-more .lm-count {
+    font-size: 12px;
+    opacity: 0.5;
+    font-weight: 400;
+}

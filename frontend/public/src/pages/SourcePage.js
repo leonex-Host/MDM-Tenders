@@ -99,21 +99,22 @@ function _statsSkeletons() {
         </div>`).join('');
 }
 
+// Generates animated skeleton placeholder cards — single-quote strings to avoid backtick nesting
+function _skeletonGrid(n) {
+    var card = '<div class="skeleton-card">'
+        + '<div class="skeleton-block skeleton-title"></div>'
+        + '<div class="skeleton-block skeleton-desc w80"></div>'
+        + '<div class="skeleton-block skeleton-desc w60"></div>'
+        + '<div class="skeleton-tags">'
+        + '<div class="skeleton-block skeleton-tag"></div>'
+        + '<div class="skeleton-block skeleton-tag"></div>'
+        + '</div>'
+        + '</div>';
+    return '<div class="tender-cards-grid">' + Array(n).fill(card).join('') + '</div>';
+}
+
 function _loadingSpinner() {
-    return `
-    <div class="tender-cards-grid">
-        ${Array(6).fill(`
-            <div class="skeleton-card">
-                <div class="skeleton-block skeleton-title"></div>
-                <div class="skeleton-block skeleton-desc"></div>
-                <div class="skeleton-block skeleton-desc short"></div>
-                <div class="skeleton-tags">
-                    <div class="skeleton-block skeleton-tag"></div>
-                    <div class="skeleton-block skeleton-tag"></div>
-                </div>
-            </div>
-        `).join('')}
-    </div>`;
+    return _skeletonGrid(6);
 }
 
 async function _loadStats(container, source) {
@@ -226,10 +227,12 @@ function _renderTable(container, tenders, config) {
             <div class="pagination-area" style="padding:40px 0 20px 0; display:flex; flex-direction:column; align-items:center; gap:12px;">
                 <div class="pagination-info" style="color:var(--text-tertiary); font-size:13px;">Showing <strong>${slice.length}</strong> localized rows (Database limit buffer: <strong>${maxLen}</strong>)</div>
                 ${hasMoreClient ? `
-                    <button class="btn-load-more" id="client-load-more-btn">
-                        Load More Results
-                        <span style="opacity:0.5; font-size:12px; margin-left:4px;">(${slice.length} of ${maxLen})</span>
-                    </button>
+                    <div class="load-more-wrap">
+                        <span class="load-more-info">Showing ${slice.length} of ${maxLen} results</span>
+                        <button class="btn-load-more" id="client-load-more-btn">
+                            Load More <span class="lm-count">(+100)</span>
+                        </button>
+                    </div>
                 ` : ''}
             </div>`;
 

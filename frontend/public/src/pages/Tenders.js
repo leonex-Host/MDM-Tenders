@@ -44,19 +44,7 @@ export async function renderTenders(container) {
                 </div>
             </div>
             <div id="all-table-area">
-                <div class="tender-cards-grid">
-                    ${Array(6).fill(`
-                        <div class="skeleton-card">
-                            <div class="skeleton-block skeleton-title"></div>
-                            <div class="skeleton-block skeleton-desc"></div>
-                            <div class="skeleton-block skeleton-desc short"></div>
-                            <div class="skeleton-tags">
-                                <div class="skeleton-block skeleton-tag"></div>
-                                <div class="skeleton-block skeleton-tag"></div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
+                <div id="skeleton-init"></div>
             </div>
         </div>
     `;
@@ -69,6 +57,9 @@ export async function renderTenders(container) {
     let currentOffset = 0;
     let totalAvailable = 0;
     const badge = container.querySelector('#total-tender-badge');
+    // Inject skeleton immediately (safe, single-quote approach)
+    const initArea = container.querySelector('#skeleton-init');
+    if (initArea) initArea.outerHTML = _tenderSkeletonGrid(6);
 
     async function loadData(append = false) {
         try {
@@ -169,10 +160,12 @@ export async function renderTenders(container) {
                 <div class="pagination-area" style="padding:40px 0 20px 0; display:flex; flex-direction:column; align-items:center; gap:12px;">
                     <div class="pagination-info" style="color:var(--text-tertiary); font-size:13px;">Showing <strong>${slice.length}</strong> localized rows (Database Total: <strong>${totalAvailable}</strong>)</div>
                     ${needsMore ? `
-                        <button class="btn-load-more" id="client-load-more-btn">
-                            Load More Results
-                            <span style="opacity:0.5; font-size:12px; margin-left:4px;">(${slice.length} of ${hasMoreClient ? maxLen : totalAvailable})</span>
-                        </button>
+                        <div class="load-more-wrap">
+                            <span class="load-more-info">Showing ${slice.length} of ${hasMoreClient ? maxLen : totalAvailable}</span>
+                            <button class="btn-load-more" id="client-load-more-btn">
+                                Load More <span class="lm-count">(+100)</span>
+                            </button>
+                        </div>
                     ` : ''}
                 </div>`;
 
@@ -323,3 +316,17 @@ export async function renderTenders(container) {
 function esc(str) {
     return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+function _tenderSkeletonGrid(n) {
+    var card = '<div class="skeleton-card">'
+        + '<div class="skeleton-block skeleton-title"></div>'
+        + '<div class="skeleton-block skeleton-desc w80"></div>'
+        + '<div class="skeleton-block skeleton-desc w60"></div>'
+        + '<div class="skeleton-tags">'
+        + '<div class="skeleton-block skeleton-tag"></div>'
+        + '<div class="skeleton-block skeleton-tag"></div>'
+        + '</div>'
+        + '</div>';
+    return '<div class="tender-cards-grid">' + Array(n).fill(card).join('') + '</div>';
+}
+

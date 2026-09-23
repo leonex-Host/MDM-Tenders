@@ -372,21 +372,7 @@ export async function renderGoogle(container) {
     // ── Results ────────────────────────────────────────────────────────────
     async function loadResults() {
         const area = document.getElementById('goog-results-area');
-        area.innerHTML = `
-            <div class="goog-cards-grid">
-                ${Array(6).fill(`
-                    <div class="skeleton-card">
-                        <div class="skeleton-block skeleton-title"></div>
-                        <div class="skeleton-block skeleton-desc"></div>
-                        <div class="skeleton-block skeleton-desc short"></div>
-                        <div class="skeleton-tags">
-                            <div class="skeleton-block skeleton-tag"></div>
-                            <div class="skeleton-block skeleton-tag"></div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        area.innerHTML = skeletonGrid(6, 'goog-cards-grid');
         let url = `${API}/results?result_type=${state.type}`;
         const qs = buildDateQS(state);
         if (qs) url += `&${qs}`;
@@ -449,10 +435,12 @@ export async function renderGoogle(container) {
 
                 if (visibleCount < maxLen) {
                     html += `
-                        <button id="goog-load-more" class="btn-load-more">
-                            Load More 
-                            <span style="opacity:0.5; font-size:12px; margin-left:4px;">(${visibleCount} of ${maxLen})</span>
-                        </button>
+                        <div class="load-more-wrap">
+                            <span class="load-more-info">Showing ${visibleCount} of ${maxLen} results</span>
+                            <button id="goog-load-more" class="btn-load-more">
+                                Load More <span class="lm-count">(+100)</span>
+                            </button>
+                        </div>
                      `;
                 }
                 area.innerHTML = html;
@@ -629,4 +617,19 @@ function fmtDateLabel(dk) {
     const [y, m, d] = dk.split('-');
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
+}
+
+// Generates animated skeleton placeholder cards — uses single quotes to avoid backtick nesting issues
+function skeletonGrid(n, wrapClass) {
+    var card = '<div class="skeleton-card">'
+        + '<div class="skeleton-block skeleton-title"></div>'
+        + '<div class="skeleton-block skeleton-desc w80"></div>'
+        + '<div class="skeleton-block skeleton-desc w60"></div>'
+        + '<div class="skeleton-tags">'
+        + '<div class="skeleton-block skeleton-tag"></div>'
+        + '<div class="skeleton-block skeleton-tag"></div>'
+        + '</div>'
+        + '</div>';
+    var cards = Array(n).fill(card).join('');
+    return '<div class="' + (wrapClass || 'skeleton-grid') + '">' + cards + '</div>';
 }
