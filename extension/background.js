@@ -54,9 +54,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "abort_manual") {
         (async () => {
             const jobIds = getAllActiveJobIds();
-            for (const jid of jobIds) {
-                await failJob(jid, "Aborted manually by operator on local laptop");
-            }
+            await Promise.allSettled(jobIds.map(jid => failJob(jid, "Aborted manually by operator on local laptop")));
             sendResponse({ aborted: true });
             setTimeout(() => { chrome.runtime.reload(); }, 200);
         })();
@@ -92,11 +90,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         sendResponse({ jobs, count: jobs.length });
         return false;
-    } else if (request.action === "abort_job") {
-        failJob(request.jobId, "Aborted manually by operator").then(() => {
-            sendResponse({ aborted: true });
-        });
-        return true;
     } else if (request.action === "keep_alive") {
         sendResponse({ ok: true });
         return false;

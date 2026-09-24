@@ -19,7 +19,7 @@ function getLocalStatus() {
         setTimeout(() => {
             window.removeEventListener("message", handler);
             resolve(null);
-        }, 500);
+        }, 1500);
     });
 }
 
