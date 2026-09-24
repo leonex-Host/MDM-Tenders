@@ -224,19 +224,20 @@ class EmailService:
         if not manual_recipient and not target_date and not settings_row.daily_report_enabled:
             return
 
-        # Determine date range
+        # Determine date range explicitly in UTC to match database insertion markers
+        from datetime import timezone
         if target_date:
             try:
-                dt = datetime.strptime(target_date, "%Y-%m-%d")
+                dt = datetime.strptime(target_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
                 start_time = dt.replace(hour=0, minute=0, second=0, microsecond=0)
                 end_time = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
             except ValueError:
-                start_time = datetime.now() - timedelta(hours=48)
-                end_time = datetime.now()
+                start_time = datetime.now(timezone.utc) - timedelta(hours=48)
+                end_time = datetime.now(timezone.utc)
         else:
             lookback_hours = 48 if (manual_recipient or not settings_row.last_report_sent_at) else 24
-            start_time = datetime.now() - timedelta(hours=lookback_hours)
-            end_time = datetime.now()
+            start_time = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
+            end_time = datetime.now(timezone.utc)
 
         tenders = (
             db.query(Tender)
@@ -278,22 +279,23 @@ class EmailService:
         if not settings_row:
             return
 
+        from datetime import timezone
         if target_date:
             try:
-                dt = datetime.strptime(target_date, "%Y-%m-%d")
+                dt = datetime.strptime(target_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
                 start_time = dt.replace(hour=0, minute=0, second=0, microsecond=0)
                 end_time = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
             except ValueError:
-                start_time = datetime.now() - timedelta(hours=48)
-                end_time = datetime.now()
+                start_time = datetime.now(timezone.utc) - timedelta(hours=48)
+                end_time = datetime.now(timezone.utc)
         else:
             lookback_hours = 48 if (manual_recipient or not settings_row.last_report_sent_at) else 24
-            start_time = datetime.now() - timedelta(hours=lookback_hours)
-            end_time = datetime.now()
+            start_time = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
+            end_time = datetime.now(timezone.utc)
 
         raw_results = (
             db.query(GoogleResult)
-            .filter(GoogleResult.result_type == "all", GoogleResult.scraped_at >= start_time, GoogleResult.scraped_at <= end_time)
+            .filter(GoogleResult.result_type.in_(["all", "filtered"]), GoogleResult.scraped_at >= start_time, GoogleResult.scraped_at <= end_time)
             .order_by(GoogleResult.scraped_at.desc())
             .all()
         )
