@@ -124,7 +124,7 @@ class EmailService:
             rows_html += f"""
             <div style="margin-bottom:25px;">
                 <p style="margin:0 0 5px 0;"><strong>Tender ID:</strong> {t.tender_id or 'N/A'}</p>
-                <p style="margin:0 0 5px 0;font-size:14px;"><strong>Description:</strong> {t.description or t.title or 'No description'}</p>
+                <p style="margin:0 0 5px 0;font-size:14px;"><strong>Description:</strong> {(t.description or t.title or 'No description')[:350]}...</p>
                 <p style="margin:0 0 5px 0;font-size:12px;color:#555;">
                     <strong>Keyword:</strong> {t.keyword or 'N/A'} | <strong>Source:</strong> {(t.source or '').upper()}
                 </p>
@@ -171,7 +171,7 @@ class EmailService:
             rows_html += f"""
             <div style="margin-bottom:25px;">
                 <p style="margin:0 0 5px 0;"><strong>Title:</strong> {r.title}</p>
-                <p style="margin:0 0 5px 0;font-size:14px;"><strong>Description:</strong> {r.description}</p>
+                <p style="margin:0 0 5px 0;font-size:14px;"><strong>Description:</strong> {(r.description or '')[:350]}...</p>
                 <p style="margin:0 0 5px 0;font-size:12px;color:#555;">
                     <strong>Keyword:</strong> {r.search_query or 'N/A'}
                 </p>
@@ -249,7 +249,9 @@ class EmailService:
         )
 
         html_content = cls.generate_tender_report_html(tenders)
-        subject = f"Tender Report \u2013 {datetime.now().strftime('%d %b %Y')}"
+        import uuid
+        entropy = uuid.uuid4().hex[:4].upper()
+        subject = f"Tender Report \u2013 {datetime.now().strftime('%d %b %Y')} [#{entropy}]"
 
         if manual_recipient:
             recipients = [EmailRecipient(email=manual_recipient, name="Subscriber", is_active=True)]
@@ -314,7 +316,9 @@ class EmailService:
             return  # Do not send empty google reports
 
         html_content = cls.generate_google_report_html(results)
-        subject = f"Google Tender Report \u2013 {datetime.now().strftime('%d %b %Y')}"
+        import uuid
+        entropy = uuid.uuid4().hex[:4].upper()
+        subject = f"Google Tender Report \u2013 {datetime.now().strftime('%d %b %Y')} [#{entropy}]"
 
         if manual_recipient:
             recipients = [EmailRecipient(email=manual_recipient, name="Subscriber", is_active=True)]
