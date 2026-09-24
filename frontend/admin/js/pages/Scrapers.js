@@ -332,11 +332,11 @@ async function loadScraperStatus() {
                         ${g.message || 'Ready for deep research extraction'}
                     </div>
 
-                    ${(isCaptcha || isRunning) ? `
-                        <div class="captcha-box anim-in" style="margin-top:8px; background:${isCaptcha ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${isCaptcha ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255,255,255,0.07)'}; padding:12px 16px; border-radius:12px; ${isCaptcha ? 'animation: pulse 2s infinite;' : ''}">
-                            ${isCaptcha ? `<div style="color:#f59e0b; font-size:12px; font-weight:700; text-transform:uppercase; margin-bottom:10px;">⚠️ CAPTCHA / SECURITY CHECK DETECTED</div>` : ''}
+                    ${(isCaptcha) ? `
+                        <div class="captcha-box anim-in" style="margin-top:8px; background:rgba(239, 68, 68, 0.05); border:1px solid rgba(239, 68, 68, 0.3); padding:12px 16px; border-radius:12px; animation: pulse 2s infinite;">
+                            <div style="color:#f59e0b; font-size:12px; font-weight:700; text-transform:uppercase; margin-bottom:10px;">⚠️ CAPTCHA / SECURITY CHECK DETECTED</div>
                             <div style="font-size:11px; color:var(--text-tertiary); margin-bottom:10px;">If the browser is stuck on a captcha or verification screen, solve it manually then click below.</div>
-                            <button id="adm-clear-captcha-btn" onclick="window._submitCaptcha(event)" style="background:${isCaptcha ? '#ef4444' : 'rgba(255,255,255,0.06)'}; color:${isCaptcha ? '#fff' : 'var(--text-secondary)'}; border:1px solid ${isCaptcha ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}; width:100%; height:36px; border-radius:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; transition:all 0.2s;">
+                            <button id="adm-clear-captcha-btn" onclick="window._submitCaptcha(event)" style="background:#ef4444; color:#fff; border:1px solid rgba(239,68,68,0.4); width:100%; height:36px; border-radius:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; transition:all 0.2s;">
                                 ✓ I've Cleared the Captcha / Continue
                             </button>
                         </div>
