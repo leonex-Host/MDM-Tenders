@@ -128,36 +128,21 @@ def complete_extension_job(
     """Extension signals job completion with summary stats."""
     
     # ── HOTFIX: Special pass-through tracking for Google Jobs ──
-    if job_id.startswith("google_"):
-        final_status = payload.get("status", "completed")
-        logs = db.query(CrawlLog).filter(CrawlLog.source == "google", CrawlLog.status == "running").all()
-        for log in logs:
-            log.status = final_status
-            if final_status == "failed" and payload.get("error"):
-                log.error_message = payload.get("error")
-            log.completed_at = datetime.now(timezone.utc)
-        
-        try:
-            from app.api.google_routes import stop_google
-            stop_google()
-        except Exception:
-            pass
-            
-        db.commit()
-        logger.info(f"Extension Google job terminated organically: {job_id}")
-        return {"status": final_status, "job_id": job_id}
-
     for job in _pending_jobs:
         if job["job_id"] == job_id:
             final_status = payload.get("status", "completed")
             job["status"] = final_status
             job["summary"] = payload.get("summary", {})
             job["completed_at"] = datetime.now(timezone.utc).isoformat()
-            _completed_jobs.append(job)
-            _pending_jobs.remove(job)
             
-            # Formally flush stalled db records so dashboard stops spinning
             src = job.get("source")
+            if src == "google":
+                try:
+                    from app.api.google_routes import stop_google
+                    stop_google()
+                except Exception:
+                    pass
+            
             if src:
                 logs = db.query(CrawlLog).filter(CrawlLog.source == src, CrawlLog.status == "running").all()
                 for log in logs:
@@ -167,7 +152,9 @@ def complete_extension_job(
                     log.completed_at = datetime.now(timezone.utc)
                 db.commit()
 
-            logger.info(f"Extension job terminated: {job_id} — {job.get('summary', {})}")
+            _completed_jobs.append(job)
+            _pending_jobs.remove(job)
+            logger.info(f"Extension job terminated organically: {job_id}")
             return {"status": final_status, "job_id": job_id}
     raise HTTPException(status_code=404, detail="Job not found")
 
