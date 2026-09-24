@@ -181,10 +181,11 @@ def upload_tenders(
     tenders = payload.get("tenders", [])
 
     if not tenders:
-        return {"message": "No tenders to upload", "saved": 0, "skipped": 0}
+        return {"message": "No tenders to upload", "saved": 0, "skipped": 0, "saved_identifiers": []}
 
     saved = 0
     skipped = 0
+    saved_identifiers = []
 
     # Create a CrawlLog entry
     log = CrawlLog(
@@ -231,6 +232,7 @@ def upload_tenders(
                 ))
                 db.flush() # Secure assignment sequentially
                 saved += 1
+                saved_identifiers.append(link)
             else:
                 tender_id = (t.get("tender_id") or t.get("tot_ref") or "")[:200]
                 if not tender_id:
@@ -262,6 +264,7 @@ def upload_tenders(
                 db.add(new_tender)
                 db.flush()
                 saved += 1
+                saved_identifiers.append(tender_id)
 
         except Exception as exc:
             db.rollback()
@@ -282,4 +285,4 @@ def upload_tenders(
     db.commit()
 
     logger.info(f"Extension upload: {source}/{keyword} — {saved} saved, {skipped} skipped out of {len(tenders)}")
-    return {"message": "Upload complete", "saved": saved, "skipped": skipped, "inserted": saved, "duplicates_blocked": skipped, "total": len(tenders)}
+    return {"message": "Upload complete", "saved": saved, "skipped": skipped, "inserted": saved, "duplicates_blocked": skipped, "total": len(tenders), "saved_identifiers": saved_identifiers}

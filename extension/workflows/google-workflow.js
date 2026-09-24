@@ -167,6 +167,10 @@ export async function runGoogleWorkflow(runtime) {
 
             // Phase 2: Details URLs
             if (phase === 'details') {
+                // Ensure Phase 1 upload queue finishes so we know exactly which URLs penetrated the DB natively
+                await updateRuntimeState(runtime.jobId, { currentDetailIndex: runtime.currentDetailIndex || 0 });
+                await processUploadQueue(runtime.jobId);
+
                 const allResults = [...allMap.values()];
                 let currentDetailIndex = runtime.currentDetailIndex || 0;
 
@@ -175,6 +179,12 @@ export async function runGoogleWorkflow(runtime) {
                     const item = allResults[currentDetailIndex];
 
                     if (item.result_type === "unwanted") continue;
+
+                    // CRITICAL: Only visit links that were 100% newly inserted into the database!
+                    if (runtime.saved_identifiers && !runtime.saved_identifiers.includes(item.href)) {
+                        console.log(`[Google][${runtime.jobId}] Skipping duplicate/rejected URI: ${item.href}`);
+                        continue;
+                    }
 
                     let targetUrl = item.href;
                     let skipNav = false;

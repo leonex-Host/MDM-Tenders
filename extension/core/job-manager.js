@@ -392,11 +392,19 @@ export async function processUploadQueue(jobId) {
                 const data = res.data || {};
                 runtime.tenders_inserted = (runtime.tenders_inserted || 0) + (data.inserted || 0);
                 runtime.tenders_duplicates = (runtime.tenders_duplicates || 0) + (data.duplicates_blocked || 0);
+
+                // Track explicitly which URLs actually penetrated the DB successfully
+                runtime.saved_identifiers = runtime.saved_identifiers || [];
+                if (data.saved_identifiers && Array.isArray(data.saved_identifiers)) {
+                    runtime.saved_identifiers.push(...data.saved_identifiers);
+                }
+
                 remainingQueue.shift();
                 await updateRuntimeState(jobId, {
                     uploadQueue: remainingQueue,
                     tenders_inserted: runtime.tenders_inserted,
-                    tenders_duplicates: runtime.tenders_duplicates
+                    tenders_duplicates: runtime.tenders_duplicates,
+                    saved_identifiers: runtime.saved_identifiers
                 });
             } else if ([400, 422].includes(res.status)) {
                 batch.status = 'validation_error';
