@@ -236,8 +236,10 @@ class EmailService:
                 end_time = datetime.now(timezone.utc)
         else:
             lookback_hours = 48 if (manual_recipient or not settings_row.last_report_sent_at) else 24
-            start_time = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
-            end_time = datetime.now(timezone.utc)
+            
+            now = datetime.now(timezone.utc)
+            start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_time = now
 
         tenders = (
             db.query(Tender)
@@ -289,9 +291,9 @@ class EmailService:
                 start_time = datetime.now(timezone.utc) - timedelta(hours=48)
                 end_time = datetime.now(timezone.utc)
         else:
-            lookback_hours = 48 if (manual_recipient or not settings_row.last_report_sent_at) else 24
-            start_time = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
-            end_time = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc)
+            start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_time = now
 
         raw_results = (
             db.query(GoogleResult)
