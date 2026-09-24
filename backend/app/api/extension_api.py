@@ -126,6 +126,27 @@ def complete_extension_job(
     db: Session = Depends(get_db)
 ):
     """Extension signals job completion with summary stats."""
+    
+    # ── HOTFIX: Special pass-through tracking for Google Jobs ──
+    if job_id.startswith("google_"):
+        final_status = payload.get("status", "completed")
+        logs = db.query(CrawlLog).filter(CrawlLog.source == "google", CrawlLog.status == "running").all()
+        for log in logs:
+            log.status = final_status
+            if final_status == "failed" and payload.get("error"):
+                log.error_message = payload.get("error")
+            log.completed_at = datetime.now(timezone.utc)
+        
+        try:
+            from app.api.google_routes import stop_google
+            stop_google()
+        except Exception:
+            pass
+            
+        db.commit()
+        logger.info(f"Extension Google job terminated organically: {job_id}")
+        return {"status": final_status, "job_id": job_id}
+
     for job in _pending_jobs:
         if job["job_id"] == job_id:
             final_status = payload.get("status", "completed")
