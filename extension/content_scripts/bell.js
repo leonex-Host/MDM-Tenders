@@ -95,11 +95,12 @@
                 pointer-events: auto;
                 transform-origin: top center;
                 user-select: none;
-                transition: transform 0.1s;
+                filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5));
+                transition: filter 0.2s;
             }
             .bell-img:active {
                 cursor: grabbing;
-                filter: brightness(1.1);
+                filter: drop-shadow(0 15px 25px rgba(0,0,0,0.7)) brightness(1.2);
             }
             .rope {
                 fill: none;
@@ -110,6 +111,8 @@
             }
         `;
 
+        const extURL = chrome.runtime.getURL("icons/bell.png");
+
         const markup = document.createElement("div");
         markup.className = "bell-anchor";
         markup.innerHTML = `
@@ -117,9 +120,7 @@
                 <path id="rope-path" class="rope" d="M0,0 L0,0" />
             </svg>
             <div id="bell-wrapper" style="position:absolute; left:0; top:0; width:0; height:0;">
-                <div id="bell-mesh" class="bell-img" style="margin-left:-25px; margin-top:-5px; background:radial-gradient(circle at 30% 30%, #ff6b6b, #ef4444); border-radius:50%; box-shadow:0 8px 20px rgba(239, 68, 68, 0.4); display:flex; justify-content:center; align-items:center;">
-                    <div style="width:16px; height:16px; background:#fff; border-radius:50%; opacity:0.8; animation: pulse 2s infinite;"></div>
-                </div>
+                <img id="bell-mesh" class="bell-img" style="margin-left:-25px; margin-top:-5px;" src="${extURL}" draggable="false" />
             </div>
         `;
 
