@@ -225,6 +225,9 @@ def upload_tenders(
                             db.flush()
                             # It's an upgrade, so it's not a new insert but not a duplicate block realistically.
                         else:
+                            # If it was previously saved but never run through Phase 2, include it in Phase 2 targets!
+                            if existing.result_type == "all" and new_type == "all":
+                                saved_identifiers.append(link)
                             skipped += 1
                         continue
 
