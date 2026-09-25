@@ -94,11 +94,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 emailRecipientList.innerHTML = data.map(r => `
                     <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.1);">
                         <div>
-                            <div style="font-size:10px; font-weight:800; color:#fff; text-decoration:${!r.is_active ? 'line-through' : 'none'}; opacity:${!r.is_active ? '0.5' : '1'};">${r.name} <span style="font-size:7px; color:#22c55e; margin-left:4px;">${r.department || 'ROOT'}</span></div>
+                            <div style="font-size:10px; font-weight:800; color:#fff; text-decoration:${!r.is_active ? 'line-through' : 'none'}; opacity:${!r.is_active ? '0.5' : '1'};">${r.name} <span style="font-size:7px; color:rgba(255,255,255,0.7); margin-left:4px;">${r.department || 'ROOT'}</span></div>
                             <div style="font-size:8px; color:#aaa;">${r.email}</div>
                         </div>
                         <div style="display:flex; gap:6px;">
-                            <button class="ext-btn-toggle" data-id="${r.id}" data-active="${r.is_active}" style="background:transparent; border:none; cursor:pointer; color:${r.is_active ? '#22c55e' : '#aaa'}; font-size:9px; font-weight:900;">${r.is_active ? 'ON' : 'OFF'}</button>
+                            <button class="ext-btn-toggle" data-id="${r.id}" data-active="${r.is_active}" style="background:transparent; border:none; cursor:pointer; color:${r.is_active ? '#fff' : '#666'}; font-size:9px; font-weight:900;">${r.is_active ? 'ON' : 'OFF'}</button>
                             <button class="ext-btn-trash" data-id="${r.id}" style="background:transparent; border:none; cursor:pointer; color:#ef4444; font-size:12px; font-weight:900; opacity:0.6;">×</button>
                         </div>
                     </div>
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (toggleBtn) {
                     const id = toggleBtn.getAttribute('data-id');
                     const isActive = toggleBtn.getAttribute('data-active') === 'true';
-                    await fetch(`${baseUrl}/api/extension/emails/recipients/${id}`, {
+                    await fetch(`${baseUrl} / api / extension / emails / recipients / ${id}`, {
                         method: 'PUT', headers: { 'X-Extension-Key': c.apiKey, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ is_active: !isActive })
                     });
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (trashBtn) {
                     const id = trashBtn.getAttribute('data-id');
-                    await fetch(`${baseUrl}/api/extension/emails/recipients/${id}`, {
+                    await fetch(`${baseUrl} / api / extension / emails / recipients / ${id}`, {
                         method: 'DELETE', headers: { 'X-Extension-Key': c.apiKey }
                     });
                     ext_loadRecipients();
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
             chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
                 if (!c.apiUrl) return;
                 try {
-                    await fetch(`${c.apiUrl.replace(/\/$/, "")}/api/extension/emails/recipients`, {
+                    await fetch(`${c.apiUrl.replace(/\/$/, "")} / api / extension / emails / recipients`, {
                         method: 'POST', headers: { 'X-Extension-Key': c.apiKey, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name: nameEl.value, email: emailEl.value, department: deptEl.value })
                     });
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const qStart = encodeURIComponent(startDate);
                         const qEnd = encodeURIComponent(endDate);
                         const qEmails = encodeURIComponent(customRecipients);
-                        const url = `${baseUrl}/api/extension/emails/payload?start=${qStart}&end=${qEnd}&emails=${qEmails}`;
+                        const url = `${baseUrl} / api / extension / emails / payload ? start = ${qStart} & end=${qEnd} & emails=${qEmails}`;
 
                         const res = await fetch(url, { headers: { 'X-Extension-Key': c.apiKey } });
                         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -272,18 +272,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!c.apiUrl || !c.apiKey) return;
             log('Connecting orchestrator...');
             try {
-                const res = await fetch(`${c.apiUrl}/api/extension/config`, {
+                const res = await fetch(`${c.apiUrl} / api / extension / config`, {
                     headers: { 'X-Extension-Key': c.apiKey }
                 });
                 if (res.ok) {
                     connected = true;
                     configPanel.classList.remove('show');
                     jobsPanel.classList.add('show');
-                    log(`Linked securely. Polling internal metrics...`);
+                    log(`Linked securely.Polling internal metrics...`);
                     chrome.runtime.sendMessage({ action: "start_polling" });
                     pollStatus();
                 } else {
-                    log(`Auth failed remotely (HTTP ${res.status})`);
+                    log(`Auth failed remotely(HTTP ${res.status})`);
                 }
             } catch (err) {
                 log('API infrastructure not accessible.');
@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 abortAllBtn.style.display = 'block';
 
                 jobsList.innerHTML = jobs.map(j => `
-                    <div class="job-card">
+                < div class= "job-card" >
                         <div class="job-header">
                             <div>
                                 <span class="job-source">${j.source}</span>
@@ -334,21 +334,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="metric-label">UNWANTED LINK</span>
                                 <span class="metric-val" style="color:#ef4444;">${j.unwantedLinks || 0}</span>
                             </div>
-                            ` : ''}
-                            <div class="metric-row" style="margin-top:2px;">
+                            ` : ''
+                    }
+                < div class= "metric-row" style = "margin-top:2px;" >
                                 <span class="metric-label">SAVED DATABASE</span>
                                 <span class="metric-val" style="color:var(--success); font-size:12px;">${j.inserted || 0} ITEMS</span>
-                            </div>
-                        </div>
-                        <div class="job-actions">
-                            ${(j.inserted > 0 || j.results > 0) ? `<a href="${j.source === 'google' ? 'https://mdm-tenders.vercel.app/#/google' : 'https://mdm-tenders.vercel.app/#/mdm-tenders'}" target="_blank" class="btn btn-sm" style="background:#2563eb; color:#fff; text-decoration:none; padding-top:6px; display:inline-block; text-align:center;">VISIT DB</a>` : ''}
-                            ${j.status === 'paused' ?
+                            </div >
+                        </div >
+                    <div class="job-actions">
+                        ${(j.inserted > 0 || j.results > 0) ? `<a href="${j.source === 'google' ? 'https://mdm-tenders.vercel.app/#/google' : 'https://mdm-tenders.vercel.app/#/mdm-tenders'}" target="_blank" class="btn btn-sm" style="background:#2563eb; color:#fff; text-decoration:none; padding-top:6px; display:inline-block; text-align:center;">VISIT DB</a>` : ''}
+                        ${j.status === 'paused' ?
                         `<button class="btn btn-success btn-sm resume-job-btn" data-id="${j.job_id}">RESUME ENGINE</button>`
                         : ''}
-                            <button class="btn btn-danger btn-sm abort-job-btn" data-id="${j.job_id}">ABORT</button>
-                        </div>
+                        <button class="btn btn-danger btn-sm abort-job-btn" data-id="${j.job_id}">ABORT</button>
                     </div>
-                `).join('');
+                    </div >
+                    `).join('');
 
                 // Attack live listeners
                 document.querySelectorAll('.resume-job-btn').forEach(btn => {
@@ -362,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.abort-job-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const jid = e.target.getAttribute('data-id');
-                        if (confirm(`Abort specific target sequence [${jid}]?`)) {
+                        if (confirm(`Abort specific target sequence[${jid}]?`)) {
                             log(`Terminating ${jid}...`);
                             chrome.runtime.sendMessage({ action: "abort_job", jobId: jid }, () => pollStatus());
                         }
@@ -379,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (hist.length > 0) {
                     historyList.innerHTML = hist.map(h => `
-                        <div class="job-card">
+                < div class= "job-card" >
                             <div class="job-header">
                                 <div>
                                     <span class="job-source">${h.source || 'UNKNOWN'}</span>
@@ -401,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <span class="metric-val" style="color:var(--warning);">${h.duplicates || 0}</span>
                                 </div>
                             </div>
-                        </div>
+                        </div >
                     `).join('');
                 } else {
                     historyList.innerHTML = '<div class="empty-state">No history recorded yet.</div>';
