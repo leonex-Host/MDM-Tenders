@@ -59,43 +59,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             setTimeout(() => { chrome.runtime.reload(); }, 200);
         })();
         return true;
-    } else if (request.action === "send_email_payload") {
-        (async () => {
-            try {
-                chrome.identity.getAuthToken({ interactive: true }, async function (token) {
-                    if (chrome.runtime.lastError || !token) {
-                        return sendResponse({ status: "Google Auth Failed: " + (chrome.runtime.lastError?.message || "No token") });
-                    }
-                    chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
-                        if (!c.apiUrl) return sendResponse({ status: "Missing API URL" });
-                        const baseUrl = c.apiUrl.replace(/\/$/, "");
-                        try {
-                            const res = await fetch(`${baseUrl}/api/extension/emails/payload`, { headers: { 'X-Extension-Key': c.apiKey } });
-                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                            const payload = await res.json();
-                            if (!payload.raw) throw new Error("Invalid Payload");
-
-                            const gRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-                                method: "POST",
-                                headers: {
-                                    "Authorization": `Bearer ${token}`,
-                                    "Content-Type": "application/json"
-                                },
-                                body: JSON.stringify({ raw: payload.raw })
-                            });
-
-                            if (!gRes.ok) throw new Error(`Gmail API HTTP ${gRes.status}`);
-                            sendResponse({ status: "Report securely transmitted!" });
-                        } catch (e) {
-                            sendResponse({ status: "Email transmission failed: " + e.message });
-                        }
-                    });
-                });
-            } catch (e) {
-                sendResponse({ status: "Background exception: " + e.message });
-            }
-        })();
-        return true;
     } else if (request.action === "abort_job") {
         (async () => {
             if (request.jobId) {
