@@ -227,12 +227,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             body: JSON.stringify({ raw: payload.raw })
                         });
 
-                        if (!gRes.ok) throw new Error(`Gmail API HTTP ${gRes.status}`);
+                        if (!gRes.ok) {
+                            const errorText = await gRes.text();
+                            throw new Error(`Gmail API HTTP ${gRes.status}: ${errorText}`);
+                        }
                         log("Report securely transmitted!");
                         setTimeout(() => { emailModal.style.display = 'none'; document.getElementById('jobs_panel').style.display = 'block'; }, 2000);
                     } catch (e) {
                         console.error("Email Dispatch Error:", e);
-                        log("Email transmission failed.");
+                        log("Email blocked by Google: " + e.message);
                     }
                 });
             });
