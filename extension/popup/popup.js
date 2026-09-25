@@ -76,6 +76,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSendEmailConfirm = document.getElementById('send_email_confirm_btn');
     const emailRecipientList = document.getElementById('email_recipient_list');
     const btnAddExtRecipient = document.getElementById('btn_add_ext_recipient');
+    const btnShowAddExtForm = document.getElementById('btn_show_add_ext_form');
+    const emailRecipientListView = document.getElementById('email_recipient_list_view');
+    const emailRecipientAddView = document.getElementById('email_recipient_add_view');
+    const btnCancelAddExt = document.getElementById('btn_cancel_add_ext');
 
     async function ext_loadRecipients() {
         chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
@@ -146,8 +150,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     nameEl.value = ''; emailEl.value = ''; deptEl.value = '';
                     ext_loadRecipients();
+                    if (btnCancelAddExt) btnCancelAddExt.click();
                 } catch (e) { }
             });
+        });
+    }
+
+    if (btnShowAddExtForm) {
+        btnShowAddExtForm.addEventListener('click', () => {
+            if (emailRecipientListView) emailRecipientListView.style.display = 'none';
+            if (emailRecipientAddView) emailRecipientAddView.style.display = 'flex';
+        });
+    }
+
+    if (btnCancelAddExt) {
+        btnCancelAddExt.addEventListener('click', () => {
+            document.getElementById('ext_rec_name').value = '';
+            document.getElementById('ext_rec_email').value = '';
+            document.getElementById('ext_rec_dept').value = '';
+            if (emailRecipientListView) emailRecipientListView.style.display = 'block';
+            if (emailRecipientAddView) emailRecipientAddView.style.display = 'none';
         });
     }
 
