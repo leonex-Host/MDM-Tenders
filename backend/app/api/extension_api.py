@@ -178,8 +178,8 @@ def export_tenders_excel(executor: str = "Automated Admin", db: Session = Depend
             "Source": t.source.upper() if t.source else "",
             "Title": t.title or "",
             "Location": t.location or "",
-            "Value": t.tender_value or "",
-            "Publish Date": t.publish_date or "",
+            "Value": "N/A",
+            "Publish Date": t.start_date or "",
             "End Date": t.end_date or "",
             "Link": t.link or ""
         })
