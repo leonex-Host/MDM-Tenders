@@ -95,12 +95,11 @@
                 pointer-events: auto;
                 transform-origin: top center;
                 user-select: none;
-                filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5));
                 transition: filter 0.2s;
             }
             .bell-img:active {
                 cursor: grabbing;
-                filter: drop-shadow(0 15px 25px rgba(0,0,0,0.7)) brightness(1.2);
+                filter: brightness(1.2);
             }
             .rope {
                 fill: none;
@@ -135,7 +134,7 @@
         state.originX = window.innerWidth - 150;
         state.x = state.originX;
         state.y = -10;
-        state.targetY = 100;
+        state.targetY = 60;
 
         // Interaction
         bell.addEventListener("pointerdown", (e) => {

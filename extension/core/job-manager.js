@@ -148,7 +148,7 @@ async function syncMapToStorage() {
 
     if (pausedCount > 0) {
         chrome.action.setBadgeText({ text: String(pausedCount) }).catch(() => { });
-        chrome.action.setBadgeBackgroundColor({ color: '#FF4500' }).catch(() => { });
+        chrome.action.setBadgeBackgroundColor({ color: '#FF0000' }).catch(() => { });
         notifyActiveTabBell(true);
     } else {
         chrome.action.setBadgeText({ text: '' }).catch(() => { });
