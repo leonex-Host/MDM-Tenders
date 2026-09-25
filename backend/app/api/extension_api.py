@@ -289,6 +289,106 @@ def export_google_excel(executor: str = "Automated Admin", db: Session = Depends
     )
 
 
+# ── GET /emails/payload — Compile MIME Payload for Chrome native Google API ───
+@router.get("/emails/payload")
+def get_email_payload(executor: str = "Chrome Extension", db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+    from email.message import EmailMessage
+    import base64
+    import pandas as pd
+    from io import BytesIO
+    from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
+    from app.models import EmailRecipient, Tender, GoogleResult
+    from app.services.email_service import EmailService
+
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Pull Tenders & HTML
+    tenders = db.query(Tender).filter(Tender.created_at >= today_start).order_by(Tender.created_at.desc()).all()
+    html_content = EmailService.generate_tender_report_html(tenders)
+    
+    recipients = db.query(EmailRecipient).filter(EmailRecipient.is_active == True).all()
+    to_emails = [r.email for r in recipients] if recipients else ["admin@leonex.net"]
+
+    msg = EmailMessage()
+    msg["Subject"] = f"MDM Tender Automation Report - {datetime.now().strftime('%d %b %Y')}"
+    msg["To"] = ", ".join(to_emails)
+    # The Gmail API gracefully dynamically assigns 'From' based on the active OAuth session.
+
+    msg.set_content("Please enable HTML to view this email.")
+    msg.add_alternative(html_content, subtype="html")
+
+    # Attachment 1: Normal Tenders
+    if tenders:
+        data = []
+        for t in tenders:
+            data.append({
+                "Tender ID": t.tender_id or "", "Keyword": t.keyword or "",
+                "Source": t.source.upper() if t.source else "",
+                "Title": t.title or "", "Location": t.location or "",
+                "Value": "N/A", "Publish Date": t.start_date or "",
+                "End Date": t.end_date or "", "Link": t.link or ""
+            })
+        df1 = pd.DataFrame(data)
+        out1 = BytesIO()
+        with pd.ExcelWriter(out1, engine='openpyxl') as writer:
+            df1.to_excel(writer, sheet_name='Tenders', index=False, startrow=4)
+            worksheet = writer.sheets['Tenders']
+            worksheet["A1"] = "MDM TENDER REPORT - STANDARD SOURCES"
+            worksheet["A1"].font = Font(b=True, size=14, color="ffffff")
+            worksheet["A1"].fill = PatternFill("solid", fgColor="1F4E78")
+            worksheet["A2"] = f"Generated On: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+            worksheet["A3"] = f"Executor ID: {executor}"
+            thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+            for col_idx, col_name in enumerate(df1.columns, 1):
+                cell = worksheet.cell(row=5, column=col_idx)
+                cell.font = Font(b=True)
+                cell.fill = PatternFill("solid", fgColor="DCE6F1")
+                cell.border = thin_border
+                worksheet.column_dimensions[cell.column_letter].width = 25
+            for row in worksheet.iter_rows(min_row=6, max_row=len(df1) + 5, min_col=1, max_col=len(df1.columns)):
+                for cell in row:
+                    cell.border = thin_border
+                    cell.alignment = Alignment(vertical="top", wrap_text=True)
+        msg.add_attachment(out1.getvalue(), maintype='application', subtype='vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename=f"Tender_Report_{datetime.now().strftime('%Y%m%d')}.xlsx")
+
+    # Attachment 2: Google Results
+    g_results = db.query(GoogleResult).filter(GoogleResult.scraped_at >= today_start, GoogleResult.result_type == "filtered").order_by(GoogleResult.scraped_at.desc()).all()
+    if g_results:
+        g_data = []
+        for r in g_results:
+            g_data.append({
+                "Keyword": r.search_query or "", "Title": r.title or "",
+                "Description Snippet": (r.description or "")[:1500],
+                "Is PDF": r.is_pdf or "false", "Link": r.link or ""
+            })
+        df2 = pd.DataFrame(g_data)
+        out2 = BytesIO()
+        with pd.ExcelWriter(out2, engine='openpyxl') as writer:
+            df2.to_excel(writer, sheet_name='Google Tenders', index=False, startrow=4)
+            ws2 = writer.sheets['Google Tenders']
+            ws2["A1"] = "MDM TENDER REPORT - GOOGLE RESEARCH PIPELINE"
+            ws2["A1"].font = Font(b=True, size=14, color="ffffff")
+            ws2["A1"].fill = PatternFill("solid", fgColor="C00000")
+            ws2["A2"] = f"Generated On: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+            ws2["A3"] = f"Executor ID: {executor}"
+            thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+            for col_idx, col_name in enumerate(df2.columns, 1):
+                cell = ws2.cell(row=5, column=col_idx)
+                cell.font = Font(b=True)
+                cell.fill = PatternFill("solid", fgColor="F2DCDB")
+                cell.border = thin_border
+                ws2.column_dimensions[cell.column_letter].width = 30
+                if col_name == "Description Snippet": ws2.column_dimensions[cell.column_letter].width = 60
+            for row in ws2.iter_rows(min_row=6, max_row=len(df2) + 5, min_col=1, max_col=len(df2.columns)):
+                for cell in row:
+                    cell.border = thin_border
+                    cell.alignment = Alignment(vertical="top", wrap_text=True)
+        msg.add_attachment(out2.getvalue(), maintype='application', subtype='vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename=f"Google_Tenders_{datetime.now().strftime('%Y%m%d')}.xlsx")
+
+    raw_b64 = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+    return {"raw": raw_b64}
+
+
 # ── GET /status — Dashboard checks if extension is alive ─────────────────────
 @router.get("/status")
 def get_extension_status(_key=Depends(_validate_extension_key)):
