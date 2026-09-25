@@ -33,6 +33,23 @@
       overflow-x: hidden;
     }
 
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.4);
+    }
+
     .header {
       display: flex;
       justify-content: space-between;
@@ -439,11 +456,11 @@
 
       <div style="display:flex; gap:4px; align-items:center;">
         <input type="text" id="ext_rec_name" class="adm-input" placeholder="Name"
-          style="flex:2; padding:6px; font-size:9px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+          style="flex:3; min-width:0; padding:6px; font-size:9px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;">
         <input type="text" id="ext_rec_email" class="adm-input" placeholder="Email"
-          style="flex:3; padding:6px; font-size:9px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+          style="flex:4; min-width:0; padding:6px; font-size:9px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;">
         <input type="text" id="ext_rec_dept" class="adm-input" placeholder="Sector"
-          style="flex:2; padding:6px; font-size:9px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+          style="flex:3; min-width:0; padding:6px; font-size:9px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;">
         <button class="btn btn-primary" id="btn_add_ext_recipient"
           style="padding:6px 10px; border:none; font-size:10px; font-weight:900; color:#fff; background:#22c55e;">+</button>
       </div>
