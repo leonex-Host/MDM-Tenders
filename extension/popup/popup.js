@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
             chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
                 if (!c.apiUrl) return;
                 try {
-                    await fetch(`${c.apiUrl.replace(/\/$/, "")} / api / extension / emails / recipients`, {
+                    await fetch(`${c.apiUrl.replace(/\/$/, "")}/api/extension/emails/recipients`, {
                         method: 'POST', headers: { 'X-Extension-Key': c.apiKey, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name: nameEl.value, email: emailEl.value, department: deptEl.value })
                     });
