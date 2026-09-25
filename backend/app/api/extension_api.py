@@ -340,7 +340,7 @@ def get_email_payload(
     msg.set_content("Please enable HTML to view this email.")
     msg.add_alternative(html_content, subtype="html")
 
-    raw_b64 = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+    raw_b64 = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8').rstrip("=")
     return {"raw": raw_b64}
 
 
