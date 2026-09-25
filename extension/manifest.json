@@ -126,7 +126,7 @@
         "default_title": "MDM Scraper Control"
     },
     "oauth2": {
-        "client_id": "929232128839-1i0n5d9k329grbm4evi9rjfqaqze.apps.googleusercontent.com",
+        "client_id": "317088481283-2os7hborda7ntsd61oge44scibgnbaes.apps.googleusercontent.com",
         "scopes": [
             "https://www.googleapis.com/auth/gmail.send",
             "https://www.googleapis.com/auth/userinfo.email"
