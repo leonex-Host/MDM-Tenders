@@ -88,14 +88,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 emailRecipientList.innerHTML = data.map(r => `
-                    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-surface); padding:8px 10px; border-radius:6px; border:1px solid var(--border-subtle);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.1);">
                         <div>
-                            <div style="font-size:10px; font-weight:800; color:var(--text-primary); text-decoration:${!r.is_active ? 'line-through' : 'none'}; opacity:${!r.is_active ? '0.5' : '1'};">${r.name} <span style="font-size:7px; color:var(--p-green); margin-left:4px;">${r.department || 'ROOT'}</span></div>
-                            <div style="font-size:8px; color:var(--text-tertiary);">${r.email}</div>
+                            <div style="font-size:10px; font-weight:800; color:#fff; text-decoration:${!r.is_active ? 'line-through' : 'none'}; opacity:${!r.is_active ? '0.5' : '1'};">${r.name} <span style="font-size:7px; color:#22c55e; margin-left:4px;">${r.department || 'ROOT'}</span></div>
+                            <div style="font-size:8px; color:#aaa;">${r.email}</div>
                         </div>
                         <div style="display:flex; gap:6px;">
-                            <button class="ext-btn-toggle" data-id="${r.id}" data-active="${r.is_active}" style="background:transparent; border:none; cursor:pointer; color:${r.is_active ? 'var(--p-green)' : 'var(--text-tertiary)'}; font-size:9px; font-weight:900;">${r.is_active ? 'ON' : 'OFF'}</button>
-                            <button class="ext-btn-trash" data-id="${r.id}" style="background:transparent; border:none; cursor:pointer; color:var(--p-red); font-size:12px; font-weight:900; opacity:0.6;">×</button>
+                            <button class="ext-btn-toggle" data-id="${r.id}" data-active="${r.is_active}" style="background:transparent; border:none; cursor:pointer; color:${r.is_active ? '#22c55e' : '#aaa'}; font-size:9px; font-weight:900;">${r.is_active ? 'ON' : 'OFF'}</button>
+                            <button class="ext-btn-trash" data-id="${r.id}" style="background:transparent; border:none; cursor:pointer; color:#ef4444; font-size:12px; font-weight:900; opacity:0.6;">×</button>
                         </div>
                     </div>
                 `).join('');
