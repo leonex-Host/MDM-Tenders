@@ -38,17 +38,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 const baseUrl = c.apiUrl.replace(/\/$/, "");
                 const executor = "Chrome Extension Root";
 
-                const dl1 = document.createElement('a');
-                dl1.href = `${baseUrl}/api/admin/export/tenders/excel?executor=${encodeURIComponent(executor)}`;
-                dl1.target = '_blank';
-                dl1.click();
+                async function downloadExcel(type) {
+                    try {
+                        const url = `${baseUrl}/api/extension/export/${type}/excel?executor=${encodeURIComponent(executor)}`;
+                        const res = await fetch(url, { headers: { 'X-Extension-Key': c.apiKey } });
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-                setTimeout(() => {
-                    const dl2 = document.createElement('a');
-                    dl2.href = `${baseUrl}/api/admin/export/google/excel?executor=${encodeURIComponent(executor)}`;
-                    dl2.target = '_blank';
-                    dl2.click();
-                }, 500);
+                        const blob = await res.blob();
+                        const objUrl = window.URL.createObjectURL(blob);
+
+                        const a = document.createElement('a');
+                        a.href = objUrl;
+                        a.download = type === 'tenders' ? `Tender_Report.xlsx` : `Google_Tenders.xlsx`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(objUrl);
+                    } catch (e) {
+                        console.error(`Download failed for ${type}:`, e);
+                        log(`Failed to download ${type} report.`);
+                    }
+                }
+
+                downloadExcel('tenders').then(() => {
+                    setTimeout(() => downloadExcel('google'), 500);
+                });
             });
         });
     }

@@ -159,6 +159,136 @@ def complete_extension_job(
     raise HTTPException(status_code=404, detail="Job not found")
 
 
+# ── GET /export/tenders/excel — Export Today's Normal Tenders ─────────────────
+@router.get("/export/tenders/excel")
+def export_tenders_excel(executor: str = "Automated Admin", db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+    import pandas as pd
+    from io import BytesIO
+    from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
+    from datetime import datetime, timezone
+
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    tenders = db.query(Tender).filter(Tender.created_at >= today_start).order_by(Tender.created_at.desc()).all()
+
+    data = []
+    for t in tenders:
+        data.append({
+            "Tender ID": t.tender_id or "",
+            "Keyword": t.keyword or "",
+            "Source": t.source.upper() if t.source else "",
+            "Title": t.title or "",
+            "Location": t.location or "",
+            "Value": t.tender_value or "",
+            "Publish Date": t.publish_date or "",
+            "End Date": t.end_date or "",
+            "Link": t.link or ""
+        })
+
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Tenders', index=False, startrow=4)
+        worksheet = writer.sheets['Tenders']
+        
+        worksheet["A1"] = "MDM TENDER REPORT - STANDARD SOURCES"
+        worksheet["A1"].font = Font(b=True, size=14, color="ffffff")
+        worksheet["A1"].fill = PatternFill("solid", fgColor="1F4E78")
+        worksheet["A2"] = f"Generated On: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+        worksheet["A3"] = f"Executor/Account ID: {executor}"
+        worksheet["A2"].font = Font(i=True)
+        worksheet["A3"].font = Font(i=True)
+        
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+        header_fill = PatternFill("solid", fgColor="DCE6F1")
+        
+        for col_idx, col_name in enumerate(df.columns, 1):
+            cell = worksheet.cell(row=5, column=col_idx)
+            cell.font = Font(b=True)
+            cell.fill = header_fill
+            cell.border = thin_border
+            worksheet.column_dimensions[cell.column_letter].width = 25
+            
+        for row in worksheet.iter_rows(min_row=6, max_row=len(df) + 5, min_col=1, max_col=len(df.columns)):
+            for cell in row:
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    output.seek(0)
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=Tender_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"}
+    )
+
+
+# ── GET /export/google/excel — Export Today's Google Tenders ──────────────────
+@router.get("/export/google/excel")
+def export_google_excel(executor: str = "Automated Admin", db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+    import pandas as pd
+    from io import BytesIO
+    from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
+    from app.models import GoogleResult
+    from datetime import datetime, timezone
+
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    results = db.query(GoogleResult).filter(
+        GoogleResult.created_at >= today_start,
+        GoogleResult.result_type == "filtered"
+    ).order_by(GoogleResult.created_at.desc()).all()
+
+    data = []
+    for r in results:
+        data.append({
+            "Keyword": r.search_query or "",
+            "Title": r.title or "",
+            "Description Snippet": (r.description or "")[:1500],
+            "Is PDF": r.is_pdf or "false",
+            "Link": r.link or ""
+        })
+
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Google Tenders', index=False, startrow=4)
+        worksheet = writer.sheets['Google Tenders']
+        
+        worksheet["A1"] = "MDM TENDER REPORT - GOOGLE RESEARCH PIPELINE"
+        worksheet["A1"].font = Font(b=True, size=14, color="ffffff")
+        worksheet["A1"].fill = PatternFill("solid", fgColor="C00000")
+        worksheet["A2"] = f"Generated On: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+        worksheet["A3"] = f"Executor/Account ID: {executor}"
+        worksheet["A2"].font = Font(i=True)
+        worksheet["A3"].font = Font(i=True)
+        
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+        header_fill = PatternFill("solid", fgColor="F2DCDB")
+        
+        for col_idx, col_name in enumerate(df.columns, 1):
+            cell = worksheet.cell(row=5, column=col_idx)
+            cell.font = Font(b=True)
+            cell.fill = header_fill
+            cell.border = thin_border
+            worksheet.column_dimensions[cell.column_letter].width = 30
+            if col_name == "Description Snippet":
+                worksheet.column_dimensions[cell.column_letter].width = 60
+                
+        for row in worksheet.iter_rows(min_row=6, max_row=len(df) + 5, min_col=1, max_col=len(df.columns)):
+            for cell in row:
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    output.seek(0)
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=Google_Tenders_{datetime.now().strftime('%Y%m%d')}.xlsx"}
+    )
+
+
 # ── GET /status — Dashboard checks if extension is alive ─────────────────────
 @router.get("/status")
 def get_extension_status(_key=Depends(_validate_extension_key)):
