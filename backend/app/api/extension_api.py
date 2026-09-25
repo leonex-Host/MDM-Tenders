@@ -234,9 +234,9 @@ def export_google_excel(executor: str = "Automated Admin", db: Session = Depends
 
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     results = db.query(GoogleResult).filter(
-        GoogleResult.created_at >= today_start,
+        GoogleResult.scraped_at >= today_start,
         GoogleResult.result_type == "filtered"
-    ).order_by(GoogleResult.created_at.desc()).all()
+    ).order_by(GoogleResult.scraped_at.desc()).all()
 
     data = []
     for r in results:
