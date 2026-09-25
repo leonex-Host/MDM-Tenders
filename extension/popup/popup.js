@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (toggleBtn) {
                     const id = toggleBtn.getAttribute('data-id');
                     const isActive = toggleBtn.getAttribute('data-active') === 'true';
-                    await fetch(`${baseUrl} / api / extension / emails / recipients / ${id}`, {
+                    await fetch(`${baseUrl}/api/extension/emails/recipients/${id}`, {
                         method: 'PUT', headers: { 'X-Extension-Key': c.apiKey, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ is_active: !isActive })
                     });
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (trashBtn) {
                     const id = trashBtn.getAttribute('data-id');
-                    await fetch(`${baseUrl} / api / extension / emails / recipients / ${id}`, {
+                    await fetch(`${baseUrl}/api/extension/emails/recipients/${id}`, {
                         method: 'DELETE', headers: { 'X-Extension-Key': c.apiKey }
                     });
                     ext_loadRecipients();
