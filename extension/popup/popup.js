@@ -30,6 +30,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const btnDownload = document.getElementById('btn-download');
+    if (btnDownload) {
+        btnDownload.addEventListener('click', () => {
+            chrome.storage.local.get(['apiUrl', 'apiKey'], (c) => {
+                if (!c.apiUrl) return;
+                const baseUrl = c.apiUrl.replace(/\/$/, "");
+                const executor = "Chrome Extension Root";
+
+                const dl1 = document.createElement('a');
+                dl1.href = `${baseUrl}/api/admin/export/tenders/excel?executor=${encodeURIComponent(executor)}`;
+                dl1.target = '_blank';
+                dl1.click();
+
+                setTimeout(() => {
+                    const dl2 = document.createElement('a');
+                    dl2.href = `${baseUrl}/api/admin/export/google/excel?executor=${encodeURIComponent(executor)}`;
+                    dl2.target = '_blank';
+                    dl2.click();
+                }, 500);
+            });
+        });
+    }
+
     let connected = false;
 
     function log(msg) { logs.innerText = msg; }
