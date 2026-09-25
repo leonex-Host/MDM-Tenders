@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const qStart = encodeURIComponent(startDate);
                         const qEnd = encodeURIComponent(endDate);
                         const qEmails = encodeURIComponent(customRecipients);
-                        const url = `${baseUrl} / api / extension / emails / payload ? start = ${qStart} & end=${qEnd} & emails=${qEmails}`;
+                        const url = `${baseUrl}/api/extension/emails/payload?start=${qStart}&end=${qEnd}&emails=${qEmails}`;
 
                         const res = await fetch(url, { headers: { 'X-Extension-Key': c.apiKey } });
                         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!c.apiUrl || !c.apiKey) return;
             log('Connecting orchestrator...');
             try {
-                const res = await fetch(`${c.apiUrl} / api / extension / config`, {
+                const res = await fetch(`${c.apiUrl}/api/extension/config`, {
                     headers: { 'X-Extension-Key': c.apiKey }
                 });
                 if (res.ok) {
