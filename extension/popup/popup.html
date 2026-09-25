@@ -408,6 +408,34 @@
     </div>
   </div>
 
+  <!-- Email Configuration Modal -->
+  <div id="email-modal" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <span style="font-size:11px; font-weight:800; color:#fff; text-transform:uppercase;">Email Distribution
+        Setup</span>
+      <span id="close-email-modal"
+        style="cursor:pointer; background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:4px; color:var(--text-muted); font-size:9px; font-weight:bold;">CLOSE</span>
+    </div>
+    <div class="form-group" style="display:flex; gap:8px;">
+      <div style="flex:1;">
+        <label style="margin-bottom:4px;">Start Date</label>
+        <input type="date" id="email_start_date" style="padding:6px; font-size:10px;">
+      </div>
+      <div style="flex:1;">
+        <label style="margin-bottom:4px;">End Date</label>
+        <input type="date" id="email_end_date" style="padding:6px; font-size:10px;">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px;">
+      <label style="margin-bottom:4px;">Custom Recipients (Comma Separated)</label>
+      <input type="text" id="email_custom_recipients" placeholder="Leave empty to push to database lists..."
+        style="font-size:10px;">
+    </div>
+    <div class="footer-actions" style="margin-top:12px;">
+      <button class="btn" id="send_email_confirm_btn" style="width:100%; font-weight:800;">CONFIRM & SEND MAIL</button>
+    </div>
+  </div>
+
   <div class="logs" id="logs">Booting engine...</div>
 
   <script src="popup.js"></script>

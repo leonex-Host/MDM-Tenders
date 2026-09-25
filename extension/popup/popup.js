@@ -68,8 +68,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const btnEmail = document.getElementById('btn-email');
-    if (btnEmail) {
+    const emailModal = document.getElementById('email-modal');
+    const closeEmailModal = document.getElementById('close-email-modal');
+    const emailStartDate = document.getElementById('email_start_date');
+    const emailEndDate = document.getElementById('email_end_date');
+    const emailCustomRecipients = document.getElementById('email_custom_recipients');
+    const btnSendEmailConfirm = document.getElementById('send_email_confirm_btn');
+
+    if (btnEmail && emailModal) {
         btnEmail.addEventListener('click', () => {
+            const today = new Date().toISOString().split('T')[0];
+            emailStartDate.value = today;
+            emailEndDate.value = today;
+            document.getElementById('jobs_panel').style.display = 'none';
+            document.getElementById('config_panel').classList.remove('show');
+            emailModal.style.display = 'block';
+        });
+
+        closeEmailModal.addEventListener('click', () => {
+            emailModal.style.display = 'none';
+            document.getElementById('jobs_panel').style.display = 'block';
+        });
+
+        btnSendEmailConfirm.addEventListener('click', () => {
+            const startDate = emailStartDate.value;
+            const endDate = emailEndDate.value;
+            const customRecipients = emailCustomRecipients.value.trim();
+
             log("Authenticating... If a Google screen opens, complete it, then open this extension again and click Email once more.");
             chrome.identity.getAuthToken({ interactive: true }, async function (token) {
                 if (chrome.runtime.lastError || !token) {
@@ -82,7 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!c.apiUrl) return log("Missing API URL");
                     const baseUrl = c.apiUrl.replace(/\/$/, "");
                     try {
-                        const url = `${baseUrl}/api/extension/emails/payload`;
+                        const qStart = encodeURIComponent(startDate);
+                        const qEnd = encodeURIComponent(endDate);
+                        const qEmails = encodeURIComponent(customRecipients);
+                        const url = `${baseUrl}/api/extension/emails/payload?start=${qStart}&end=${qEnd}&emails=${qEmails}`;
+
                         const res = await fetch(url, { headers: { 'X-Extension-Key': c.apiKey } });
                         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -101,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (!gRes.ok) throw new Error(`Gmail API HTTP ${gRes.status}`);
                         log("Report securely transmitted!");
+                        setTimeout(() => { emailModal.style.display = 'none'; document.getElementById('jobs_panel').style.display = 'block'; }, 2000);
                     } catch (e) {
                         console.error("Email Dispatch Error:", e);
                         log("Email transmission failed.");

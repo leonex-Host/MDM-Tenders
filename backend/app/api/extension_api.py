@@ -291,7 +291,14 @@ def export_google_excel(executor: str = "Automated Admin", db: Session = Depends
 
 # ── GET /emails/payload — Compile MIME Payload for Chrome native Google API ───
 @router.get("/emails/payload")
-def get_email_payload(executor: str = "Chrome Extension", db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+def get_email_payload(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    emails: Optional[str] = None,
+    executor: str = "Chrome Extension",
+    db: Session = Depends(get_db),
+    _key=Depends(_validate_extension_key)
+):
     from email.message import EmailMessage
     import base64
     import pandas as pd
@@ -301,13 +308,29 @@ def get_email_payload(executor: str = "Chrome Extension", db: Session = Depends(
     from app.services.email_service import EmailService
 
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    
+    start_dt = today_start
+    if start:
+        try:
+            start_dt = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+            
+    end_dt = datetime.now(timezone.utc)
+    if end:
+        try:
+            end_dt = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+        except Exception:
+            pass
+
     # Pull Tenders & HTML
-    tenders = db.query(Tender).filter(Tender.created_at >= today_start).order_by(Tender.created_at.desc()).all()
+    tenders = db.query(Tender).filter(Tender.created_at >= start_dt, Tender.created_at <= end_dt).order_by(Tender.created_at.desc()).all()
     html_content = EmailService.generate_tender_report_html(tenders)
     
-    recipients = db.query(EmailRecipient).filter(EmailRecipient.is_active == True).all()
-    to_emails = [r.email for r in recipients] if recipients else ["admin@leonex.net"]
+    if emails and emails.strip():
+        to_emails = [e.strip() for e in emails.split(',') if e.strip()]
+    else:
+        recipients = db.query(EmailRecipient).filter(EmailRecipient.is_active == True).all()
+        to_emails = [r.email for r in recipients] if recipients else ["admin@leonex.net"]
 
     msg = EmailMessage()
     msg["Subject"] = f"MDM Tender Automation Report - {datetime.now().strftime('%d %b %Y')}"
@@ -352,7 +375,7 @@ def get_email_payload(executor: str = "Chrome Extension", db: Session = Depends(
         msg.add_attachment(out1.getvalue(), maintype='application', subtype='vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename=f"Tender_Report_{datetime.now().strftime('%Y%m%d')}.xlsx")
 
     # Attachment 2: Google Results
-    g_results = db.query(GoogleResult).filter(GoogleResult.scraped_at >= today_start, GoogleResult.result_type == "filtered").order_by(GoogleResult.scraped_at.desc()).all()
+    g_results = db.query(GoogleResult).filter(GoogleResult.scraped_at >= start_dt, GoogleResult.scraped_at <= end_dt, GoogleResult.result_type == "filtered").order_by(GoogleResult.scraped_at.desc()).all()
     if g_results:
         g_data = []
         for r in g_results:
