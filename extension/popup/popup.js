@@ -70,42 +70,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnEmail = document.getElementById('btn-email');
     if (btnEmail) {
         btnEmail.addEventListener('click', () => {
-            log("Authenticating with Google...");
-            chrome.identity.getAuthToken({ interactive: true }, async function (token) {
-                if (chrome.runtime.lastError || !token) {
-                    log("Google Auth Failed: " + (chrome.runtime.lastError?.message || "No token"));
-                    return;
-                }
-
-                log("Compiling Native Envelope...");
-                chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
-                    if (!c.apiUrl) return log("Missing API URL");
-                    const baseUrl = c.apiUrl.replace(/\/$/, "");
-                    try {
-                        const url = `${baseUrl}/api/extension/emails/payload`;
-                        const res = await fetch(url, { headers: { 'X-Extension-Key': c.apiKey } });
-                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-                        const payload = await res.json();
-                        if (!payload.raw) throw new Error("Invalid Payload");
-
-                        log("Dispatching via Gmail API...");
-                        const gRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-                            method: "POST",
-                            headers: {
-                                "Authorization": `Bearer ${token}`,
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify({ raw: payload.raw })
-                        });
-
-                        if (!gRes.ok) throw new Error(`Gmail API HTTP ${gRes.status}`);
-                        log("Report securely transmitted!");
-                    } catch (e) {
-                        console.error("Email Dispatch Error:", e);
-                        log("Email transmission failed.");
-                    }
-                });
+            log("Sending OAuth request to Background Service Worker...");
+            chrome.runtime.sendMessage({ action: "send_email_payload" }, (res) => {
+                log(res?.status || "Email transmission completed or prompt closed.");
             });
         });
     }
