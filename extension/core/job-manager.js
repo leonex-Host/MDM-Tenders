@@ -57,7 +57,28 @@ export function validateExtensionJob(rawJob) {
     };
 }
 
-// DOM Bell notifications deleted per user request
+function notifyActiveTabBell(show) {
+    if (show) {
+        chrome.tabs.query({ active: true }, (tabs) => {
+            tabs.forEach(t => {
+                if (t.id && t.url && !t.url.startsWith("chrome://")) {
+                    chrome.scripting.executeScript({
+                        target: { tabId: t.id },
+                        files: ['content_scripts/bell.js']
+                    }).then(() => {
+                        chrome.tabs.sendMessage(t.id, { action: "show_captcha_bell" }).catch(() => { });
+                    }).catch(() => {
+                        chrome.tabs.sendMessage(t.id, { action: "show_captcha_bell" }).catch(() => { });
+                    });
+                }
+            });
+        });
+    } else {
+        chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(t => chrome.tabs.sendMessage(t.id, { action: "hide_captcha_bell" }).catch(() => { }));
+        });
+    }
+}
 
 export async function initializeJobManager() {
     if (isInitialized) return;
@@ -80,9 +101,7 @@ export async function initializeJobManager() {
             if (changeInfo.status === 'complete' && tab.active) {
                 let paused = 0;
                 activeJobs.forEach(rt => { if (rt.status === 'paused') paused++; });
-                if (paused > 0) {
-                    chrome.action.setBadgeText({ text: String(paused) });
-                }
+                if (paused > 0) notifyActiveTabBell(true);
             }
         });
     }
@@ -128,10 +147,12 @@ async function syncMapToStorage() {
     await chrome.storage.local.set({ activeJobsSync: raw, activeJob: firstJob });
 
     if (pausedCount > 0) {
-        chrome.action.setBadgeText({ text: String(pausedCount) });
-        chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
+        chrome.action.setBadgeText({ text: String(pausedCount) }).catch(() => { });
+        chrome.action.setBadgeBackgroundColor({ color: '#FF0000' }).catch(() => { });
+        notifyActiveTabBell(true);
     } else {
-        chrome.action.setBadgeText({ text: '' });
+        chrome.action.setBadgeText({ text: '' }).catch(() => { });
+        notifyActiveTabBell(false);
     }
 }
 

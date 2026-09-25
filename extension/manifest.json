@@ -99,11 +99,21 @@
                 "content_scripts/dashboard.js"
             ],
             "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content_scripts/bell.js"
+            ],
+            "run_at": "document_end"
         }
     ],
     "web_accessible_resources": [
         {
             "resources": [
+                "icons/bell.png",
                 "icons/icon.png"
             ],
             "matches": [
