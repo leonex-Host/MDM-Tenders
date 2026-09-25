@@ -550,3 +550,59 @@ def upload_tenders(
 
     logger.info(f"Extension upload: {source}/{keyword} — {saved} saved, {skipped} skipped out of {len(tenders)}")
     return {"message": "Upload complete", "saved": saved, "skipped": skipped, "inserted": saved, "duplicates_blocked": skipped, "total": len(tenders), "saved_identifiers": saved_identifiers}
+
+
+# ── Extension Email Recipient CRUD ──────────────────────────────────────────
+
+@router.get("/emails/recipients", response_model=List[dict])
+def get_ext_recipients(db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+    from app.models import EmailRecipient
+    recipients = db.query(EmailRecipient).order_by(EmailRecipient.created_at.desc()).all()
+    return [r.to_dict() for r in recipients]
+
+@router.post("/emails/recipients")
+def add_ext_recipient(data: Dict[str, Any], db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+    from app.models import EmailRecipient
+    email = data.get("email")
+    if not email:
+        raise HTTPException(400, "Email is required")
+    
+    existing = db.query(EmailRecipient).filter(EmailRecipient.email == email).first()
+    if existing:
+        raise HTTPException(400, "Recipient with this email already exists")
+
+    new_r = EmailRecipient(
+        name=data.get("name", "Unknown"),
+        email=email,
+        department=data.get("department"),
+        is_active=data.get("is_active", True)
+    )
+    db.add(new_r)
+    db.commit()
+    db.refresh(new_r)
+    return new_r.to_dict()
+
+@router.put("/emails/recipients/{rid}")
+def update_ext_recipient(rid: uuid.UUID, data: Dict[str, Any], db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+    from app.models import EmailRecipient
+    r = db.query(EmailRecipient).filter(EmailRecipient.id == rid).first()
+    if not r:
+        raise HTTPException(404, "Recipient not found")
+    
+    if "name" in data: r.name = data["name"]
+    if "email" in data: r.email = data["email"]
+    if "department" in data: r.department = data["department"]
+    if "is_active" in data: r.is_active = data["is_active"]
+    
+    db.commit()
+    return r.to_dict()
+
+@router.delete("/emails/recipients/{rid}")
+def delete_ext_recipient(rid: uuid.UUID, db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+    from app.models import EmailRecipient
+    r = db.query(EmailRecipient).filter(EmailRecipient.id == rid).first()
+    if not r:
+        raise HTTPException(404, "Recipient not found")
+    db.delete(r)
+    db.commit()
+    return {"status": "deleted"}

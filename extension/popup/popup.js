@@ -74,6 +74,82 @@ document.addEventListener('DOMContentLoaded', () => {
     const emailEndDate = document.getElementById('email_end_date');
     const emailCustomRecipients = document.getElementById('email_custom_recipients');
     const btnSendEmailConfirm = document.getElementById('send_email_confirm_btn');
+    const emailRecipientList = document.getElementById('email_recipient_list');
+    const btnAddExtRecipient = document.getElementById('btn_add_ext_recipient');
+
+    async function ext_loadRecipients() {
+        chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
+            if (!c.apiUrl || !c.apiKey) return;
+            try {
+                const res = await fetch(`${c.apiUrl.replace(/\/$/, "")}/api/extension/emails/recipients`, { headers: { 'X-Extension-Key': c.apiKey } });
+                const data = await res.json();
+                if (!data || !data.length) {
+                    emailRecipientList.innerHTML = `<div style="font-size:9px; color:var(--text-tertiary); text-align:center; padding:10px;">Network empty.</div>`;
+                    return;
+                }
+                emailRecipientList.innerHTML = data.map(r => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-surface); padding:8px 10px; border-radius:6px; border:1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-size:10px; font-weight:800; color:var(--text-primary); text-decoration:${!r.is_active ? 'line-through' : 'none'}; opacity:${!r.is_active ? '0.5' : '1'};">${r.name} <span style="font-size:7px; color:var(--p-green); margin-left:4px;">${r.department || 'ROOT'}</span></div>
+                            <div style="font-size:8px; color:var(--text-tertiary);">${r.email}</div>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button class="ext-btn-toggle" data-id="${r.id}" data-active="${r.is_active}" style="background:transparent; border:none; cursor:pointer; color:${r.is_active ? 'var(--p-green)' : 'var(--text-tertiary)'}; font-size:9px; font-weight:900;">${r.is_active ? 'ON' : 'OFF'}</button>
+                            <button class="ext-btn-trash" data-id="${r.id}" style="background:transparent; border:none; cursor:pointer; color:var(--p-red); font-size:12px; font-weight:900; opacity:0.6;">×</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { console.error("Load Recipients error", e); }
+        });
+    }
+
+    if (emailRecipientList) {
+        emailRecipientList.addEventListener('click', (e) => {
+            const toggleBtn = e.target.closest('.ext-btn-toggle');
+            const trashBtn = e.target.closest('.ext-btn-trash');
+
+            chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
+                if (!c.apiUrl) return;
+                const baseUrl = c.apiUrl.replace(/\/$/, "");
+
+                if (toggleBtn) {
+                    const id = toggleBtn.getAttribute('data-id');
+                    const isActive = toggleBtn.getAttribute('data-active') === 'true';
+                    await fetch(`${baseUrl}/api/extension/emails/recipients/${id}`, {
+                        method: 'PUT', headers: { 'X-Extension-Key': c.apiKey, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ is_active: !isActive })
+                    });
+                    ext_loadRecipients();
+                }
+                if (trashBtn) {
+                    const id = trashBtn.getAttribute('data-id');
+                    await fetch(`${baseUrl}/api/extension/emails/recipients/${id}`, {
+                        method: 'DELETE', headers: { 'X-Extension-Key': c.apiKey }
+                    });
+                    ext_loadRecipients();
+                }
+            });
+        });
+    }
+
+    if (btnAddExtRecipient) {
+        btnAddExtRecipient.addEventListener('click', () => {
+            const nameEl = document.getElementById('ext_rec_name');
+            const emailEl = document.getElementById('ext_rec_email');
+            const deptEl = document.getElementById('ext_rec_dept');
+            chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
+                if (!c.apiUrl) return;
+                try {
+                    await fetch(`${c.apiUrl.replace(/\/$/, "")}/api/extension/emails/recipients`, {
+                        method: 'POST', headers: { 'X-Extension-Key': c.apiKey, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: nameEl.value, email: emailEl.value, department: deptEl.value })
+                    });
+                    nameEl.value = ''; emailEl.value = ''; deptEl.value = '';
+                    ext_loadRecipients();
+                } catch (e) { }
+            });
+        });
+    }
 
     if (btnEmail && emailModal) {
         btnEmail.addEventListener('click', () => {
@@ -83,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('jobs_panel').style.display = 'none';
             document.getElementById('config_panel').classList.remove('show');
             emailModal.style.display = 'block';
+            ext_loadRecipients();
         });
 
         closeEmailModal.addEventListener('click', () => {
