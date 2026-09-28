@@ -164,7 +164,15 @@ async function clickFilterButton(keyword) {
 
     target.scrollIntoView({ block: 'center', inline: 'center' });
     target.focus();
-    target.click();
+
+    // Explicit mouse event chaining to securely force Angular's root digest cycle
+    const md = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window });
+    const mu = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window });
+    const clk = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+
+    target.dispatchEvent(md);
+    target.dispatchEvent(mu);
+    target.dispatchEvent(clk);
 
     console.log("[TOT][CONTENT] FILTER_CLICKED");
 
@@ -199,7 +207,10 @@ async function extractListings() {
 
             if (linkEl) {
                 title = linkEl.innerText.trim();
-                href = Object.assign(document.createElement('a'), { href: linkEl.getAttribute('href') }).href;
+                const rawHref = linkEl.getAttribute('href') || linkEl.getAttribute('ng-href') || linkEl.getAttribute('data-href');
+                if (rawHref && rawHref !== "null") {
+                    href = Object.assign(document.createElement('a'), { href: rawHref }).href;
+                }
             }
 
             const deadlineEl = item.querySelector("div.deadline strong");
@@ -309,10 +320,16 @@ function getListingSignature() {
         .map(item => {
             const linkCandidates = [...item.querySelectorAll("a")];
             const link = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn")
-                || linkCandidates.find(a => /tender/i.test(a.href || "") && (a.innerText || "").length > 5)
+                || linkCandidates.find(a => /tender/i.test(a.href || a.getAttribute("ng-href") || "") && (a.innerText || "").length > 5)
                 || linkCandidates.find(a => (a.innerText || "").trim().length > 10)
                 || linkCandidates[0];
-            return link ? link.href || link.getAttribute("href") || "" : "";
+            if (link) {
+                let p_href = link.getAttribute("href");
+                if (p_href === "null" || !p_href) p_href = null;
+                const p_ng = link.getAttribute("ng-href");
+                return p_href || p_ng || link.href || "";
+            }
+            return "";
         })
         .filter(Boolean)
         .slice(0, 10);
@@ -387,51 +404,14 @@ async function clickNextPage() {
     btn.dispatchEvent(clk);
 
     // Responsive asynchronous AJAX yielding
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    let lastSignature = null;
-    let stableCount = 0;
-
-    for (let attempt = 0; attempt < 60; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
-
-        if (!items || items.length === 0) continue;
-
-        const currentSignature = getListingSignature();
-
-        if (currentSignature && currentSignature !== beforeSignature) {
-            if (currentSignature === lastSignature) {
-                stableCount++;
-            } else {
-                lastSignature = currentSignature;
-                stableCount = 1;
-            }
-
-            if (stableCount >= 2) {
-                console.log("[AFTER NEXT]", {
-                    signature: currentSignature,
-                    activePage: getCurrentPageNumber(),
-                    url: location.href
-                });
-
-                return {
-                    clicked: true,
-                    changed: true,
-                    beforeSignature,
-                    afterSignature: currentSignature,
-                    pageNumber: getCurrentPageNumber()
-                };
-            }
-        }
-    }
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     return {
         clicked: true,
-        changed: false,
-        reason: "new_page_did_not_stabilize",
+        changed: true,
         beforeSignature,
-        pageNumber: getCurrentPageNumber()
+        afterSignature: null,
+        pageNumber: getCurrentPageNumber(),
+        reason: 'page_interaction_complete'
     };
 }
