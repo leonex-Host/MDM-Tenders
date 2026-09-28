@@ -289,7 +289,7 @@ async function extractDetails(keyword) {
 
 function getCurrentPageNumber() {
     const active = document.querySelector(
-        ".pagination li.active a, .pagination li.active span, ul.pagination li.active, .pagination .active"
+        ".pagination li.active a, .pagination li.active span, ul.pagination li.active, .pagination .active, .paginationnew a.hover-blue, .paginationnew .subscribe-blue.hover-blue, li.activeclass a"
     );
     return active ? active.innerText.trim() : null;
 }
@@ -370,7 +370,15 @@ async function clickNextPage() {
     });
 
     btn.scrollIntoView({ behavior: "instant", block: "center" });
-    btn.click();
+
+    // Explicit mouse event chaining to securely force Angular's digest cycle 
+    const md = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window });
+    const mu = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window });
+    const clk = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+
+    btn.dispatchEvent(md);
+    btn.dispatchEvent(mu);
+    btn.dispatchEvent(clk);
 
     // Responsive asynchronous AJAX yielding
     await new Promise(resolve => setTimeout(resolve, 100));
