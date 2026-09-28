@@ -17,17 +17,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyDot = document.getElementById('history-dot');
 
     // ── Unified Panel Manager ─────────────────────────────────────────────
-    // Only one panel visible at a time: jobs, history, or email.
+    // Only one panel visible at a time: jobs, history, email, or download.
     function showPanel(panelName) {
         const jp = document.getElementById('jobs_panel');
         const hp = document.getElementById('history_panel');
         const em = document.getElementById('email-modal');
+        const dm = document.getElementById('download-modal');
         if (jp) jp.style.display = 'none';
         if (hp) hp.style.display = 'none';
         if (em) em.style.display = 'none';
+        if (dm) dm.style.display = 'none';
         if (panelName === 'jobs' && jp) jp.style.display = 'block';
         if (panelName === 'history' && hp) hp.style.display = 'block';
         if (panelName === 'email' && em) em.style.display = 'block';
+        if (panelName === 'download' && dm) dm.style.display = 'block';
     }
 
     let activePanel = 'jobs'; // track what's currently showing
@@ -49,40 +52,70 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const btnDownload = document.getElementById('btn-download');
-    if (btnDownload) {
+    const downloadModal = document.getElementById('download-modal');
+    const closeDownloadModal = document.getElementById('close-download-modal');
+    const downloadStartDate = document.getElementById('download_start_date');
+    const downloadEndDate = document.getElementById('download_end_date');
+    const btnExportStandard = document.getElementById('btn_export_standard');
+    const btnExportGoogle = document.getElementById('btn_export_google');
+
+    if (btnDownload && downloadModal) {
         btnDownload.addEventListener('click', () => {
-            chrome.storage.local.get(['apiUrl', 'apiKey'], (c) => {
-                if (!c.apiUrl) return;
-                const baseUrl = c.apiUrl.replace(/\/$/, "");
-                const executor = "Chrome Extension Root";
-
-                async function downloadExcel(type) {
-                    try {
-                        const url = `${baseUrl}/api/extension/export/${type}/excel?executor=${encodeURIComponent(executor)}`;
-                        const res = await fetch(url, { headers: { 'X-Extension-Key': c.apiKey } });
-                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-                        const blob = await res.blob();
-                        const objUrl = window.URL.createObjectURL(blob);
-
-                        const a = document.createElement('a');
-                        a.href = objUrl;
-                        a.download = type === 'tenders' ? `Tender_Report.xlsx` : `Google_Tenders.xlsx`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        window.URL.revokeObjectURL(objUrl);
-                    } catch (e) {
-                        console.error(`Download failed for ${type}:`, e);
-                        log(`Failed to download ${type} report.`);
-                    }
-                }
-
-                downloadExcel('tenders').then(() => {
-                    setTimeout(() => downloadExcel('google'), 500);
-                });
-            });
+            if (activePanel === 'download') {
+                activePanel = 'jobs';
+                showPanel('jobs');
+            } else {
+                const today = new Date().toISOString().split('T')[0];
+                downloadStartDate.value = today;
+                downloadEndDate.value = today;
+                activePanel = 'download';
+                showPanel('download');
+            }
         });
+
+        closeDownloadModal.addEventListener('click', () => {
+            activePanel = 'jobs';
+            showPanel('jobs');
+        });
+
+        async function triggerDownload(type) {
+            chrome.storage.local.get(['apiUrl', 'apiKey'], async (c) => {
+                if (!c.apiUrl) return log("Missing API URL");
+                const baseUrl = c.apiUrl.replace(/\/$/, "");
+                const executor = "Chrome Extension UI";
+                const qStart = encodeURIComponent(downloadStartDate.value);
+                const qEnd = encodeURIComponent(downloadEndDate.value);
+                const queryParams = `?start=${qStart}&end=${qEnd}&executor=${encodeURIComponent(executor)}`;
+
+                try {
+                    log(`Generating ${type} report...`);
+                    const url = `${baseUrl}/api/extension/export/${type}/excel${queryParams}`;
+                    const res = await fetch(url, { headers: { 'X-Extension-Key': c.apiKey } });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                    const blob = await res.blob();
+                    const objUrl = window.URL.createObjectURL(blob);
+
+                    const a = document.createElement('a');
+                    a.href = objUrl;
+
+                    const filenameDate = downloadStartDate.value.replace(/-/g, '') + '-' + downloadEndDate.value.replace(/-/g, '');
+                    a.download = type === 'tenders' ? `Tender_Report_${filenameDate}.xlsx` : `Google_Tenders_${filenameDate}.xlsx`;
+
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(objUrl);
+                    log(`Successfully downloaded ${type} report.`);
+                } catch (e) {
+                    console.error(`Download failed for ${type}:`, e);
+                    log(`Failed to generate/download ${type} report.`);
+                }
+            });
+        }
+
+        btnExportStandard.addEventListener('click', () => triggerDownload('tenders'));
+        btnExportGoogle.addEventListener('click', () => triggerDownload('google'));
     }
 
     const btnEmail = document.getElementById('btn-email');

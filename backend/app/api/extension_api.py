@@ -161,14 +161,34 @@ def complete_extension_job(
 
 # ── GET /export/tenders/excel — Export Today's Normal Tenders ─────────────────
 @router.get("/export/tenders/excel")
-def export_tenders_excel(executor: str = "Automated Admin", db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+def export_tenders_excel(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    executor: str = "Automated Admin",
+    db: Session = Depends(get_db),
+    _key=Depends(_validate_extension_key)
+):
     import pandas as pd
     from io import BytesIO
     from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
     from datetime import datetime, timezone
 
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    tenders = db.query(Tender).filter(Tender.created_at >= today_start).order_by(Tender.created_at.desc()).all()
+    start_dt = today_start
+    if start:
+        try:
+            start_dt = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+            
+    end_dt = datetime.now(timezone.utc)
+    if end:
+        try:
+            end_dt = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+        except Exception:
+            pass
+
+    tenders = db.query(Tender).filter(Tender.created_at >= start_dt, Tender.created_at <= end_dt).order_by(Tender.created_at.desc()).all()
 
     data = []
     for t in tenders:
@@ -225,7 +245,13 @@ def export_tenders_excel(executor: str = "Automated Admin", db: Session = Depend
 
 # ── GET /export/google/excel — Export Today's Google Tenders ──────────────────
 @router.get("/export/google/excel")
-def export_google_excel(executor: str = "Automated Admin", db: Session = Depends(get_db), _key=Depends(_validate_extension_key)):
+def export_google_excel(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    executor: str = "Automated Admin",
+    db: Session = Depends(get_db),
+    _key=Depends(_validate_extension_key)
+):
     import pandas as pd
     from io import BytesIO
     from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
@@ -233,8 +259,23 @@ def export_google_excel(executor: str = "Automated Admin", db: Session = Depends
     from datetime import datetime, timezone
 
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_dt = today_start
+    if start:
+        try:
+            start_dt = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+            
+    end_dt = datetime.now(timezone.utc)
+    if end:
+        try:
+            end_dt = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+        except Exception:
+            pass
+
     results = db.query(GoogleResult).filter(
-        GoogleResult.scraped_at >= today_start,
+        GoogleResult.scraped_at >= start_dt,
+        GoogleResult.scraped_at <= end_dt,
         GoogleResult.result_type == "filtered"
     ).order_by(GoogleResult.scraped_at.desc()).all()
 
@@ -324,7 +365,9 @@ def get_email_payload(
 
     # Pull Tenders & HTML
     tenders = db.query(Tender).filter(Tender.created_at >= start_dt, Tender.created_at <= end_dt).order_by(Tender.created_at.desc()).all()
-    html_content = EmailService.generate_tender_report_html(tenders)
+    google_results = db.query(GoogleResult).filter(GoogleResult.scraped_at >= start_dt, GoogleResult.scraped_at <= end_dt, GoogleResult.result_type == "filtered").order_by(GoogleResult.scraped_at.desc()).all()
+    
+    html_content = EmailService.generate_tender_report_html(tenders=tenders, google_results=google_results)
     
     if emails and emails.strip():
         to_emails = [e.strip() for e in emails.split(',') if e.strip()]

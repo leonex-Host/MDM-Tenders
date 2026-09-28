@@ -116,30 +116,58 @@ class EmailService:
         db.commit()
 
     @staticmethod
-    def generate_tender_report_html(tenders: List[Tender]) -> str:
-        """Generates the HTML email report body."""
+    def generate_tender_report_html(tenders: List[Tender], google_results: List[GoogleResult] = None) -> str:
+        """Generates the HTML email report body for both Standard and Google Tenders."""
         date_str = datetime.now().strftime("%d %b %Y")
+        google_results = google_results or []
+        
         rows_html = ""
-        for t in tenders:
-            rows_html += f"""
-            <div style="margin-bottom:25px;">
-                <p style="margin:0 0 5px 0;"><strong>Tender ID:</strong> {t.tender_id or 'N/A'}</p>
-                <p style="margin:0 0 5px 0;font-size:14px;"><strong>Description:</strong> {(t.description or t.title or 'No description')[:350]}...</p>
-                <p style="margin:0 0 5px 0;font-size:12px;color:#555;">
-                    <strong>Keyword:</strong> {t.keyword or 'N/A'} | <strong>Source:</strong> {(t.source or '').upper()}
-                </p>
-                <p style="margin:0 0 5px 0;font-size:12px;color:#555;">
-                    <strong>Start:</strong> {t.start_date or 'N/A'} | <strong>End:</strong> {t.end_date or 'N/A'}
-                </p>
-                <p style="margin:0 0 15px 0;font-size:12px;">
-                    <strong>Link:</strong>
-                    <a href="{t.link or '#'}" style="color:#000;text-decoration:underline;">{t.link or '#'}</a>
-                </p>
-                <hr style="border:0;border-top:1px solid #eee;margin:0;">
-            </div>
-            """
+        # Standard Tenders
+        if tenders:
+            rows_html += f'<h3 style="color:#1a73e8; margin-top:0;">Standard Sources ({len(tenders)})</h3>'
+            for t in tenders:
+                rows_html += f"""
+                <div style="margin-bottom:25px;">
+                    <p style="margin:0 0 5px 0;"><strong>Tender ID:</strong> {t.tender_id or 'N/A'}</p>
+                    <p style="margin:0 0 5px 0;font-size:14px;"><strong>Description:</strong> {(t.description or t.title or 'No description')[:350]}...</p>
+                    <p style="margin:0 0 5px 0;font-size:12px;color:#555;">
+                        <strong>Keyword:</strong> {t.keyword or 'N/A'} | <strong>Source:</strong> {(t.source or '').upper()}
+                    </p>
+                    <p style="margin:0 0 5px 0;font-size:12px;color:#555;">
+                        <strong>Start:</strong> {t.start_date or 'N/A'} | <strong>End:</strong> {t.end_date or 'N/A'}
+                    </p>
+                    <p style="margin:0 0 15px 0;font-size:12px;">
+                        <strong>Link:</strong>
+                        <a href="{t.link or '#'}" style="color:#000;text-decoration:underline;">{t.link or '#'}</a>
+                    </p>
+                    <hr style="border:0;border-top:1px solid #eee;margin:0;">
+                </div>
+                """
+
+        # Google Tenders
+        if google_results:
+            rows_html += f'<h3 style="color:#d93025; margin-top:30px;">Google Active Research ({len(google_results)})</h3>'
+            for r in google_results:
+                is_pdf = "<span style='background:#fce8e6;color:#d93025;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;margin-left:8px;'>PDF</span>" if r.is_pdf else ""
+                rows_html += f"""
+                <div style="margin-bottom:25px;">
+                    <p style="margin:0 0 5px 0;font-size:15px;font-weight:bold;">{r.title or 'No Title'} {is_pdf}</p>
+                    <p style="margin:0 0 5px 0;font-size:13px;color:#333;">{r.description or 'No snippet'}</p>
+                    <p style="margin:0 0 5px 0;font-size:12px;color:#555;">
+                        <strong>Keyword Found:</strong> {r.search_query or 'N/A'}
+                    </p>
+                    <p style="margin:0 0 15px 0;font-size:12px;">
+                        <strong>Link:</strong>
+                        <a href="{r.link or '#'}" style="color:#000;text-decoration:underline;">{r.link or '#'}</a>
+                    </p>
+                    <hr style="border:0;border-top:1px solid #eee;margin:0;">
+                </div>
+                """
+
         if not rows_html:
-            rows_html = "<p style='text-align:center;color:#888;padding:40px;'>No new tenders found for this period.</p>"
+            rows_html = "<p style='text-align:center;color:#888;padding:40px;'>No new tenders or Google results found for this period.</p>"
+
+        total_count = len(tenders) + len(google_results)
 
         return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
@@ -152,8 +180,8 @@ class EmailService:
         <p>Hello Team,</p>
         <p>Please find the consolidated tender collection for <strong>{date_str}</strong> below.</p>
         <div style="margin-top:20px;padding:10px 15px;background:#f8f9fa;border-left:3px solid #1a73e8;display:inline-block;border-radius:0 6px 6px 0;">
-            <strong style="color:#555;font-size:14px;text-transform:uppercase;letter-spacing:1px;">Total Tenders:</strong> 
-            <span style="font-size:18px;font-weight:900;color:#000;margin-left:8px;">{len(tenders)}</span>
+            <strong style="color:#555;font-size:14px;text-transform:uppercase;letter-spacing:1px;">Total Validated:</strong> 
+            <span style="font-size:18px;font-weight:900;color:#000;margin-left:8px;">{total_count}</span>
         </div>
         <div style="margin-top:40px;">{rows_html}</div>
         <p style="font-size:11px;color:#aaa;margin-top:60px;text-align:center;">

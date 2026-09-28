@@ -426,6 +426,32 @@
     </div>
   </div>
 
+  <!-- Download Configuration Modal -->
+  <div id="download-modal" style="display:none; padding-top:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <span style="font-size:11px; font-weight:800; color:#fff; text-transform:uppercase;">Data Export Setup</span>
+      <span id="close-download-modal"
+        style="cursor:pointer; background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:4px; color:var(--text-muted); font-size:9px; font-weight:bold;">CLOSE</span>
+    </div>
+    <div class="form-group" style="display:flex; gap:8px;">
+      <div style="flex:1;">
+        <label style="margin-bottom:4px;">Start Date</label>
+        <input type="date" id="download_start_date" style="padding:6px; font-size:10px;">
+      </div>
+      <div style="flex:1;">
+        <label style="margin-bottom:4px;">End Date</label>
+        <input type="date" id="download_end_date" style="padding:6px; font-size:10px;">
+      </div>
+    </div>
+    <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+      <button id="btn_export_standard" class="btn"
+        style="background:var(--accent); color:#fff; width:100%; margin-bottom:8px;">EXPORT STANDARD TENDERS
+        (.XLSX)</button>
+      <button id="btn_export_google" class="btn" style="background:#d93025; color:#fff; width:100%;">EXPORT GOOGLE
+        TENDERS (.XLSX)</button>
+    </div>
+  </div>
+
   <!-- Email Configuration Modal -->
   <div id="email-modal" style="display:none; padding-top:4px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
