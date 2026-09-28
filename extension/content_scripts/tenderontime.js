@@ -194,7 +194,7 @@ async function extractListings() {
             const deadlineEl = item.querySelector("div.deadline strong");
             if (deadlineEl) deadline = deadlineEl.innerText.trim();
 
-            const textMatch = item.innerText.match(/TOT Ref\. No\.?:?\s*(\d+)/);
+            const textMatch = item.innerText.match(/TOT Ref\.\s*No\.\?:?\s*(\d+)/i);
             if (textMatch) tot_ref = textMatch[1];
 
             const flag = item.querySelector("span.flag-icon");
