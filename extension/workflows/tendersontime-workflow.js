@@ -13,7 +13,16 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
         try { tabInfo = await chrome.tabs.get(tabId); } catch (e) { return { ready: false, isChallenge: false }; }
 
         const pageCheck = await executeContentScript(tabId, "check_page_available");
-        console.log(`[TOT][WAIT] URL=${tabInfo.url} status=${tabInfo.status}`, pageCheck);
+
+        const currentUrl = (tabInfo.url || "").toLowerCase();
+        let isExpected = false;
+        if (options.isGoogle) {
+            isExpected = currentUrl.includes("google.com/search");
+        } else {
+            isExpected = currentUrl.includes("/tenders/advancesearch");
+        }
+
+        console.log(`[TOT][PAGE] URL_CHECK expected=${isExpected} url=${tabInfo.url}`);
 
         if (pageCheck && pageCheck.cloudflareActive) {
             console.warn(`[TOT][${tabId}] CLOUDFLARE tracking... (${challengeLoops}/12)`);
@@ -36,13 +45,8 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
             await sleep(1500); continue;
         }
 
-        const currentUrl = (tabInfo.url || "").toLowerCase();
-        const isExpected = options.isGoogle
-            ? currentUrl.includes("google.com/search")
-            : currentUrl.includes("/tenders/advancesearch");
-
-        if (isExpected && pageCheck && pageCheck.readyState === "complete" && !pageCheck.cloudflareActive) {
-            console.log(`[TOT][WAIT][${tabId}] PAGE_READY`);
+        if (isExpected && pageCheck.readyState === "complete" && !pageCheck.cloudflareActive) {
+            console.log(`[TOT][PAGE] PAGE_READY [${tabId}]`);
             await sleep(1000);
             return { ready: true, isChallenge: false, pageCheck };
         }
@@ -50,9 +54,7 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
         await sleep(1500);
     }
 
-    // Attempt fallback retrieval before hard fail
     const fallbackStatus = await executeContentScript(tabId, "check_page_available") || {};
-    console.error(`[TOT][PAGE_TIMEOUT] keyword="${keyword}"\nreason="timeout"\nurl="${(await chrome.tabs.get(tabId).catch(() => ({ url: '' }))).url}"\nreadyState="${fallbackStatus.readyState}"\nformReady=${fallbackStatus.formReady}\nfilterReady=${fallbackStatus.filterReady}\nexactFilter=${fallbackStatus.exactFilter}`);
     return { ready: false, isChallenge: false, pageCheck: fallbackStatus };
 }
 
