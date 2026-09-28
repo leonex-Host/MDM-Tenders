@@ -147,6 +147,13 @@ async function clickFilterButton(keyword) {
     if (!target || !visible(target)) {
         target = document.querySelector("[onclick*='filterTendersJS']");
     }
+    if (!target || !visible(target)) {
+        const tgt = [...document.querySelectorAll("button[type='submit'], input[type='submit'], button.search-btn")].find(btn => {
+            const txt = (btn.innerText || btn.value || "").toLowerCase();
+            return txt.includes('search') || txt.includes('filter');
+        });
+        target = tgt;
+    }
 
     if (!target || !visible(target)) {
         console.log("[TOT][CONTENT] FILTER_SELECTOR_NOT_FOUND");
@@ -179,19 +186,32 @@ async function extractListings() {
 
     let listings = [];
 
-    const items = document.querySelectorAll("div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item");
+    const rawItems = document.querySelectorAll("div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item, table#searchedtenders tr, tr.tender-row, tr[class*='tender'], .card");
+    const items = [...rawItems].filter(el => {
+        const t = (el.innerText || "").toLowerCase();
+        return t.length > 20 && !t.includes("type of tender") && !t.includes("th data") && (t.includes("tender") || t.includes("tot ref") || t.includes("deadline"));
+    });
 
     items.forEach(item => {
         try {
             let title = "", href = "", deadline = "", tot_ref = "", country = "";
 
-            const linkEl = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn");
+            let linkEl = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn") || item.querySelector("a[href*='tender']");
             if (linkEl) {
                 title = linkEl.innerText.trim();
-                href = Object.assign(document.createElement('a'), { href: linkEl.getAttribute('href') }).href;
             }
 
-            const deadlineEl = item.querySelector("div.deadline strong");
+            const match = item.outerHTML.match(/(?:href|onclick|data-href|ng-href)=["']?([^"'>\s]*tenders?(?:-details)?\/[^"'>\s]+)["']?/i);
+            if (match) {
+                href = Object.assign(document.createElement('a'), { href: match[1] }).href;
+            } else if (linkEl) {
+                const rawHref = linkEl.getAttribute('href') || linkEl.getAttribute('ng-href') || linkEl.getAttribute('data-href');
+                if (rawHref && rawHref !== "null") {
+                    href = Object.assign(document.createElement('a'), { href: rawHref }).href;
+                }
+            }
+
+            const deadlineEl = item.querySelector("div.deadline strong, td.deadline, .deadline-date");
             if (deadlineEl) deadline = deadlineEl.innerText.trim();
 
             const textMatch = item.innerText.match(/TOT Ref\.\s*No\.\?:?\s*(\d+)/i);
@@ -220,8 +240,8 @@ async function extractDetails(keyword) {
     let descriptionSnippet = "";
     let postingDate = "";
 
+    // Legacy Support
     const strvals = document.querySelectorAll("strong.strval");
-
     for (const s of strvals) {
         const par = s.parentElement;
         if (par && par.innerText.includes("Summary:")) {
@@ -254,6 +274,41 @@ async function extractDetails(keyword) {
         }
     }
 
+    // New DOM Support Formats
+    if (!found) {
+        const paragraphs = document.querySelectorAll("p, div");
+        for (const p of paragraphs) {
+            const text = (p.innerText || "").trim().toLowerCase();
+            if (text.startsWith("summary:")) {
+                const innerTxt = p.innerText.toLowerCase();
+                if (innerTxt.includes(phrase)) {
+                    found = true;
+                    const strongNode = p.querySelector("strong");
+                    descriptionSnippet = strongNode ? strongNode.innerText.trim() : p.innerText.replace(/^summary:\s*/i, '').trim();
+                    break;
+                }
+            }
+        }
+
+        // Final fallback text-scan
+        if (!found && rawText.toLowerCase().includes(phrase)) {
+            found = true;
+            const idx = rawText.toLowerCase().indexOf(phrase);
+            descriptionSnippet = rawText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
+        }
+    }
+
+    if (!postingDate) {
+        const paragraphs = document.querySelectorAll("p, div, td");
+        for (const p of paragraphs) {
+            const text = (p.innerText || "").trim().toLowerCase();
+            if (text.startsWith("posting date:")) {
+                const strongNode = p.querySelector("strong");
+                postingDate = strongNode ? strongNode.innerText.trim() : p.innerText.replace(/^posting date:\s*/i, '').trim();
+            }
+        }
+    }
+
     return {
         found,
         description: descriptionSnippet,
@@ -269,9 +324,11 @@ function getCurrentPageNumber() {
 }
 
 function getListingSignature() {
-    const items = document.querySelectorAll(
-        "div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item"
-    );
+    const rawItems = document.querySelectorAll("div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item, table#searchedtenders tr, tr.tender-row, tr[class*='tender'], .card");
+    const items = [...rawItems].filter(el => {
+        const t = (el.innerText || "").toLowerCase();
+        return t.length > 20 && !t.includes("type of tender") && !t.includes("th data") && (t.includes("tender") || t.includes("tot ref") || t.includes("deadline"));
+    });
 
     const urls = [...items]
         .map(item => {
@@ -288,7 +345,7 @@ function getListingSignature() {
 
 async function clickNextPage() {
     const candidates = document.querySelectorAll(
-        "ul.pagination li a, .pagination a, a[rel='next'], a.next, li.nextclass a, li.next a, button.next"
+        "ul.pagination li a, .pagination a, .paginationnew a, nav a, a[rel='next'], a.next, li.nextclass a, li.next a, button.next, [aria-label*='Next'], [aria-label*='next']"
     );
 
     let btn = null;
@@ -353,7 +410,11 @@ async function clickNextPage() {
     for (let attempt = 0; attempt < 40; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
+        const rawItems = document.querySelectorAll("div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item, table#searchedtenders tr, tr.tender-row, tr[class*='tender'], .card");
+        const items = [...rawItems].filter(el => {
+            const t = (el.innerText || "").toLowerCase();
+            return t.length > 20 && !t.includes("type of tender") && !t.includes("th data") && (t.includes("tender") || t.includes("tot ref") || t.includes("deadline"));
+        });
 
         if (!items || items.length === 0) continue;
 
