@@ -66,7 +66,7 @@ async function waitUntilListingsReady(tabId) {
     while (Date.now() - startTime < timeout) {
         let listingData = await executeContentScript(tabId, "extract_listings");
         if (!listingData) {
-            await sleep(1000); continue;
+            await sleep(200); continue;
         }
         if (listingData.status === "cloudflare") {
             console.warn(`[TOT][${tabId}] CLOUDFLARE tracking organically within items... (${challengeLoops}/12)`);
@@ -88,14 +88,14 @@ async function waitUntilListingsReady(tabId) {
                 } else {
                     noResultsCount = 0;
                 }
-                await sleep(1000);
+                await sleep(500);
                 continue;
             } else {
                 console.log(`[TOT][LISTINGS_READY] Dynamically detected ${listingData.length} valid results on active view.`);
                 return { status: "results", listings: listingData };
             }
         }
-        await sleep(1000);
+        await sleep(200);
     }
     console.warn("[TOT][LISTINGS_TIMEOUT] Listings failed to render within allotted tracking window.");
     return { status: "timeout" };
@@ -185,8 +185,8 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     }
                 }).catch(e => console.warn("[TOT] Interceptor inject skip:", e));
 
-                // Critical: Ensure full AngularJS structural hydration before dispatching synthetic native events
-                await new Promise(r => setTimeout(r, 2000));
+                // Ensure minimal AngularJS structural hydration before dispatching synthetic native events
+                await new Promise(r => setTimeout(r, 250));
 
                 console.log("[TOT][DEBUG] BEFORE_PAGE_CHECK");
                 const pageReady = await waitUntilPageAvailable(runtime.tabId, { isGoogle: false }, keyword);
