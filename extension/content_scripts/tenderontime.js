@@ -4,7 +4,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     else if (request.action === "extract_listings") {
-        extractListings().then(sendResponse);
+        extractListings().then(data => {
+            if (data && data.status) {
+                sendResponse(data);
+            } else {
+                sendResponse({ status: "results", listings: data || [] });
+            }
+        });
         return true;
     }
     else if (request.action === "extract_details") {
