@@ -213,9 +213,8 @@ async function extractListings() {
 }
 
 async function extractDetails(keyword) {
-    const rawText = document.body.innerText || "";
-    const phrase = (keyword || "").toLowerCase().trim();
-    const words = phrase.split(/\s+/).filter(w => w.length > 2); // Ignore tiny conjunctions
+    const rawText = document.body.innerText;
+    const phrase = keyword.toLowerCase();
 
     let found = false;
     let descriptionSnippet = "";
@@ -223,42 +222,26 @@ async function extractDetails(keyword) {
 
     const strvals = document.querySelectorAll("strong.strval");
 
-    // Pass 1: Check strictly against the Summary field
     for (const s of strvals) {
         const par = s.parentElement;
         if (par && par.innerText.includes("Summary:")) {
             const txt = s.innerText.toLowerCase();
-            if (txt.includes(phrase) || (words.length > 0 && words.every(w => txt.includes(w)))) {
+            if (txt.includes(phrase)) {
                 found = true;
-                const matchWord = words[0] || phrase;
-                const idx = txt.indexOf(matchWord) !== -1 ? txt.indexOf(matchWord) : 0;
-                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 80);
+                const idx = txt.indexOf(phrase);
+                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
                 break;
             }
         }
     }
 
-    // Pass 2: Check globally against any strong.strval field if not found yet
     if (!found) {
         for (const s of strvals) {
             const txt = s.innerText.toLowerCase();
-            if (txt.length > 15 && (txt.includes(phrase) || (words.length > 0 && words.every(w => txt.includes(w))))) {
+            if (txt.includes(phrase) && txt.length > 20) {
                 found = true;
-                const matchWord = words[0] || phrase;
-                const idx = txt.indexOf(matchWord) !== -1 ? txt.indexOf(matchWord) : 0;
-                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 80);
-                break;
-            }
-        }
-    }
-
-    // Pass 3 (Failsafe): Fall back to grabbing the beginning of the Summary if nothing matched but we trust the engine
-    if (!found) {
-        for (const s of strvals) {
-            const par = s.parentElement;
-            if (par && par.innerText.includes("Summary:")) {
-                found = true;
-                descriptionSnippet = s.innerText.substring(0, 150) + "...";
+                const idx = txt.indexOf(phrase);
+                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
                 break;
             }
         }
@@ -361,14 +344,14 @@ async function clickNextPage() {
     btn.scrollIntoView({ behavior: "instant", block: "center" });
     btn.click();
 
-    // Responsive asynchronous AJAX yielding
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Explicit buffer to allow pagination AJAX to start clearing old DOM
+    await new Promise(resolve => setTimeout(resolve, 2500));
 
     let lastSignature = null;
     let stableCount = 0;
 
-    for (let attempt = 0; attempt < 60; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+    for (let attempt = 0; attempt < 40; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
 
