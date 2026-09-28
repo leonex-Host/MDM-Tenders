@@ -185,7 +185,12 @@ async function extractListings() {
         try {
             let title = "", href = "", deadline = "", tot_ref = "", country = "";
 
-            const linkEl = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn");
+            const linkCandidates = [...item.querySelectorAll("a")];
+            const linkEl = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn")
+                || linkCandidates.find(a => /tender/i.test(a.href || "") && (a.innerText || "").length > 5)
+                || linkCandidates.find(a => (a.innerText || "").trim().length > 10)
+                || linkCandidates[0];
+
             if (linkEl) {
                 title = linkEl.innerText.trim();
                 href = Object.assign(document.createElement('a'), { href: linkEl.getAttribute('href') }).href;
@@ -221,7 +226,7 @@ async function extractDetails(keyword) {
     let descriptionSnippet = "";
     let postingDate = "";
 
-    const strvals = document.querySelectorAll("strong.strval");
+    const strvals = [...document.querySelectorAll("strong.strval, .detail-summary, .tender-summary, .desc, p, span, div")];
 
     // Pass 1: Check strictly against the Summary field
     for (const s of strvals) {
@@ -238,11 +243,11 @@ async function extractDetails(keyword) {
         }
     }
 
-    // Pass 2: Check globally against any strong.strval field if not found yet
+    // Pass 2: Check globally against any standard field if not found yet
     if (!found) {
         for (const s of strvals) {
-            const txt = s.innerText.toLowerCase();
-            if (txt.length > 15 && (txt.includes(phrase) || (words.length > 0 && words.every(w => txt.includes(w))))) {
+            const txt = (s.innerText || "").toLowerCase();
+            if (txt.length > 15 && txt.length < 5000 && (txt.includes(phrase) || (words.length > 0 && words.every(w => txt.includes(w))))) {
                 found = true;
                 const matchWord = words[0] || phrase;
                 const idx = txt.indexOf(matchWord) !== -1 ? txt.indexOf(matchWord) : 0;
@@ -252,21 +257,25 @@ async function extractDetails(keyword) {
         }
     }
 
-    // Pass 3 (Failsafe): Fall back to grabbing the beginning of the Summary if nothing matched but we trust the engine
-    if (!found) {
-        for (const s of strvals) {
-            const par = s.parentElement;
-            if (par && par.innerText.includes("Summary:")) {
-                found = true;
-                descriptionSnippet = s.innerText.substring(0, 150) + "...";
-                break;
-            }
+    // Pass 3 (Failsafe): Fall back to grabbing the beginning of the inner body text natively if nothing matched but we trust the engine
+    if (!found && rawText) {
+        const txt = rawText.toLowerCase();
+        if (txt.includes(phrase) || (words.length > 0 && words.every(w => txt.includes(w)))) {
+            found = true;
+            const matchWord = words[0] || phrase;
+            const idx = txt.indexOf(matchWord) !== -1 ? txt.indexOf(matchWord) : 0;
+            descriptionSnippet = rawText.substring(Math.max(0, idx - 60), idx + phrase.length + 150);
         }
     }
 
+    if (!found) {
+        found = true;
+        descriptionSnippet = rawText.substring(0, 150) + "...";
+    }
+
     for (const s of strvals) {
-        const par = s.parentElement;
-        if (par && par.innerText.includes("Posting Date:")) {
+        const par = s.parentElement || s;
+        if (par && par.innerText && par.innerText.toLowerCase().includes("posting date")) {
             postingDate = s.innerText.trim();
         }
     }
@@ -292,9 +301,11 @@ function getListingSignature() {
 
     const urls = [...items]
         .map(item => {
-            const link = item.querySelector(
-                "a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn"
-            );
+            const linkCandidates = [...item.querySelectorAll("a")];
+            const link = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn")
+                || linkCandidates.find(a => /tender/i.test(a.href || "") && (a.innerText || "").length > 5)
+                || linkCandidates.find(a => (a.innerText || "").trim().length > 10)
+                || linkCandidates[0];
             return link ? link.href || link.getAttribute("href") || "" : "";
         })
         .filter(Boolean)
@@ -305,7 +316,7 @@ function getListingSignature() {
 
 async function clickNextPage() {
     const candidates = document.querySelectorAll(
-        "ul.pagination li a, .pagination a, a[rel='next'], a.next, li.nextclass a, li.next a, button.next"
+        "ul.pagination li a, .pagination a, nav a, a[rel='next'], a.next, li.nextclass a, li.next a, button.next, [aria-label*='Next'], [aria-label*='next']"
     );
 
     let btn = null;
