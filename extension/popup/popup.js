@@ -404,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (hist.length > 0) {
                     historyList.innerHTML = hist.map(h => `
-                < div class= "job-card" >
+                        <div class="job-card">
                             <div class="job-header">
                                 <div>
                                     <span class="job-source">${h.source || 'UNKNOWN'}</span>
@@ -426,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <span class="metric-val" style="color:var(--warning);">${h.duplicates || 0}</span>
                                 </div>
                             </div>
-                        </div >
+                        </div>
                     `).join('');
                 } else {
                     historyList.innerHTML = '<div class="empty-state">No history recorded yet.</div>';
