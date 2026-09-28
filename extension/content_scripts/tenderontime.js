@@ -35,7 +35,7 @@ function checkPageAvailable() {
         document.body.hasAttribute("data-captcha-silent");
 
     const hasNoResultsText =
-        /no results found|no records found|0 results|no data found|no tenders found|no records available/i.test(lowerText);
+        /\b(?:no results found|no records found|0 results|no data found|no tenders found|no records available)\b/i.test(lowerText);
 
     const url = window.location.href;
     const isSearchPage = /\/tenders\/advancesearch\b|\/advancesearch\b/i.test(url);
