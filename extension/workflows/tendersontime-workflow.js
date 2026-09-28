@@ -91,7 +91,7 @@ async function waitUntilListingsReady(tabId) {
                 await sleep(500);
                 continue;
             } else {
-                console.log(`[TOT][LISTINGS_READY] Dynamically detected ${listingData.length} valid results on active view.`);
+                console.log(`[TOT][LISTINGS_READY] Dynamically detected ${listingData.length} valid results.`);
                 return { status: "results", listings: listingData };
             }
         }

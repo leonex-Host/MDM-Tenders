@@ -35,9 +35,6 @@ function checkPageAvailable() {
 
     const cloudflareActive =
         /just a moment|checking your browser|verify you are human/i.test(title + " " + text) ||
-        html.includes("cf-turnstile") ||
-        html.includes("cf-chl") ||
-        html.includes("challenge-platform") ||
         document.body.hasAttribute("data-captcha-silent");
 
     const hasNoResultsText =
