@@ -236,66 +236,28 @@ async function extractListings() {
 }
 
 async function extractDetails(keyword) {
-    const rawText = document.body.innerText || "";
-    const phrase = (keyword || "").toLowerCase().trim();
-    const words = phrase.split(/\s+/).filter(w => w.length > 2); // Ignore tiny conjunctions
-
-    let found = false;
+    let found = true;
     let descriptionSnippet = "";
     let postingDate = "";
 
-    const strvals = [...document.querySelectorAll("strong.strval, .detail-summary, .tender-summary, .desc, p, span, div")];
+    const allParagraphs = [...document.querySelectorAll("p, div, a, span")];
 
-    // Pass 1: Check strictly against the Summary field
-    for (const s of strvals) {
-        const par = s.parentElement;
-        if (par && par.innerText.includes("Summary:")) {
-            const txt = s.innerText.toLowerCase();
-            if (txt.includes(phrase) || (words.length > 0 && words.every(w => txt.includes(w)))) {
-                found = true;
-                const matchWord = words[0] || phrase;
-                const idx = txt.indexOf(matchWord) !== -1 ? txt.indexOf(matchWord) : 0;
-                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 80);
-                break;
-            }
+    for (const p of allParagraphs) {
+        const text = (p.innerText || "").trim().toLowerCase();
+        
+        if (text.startsWith("summary:")) {
+            const strongNode = p.querySelector("strong");
+            descriptionSnippet = strongNode ? strongNode.innerText.trim() : p.innerText.replace(/^summary:\s*/i, '').trim();
+        }
+        
+        if (text.startsWith("posting date:")) {
+            const strongNode = p.querySelector("strong");
+            postingDate = strongNode ? strongNode.innerText.trim() : p.innerText.replace(/^posting date:\s*/i, '').trim();
         }
     }
 
-    // Pass 2: Check globally against any standard field if not found yet
-    if (!found) {
-        for (const s of strvals) {
-            const txt = (s.innerText || "").toLowerCase();
-            if (txt.length > 15 && txt.length < 5000 && (txt.includes(phrase) || (words.length > 0 && words.every(w => txt.includes(w))))) {
-                found = true;
-                const matchWord = words[0] || phrase;
-                const idx = txt.indexOf(matchWord) !== -1 ? txt.indexOf(matchWord) : 0;
-                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 80);
-                break;
-            }
-        }
-    }
-
-    // Pass 3 (Failsafe): Fall back to grabbing the beginning of the inner body text natively if nothing matched but we trust the engine
-    if (!found && rawText) {
-        const txt = rawText.toLowerCase();
-        if (txt.includes(phrase) || (words.length > 0 && words.every(w => txt.includes(w)))) {
-            found = true;
-            const matchWord = words[0] || phrase;
-            const idx = txt.indexOf(matchWord) !== -1 ? txt.indexOf(matchWord) : 0;
-            descriptionSnippet = rawText.substring(Math.max(0, idx - 60), idx + phrase.length + 150);
-        }
-    }
-
-    if (!found) {
-        found = true;
-        descriptionSnippet = rawText.substring(0, 150) + "...";
-    }
-
-    for (const s of strvals) {
-        const par = s.parentElement || s;
-        if (par && par.innerText && par.innerText.toLowerCase().includes("posting date")) {
-            postingDate = s.innerText.trim();
-        }
+    if (!descriptionSnippet) {
+        descriptionSnippet = "Details automatically merged by source constraint. " + (document.body.innerText || "").substring(0, 150).replace(/\s+/g, ' ') + "...";
     }
 
     return {
@@ -412,7 +374,6 @@ async function clickNextPage() {
         changed: true,
         beforeSignature,
         afterSignature: null,
-        pageNumber: getCurrentPageNumber(),
         reason: 'page_interaction_complete'
     };
 }
