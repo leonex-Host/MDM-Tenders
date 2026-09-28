@@ -1,23 +1,23 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "check_page_available") {
-        sendResponse(checkPageAvailable());
-        return true;
-    }
-    else if (request.action === "extract_listings") {
-        extractListings().then(sendResponse);
-        return true;
-    }
-    else if (request.action === "extract_details") {
-        extractDetails(request.keyword).then(sendResponse);
-        return true;
-    }
-    else if (request.action === "click_next_page") {
-        clickNextPage().then(sendResponse);
-        return true;
-    }
-    else if (request.action === "click_filter_button") {
-        clickFilterButton(request.keyword).then(sendResponse);
-        return true;
+    try {
+        if (request.action === "check_page_available") {
+            Promise.resolve(checkPageAvailable()).then(sendResponse).catch(e => sendResponse(null));
+            return true;
+        } else if (request.action === "extract_listings") {
+            extractListings().then(sendResponse).catch(e => sendResponse(null));
+            return true;
+        } else if (request.action === "extract_details") {
+            extractDetails(request.keyword).then(sendResponse).catch(e => sendResponse(null));
+            return true;
+        } else if (request.action === "click_next_page") {
+            clickNextPage().then(sendResponse).catch(e => sendResponse(null));
+            return true;
+        } else if (request.action === "click_filter_button") {
+            clickFilterButton(request.keyword).then(sendResponse).catch(e => sendResponse(null));
+            return true;
+        }
+    } catch (e) {
+        sendResponse(null);
     }
 });
 
