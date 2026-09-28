@@ -16,17 +16,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyPanel = document.getElementById('history_panel');
     const historyDot = document.getElementById('history-dot');
 
+    // ── Unified Panel Manager ─────────────────────────────────────────────
+    // Only one panel visible at a time: jobs, history, or email.
+    function showPanel(panelName) {
+        const jp = document.getElementById('jobs_panel');
+        const hp = document.getElementById('history_panel');
+        const em = document.getElementById('email-modal');
+        if (jp) jp.style.display = 'none';
+        if (hp) hp.style.display = 'none';
+        if (em) em.style.display = 'none';
+        if (panelName === 'jobs' && jp) jp.style.display = 'block';
+        if (panelName === 'history' && hp) hp.style.display = 'block';
+        if (panelName === 'email' && em) em.style.display = 'block';
+    }
+
+    let activePanel = 'jobs'; // track what's currently showing
+
     if (btnHistory && closeHistory && historyPanel) {
         btnHistory.addEventListener('click', () => {
-            const isShowing = historyPanel.style.display === 'block';
-            historyPanel.style.display = isShowing ? 'none' : 'block';
-            const jobsPanel = document.getElementById('jobs_panel');
-            if (jobsPanel) jobsPanel.style.display = isShowing ? 'block' : 'none';
+            if (activePanel === 'history') {
+                activePanel = 'jobs';
+                showPanel('jobs');
+            } else {
+                activePanel = 'history';
+                showPanel('history');
+            }
         });
         closeHistory.addEventListener('click', () => {
-            historyPanel.style.display = 'none';
-            const jobsPanel = document.getElementById('jobs_panel');
-            if (jobsPanel) jobsPanel.style.display = 'block';
+            activePanel = 'jobs';
+            showPanel('jobs');
         });
     }
 
@@ -175,18 +193,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnEmail && emailModal) {
         btnEmail.addEventListener('click', () => {
-            const today = new Date().toISOString().split('T')[0];
-            emailStartDate.value = today;
-            emailEndDate.value = today;
-            document.getElementById('jobs_panel').style.display = 'none';
-            document.getElementById('config_panel').classList.remove('show');
-            emailModal.style.display = 'block';
-            ext_loadRecipients();
+            if (activePanel === 'email') {
+                activePanel = 'jobs';
+                showPanel('jobs');
+            } else {
+                const today = new Date().toISOString().split('T')[0];
+                emailStartDate.value = today;
+                emailEndDate.value = today;
+                activePanel = 'email';
+                showPanel('email');
+                ext_loadRecipients();
+            }
         });
 
         closeEmailModal.addEventListener('click', () => {
-            emailModal.style.display = 'none';
-            document.getElementById('jobs_panel').style.display = 'block';
+            activePanel = 'jobs';
+            showPanel('jobs');
         });
 
         btnSendEmailConfirm.addEventListener('click', () => {
@@ -307,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 abortAllBtn.style.display = 'block';
 
                 jobsList.innerHTML = jobs.map(j => `
-                < div class= "job-card" >
+                    <div class="job-card">
                         <div class="job-header">
                             <div>
                                 <span class="job-source">${j.source}</span>
@@ -337,13 +359,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="metric-label">UNWANTED LINK</span>
                                 <span class="metric-val" style="color:#ef4444;">${j.unwantedLinks || 0}</span>
                             </div>
-                            ` : ''
-                    }
-                < div class= "metric-row" style = "margin-top:2px;" >
+                            ` : ''}
+                            <div class="metric-row" style="margin-top:2px;">
                                 <span class="metric-label">SAVED DATABASE</span>
                                 <span class="metric-val" style="color:var(--success); font-size:12px;">${j.inserted || 0} ITEMS</span>
-                            </div >
-                        </div >
+                            </div>
+                        </div>
                     <div class="job-actions">
                         ${(j.inserted > 0 || j.results > 0) ? `<a href="${j.source === 'google' ? 'https://mdm-tenders.vercel.app/#/google' : 'https://mdm-tenders.vercel.app/#/mdm-tenders'}" target="_blank" class="btn btn-sm" style="background:#2563eb; color:#fff; text-decoration:none; padding-top:6px; display:inline-block; text-align:center;">VISIT DB</a>` : ''}
                         ${j.status === 'paused' ?
@@ -351,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         : ''}
                         <button class="btn btn-danger btn-sm abort-job-btn" data-id="${j.job_id}">ABORT</button>
                     </div>
-                    </div >
+                    </div>
                     `).join('');
 
                 // Attack live listeners
