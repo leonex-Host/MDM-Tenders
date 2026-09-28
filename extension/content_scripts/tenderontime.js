@@ -200,10 +200,14 @@ async function extractListings() {
             let title = "", href = "", deadline = "", tot_ref = "", country = "";
 
             const linkCandidates = [...item.querySelectorAll("a")];
-            const linkEl = item.querySelector("a.truncatetext.ng-binding, a.truncatetext, a.listing-prod-view.mobbtn")
-                || linkCandidates.find(a => /tender/i.test(a.href || "") && (a.innerText || "").length > 5)
-                || linkCandidates.find(a => (a.innerText || "").trim().length > 10)
-                || linkCandidates[0];
+            // Explicitly filter out structurally identical toggle anchors that lack routing endpoints 
+            const validLinks = linkCandidates.filter(a => {
+                const u = a.getAttribute("href") || a.getAttribute("ng-href") || "";
+                return u.length > 5 && u !== "#" && u.toLowerCase() !== "javascript:void(0);";
+            });
+
+            // Find the link pointing to a tender detail layout, fallback to any valid routing link 
+            const linkEl = validLinks.find(a => /tender/i.test(a.href || a.getAttribute("ng-href") || "")) || validLinks[0];
 
             if (linkEl) {
                 title = linkEl.innerText.trim();
