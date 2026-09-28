@@ -1,4 +1,4 @@
-import { updateRuntimeState, setManualActionRequired, finishJob, enqueueUpload } from '../core/job-manager.js';
+import { updateRuntimeState, setManualActionRequired, finishJob, enqueueUpload, processUploadQueue } from '../core/job-manager.js';
 import { createJobTab, navigateAndWait, executeContentScript, closeJobTab, waitForComplete } from '../core/tab-manager.js';
 
 function googleSearchUrl(keyword, page) {
