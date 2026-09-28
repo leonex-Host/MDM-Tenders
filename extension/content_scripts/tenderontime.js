@@ -216,41 +216,36 @@ async function extractDetails(keyword) {
     const rawText = document.body.innerText;
     const phrase = keyword.toLowerCase();
 
-    let found = false;
+    // Trust the native search engine: if TenderOnTime returned it, it's a valid result.
+    let found = true;
     let descriptionSnippet = "";
     let postingDate = "";
 
     const strvals = document.querySelectorAll("strong.strval");
 
+    // Extract Posting Date
+    for (const s of strvals) {
+        const par = s.parentElement;
+        if (par && par.innerText.includes("Posting Date:")) {
+            postingDate = s.innerText.trim();
+        }
+    }
+
+    // Try to find the exact keyword to build a smart snippet
+    let exactPhraseFound = false;
     for (const s of strvals) {
         const par = s.parentElement;
         if (par && par.innerText.includes("Summary:")) {
             const txt = s.innerText.toLowerCase();
             if (txt.includes(phrase)) {
-                found = true;
+                exactPhraseFound = true;
                 const idx = txt.indexOf(phrase);
                 descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
                 break;
+            } else {
+                // If the phrase isn't there, just take the first ~200 characters of the summary
+                descriptionSnippet = s.innerText.substring(0, 200) + (s.innerText.length > 200 ? "..." : "");
             }
-        }
-    }
-
-    if (!found) {
-        for (const s of strvals) {
-            const txt = s.innerText.toLowerCase();
-            if (txt.includes(phrase) && txt.length > 20) {
-                found = true;
-                const idx = txt.indexOf(phrase);
-                descriptionSnippet = s.innerText.substring(Math.max(0, idx - 60), idx + phrase.length + 60);
-                break;
-            }
-        }
-    }
-
-    for (const s of strvals) {
-        const par = s.parentElement;
-        if (par && par.innerText.includes("Posting Date:")) {
-            postingDate = s.innerText.trim();
         }
     }
 
