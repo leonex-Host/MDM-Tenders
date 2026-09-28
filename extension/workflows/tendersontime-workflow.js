@@ -300,9 +300,20 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     if (detailData && detailData.found) {
                         const newMatch = { ...item, ...detailData };
                         kwResults.push(newMatch);
-                        await enqueueUpload(runtime.jobId, { source: "tenderontime", keyword: keyword, tenders: [newMatch] });
+                        const uploadRes = await enqueueUpload(runtime.jobId, { source: "tenderontime", keyword: keyword, tenders: [newMatch] });
+
                         allMatchesCount++;
-                        await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount });
+
+                        runtime.results = (runtime.results || 0) + 1;
+                        runtime.inserted = (runtime.inserted || 0) + (uploadRes?.inserted || 0);
+                        runtime.duplicates = (runtime.duplicates || 0) + (uploadRes?.duplicates || 0);
+
+                        await updateRuntimeState(runtime.jobId, {
+                            results: runtime.results,
+                            inserted: runtime.inserted,
+                            duplicates: runtime.duplicates,
+                            resultsCollected: allMatchesCount
+                        });
                     }
                 }
             }
