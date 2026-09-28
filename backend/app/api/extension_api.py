@@ -365,9 +365,7 @@ def get_email_payload(
 
     # Pull Tenders & HTML
     tenders = db.query(Tender).filter(Tender.created_at >= start_dt, Tender.created_at <= end_dt).order_by(Tender.created_at.desc()).all()
-    google_results = db.query(GoogleResult).filter(GoogleResult.scraped_at >= start_dt, GoogleResult.scraped_at <= end_dt, GoogleResult.result_type == "filtered").order_by(GoogleResult.scraped_at.desc()).all()
-    
-    html_content = EmailService.generate_tender_report_html(tenders=tenders, google_results=google_results)
+    google_results = db.query(GoogleResult).filter(GoogleResult.scraped_at >= start_dt, GoogleResult.scraped_at <= end_dt, GoogleResult.result_type.in_(["all", "filtered"])).order_by(GoogleResult.scraped_at.desc()).all()
     
     if emails and emails.strip():
         to_emails = [e.strip() for e in emails.split(',') if e.strip()]
@@ -375,16 +373,37 @@ def get_email_payload(
         recipients = db.query(EmailRecipient).filter(EmailRecipient.is_active == True).all()
         to_emails = [r.email for r in recipients] if recipients else ["admin@leonex.net"]
 
+    payloads = []
+
+    # 1. Tender Report
+    html_content = EmailService.generate_tender_report_html(tenders=tenders, google_results=[])
     msg = EmailMessage()
     msg["Subject"] = f"MDM Tender Automation Report - {datetime.now().strftime('%d %b %Y')}"
     msg["To"] = ", ".join(to_emails)
-    # The Gmail API gracefully dynamically assigns 'From' based on the active OAuth session.
-
     msg.set_content("Please enable HTML to view this email.")
     msg.add_alternative(html_content, subtype="html")
+    payloads.append(base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8').rstrip("="))
 
-    raw_b64 = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8').rstrip("=")
-    return {"raw": raw_b64}
+    # 2. Google Report
+    if google_results:
+        # De-duplicate links for Google payload similar to send_google_report
+        seen_links = set()
+        clean_google_results = []
+        for r in google_results:
+            lnk = r.link or ""
+            if lnk not in seen_links:
+                seen_links.add(lnk)
+                clean_google_results.append(r)
+        
+        google_html = EmailService.generate_google_report_html(results=clean_google_results)
+        msg2 = EmailMessage()
+        msg2["Subject"] = f"Google Tender Report - {datetime.now().strftime('%d %b %Y')}"
+        msg2["To"] = ", ".join(to_emails)
+        msg2.set_content("Please enable HTML to view this email.")
+        msg2.add_alternative(google_html, subtype="html")
+        payloads.append(base64.urlsafe_b64encode(msg2.as_bytes()).decode('utf-8').rstrip("="))
+
+    return {"payloads": payloads, "raw": payloads[0] if payloads else None}
 
 
 # ── GET /status — Dashboard checks if extension is alive ─────────────────────

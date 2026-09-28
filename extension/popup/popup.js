@@ -270,21 +270,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
                         const payload = await res.json();
-                        if (!payload.raw) throw new Error("Invalid Payload");
+                        const rawPayloads = payload.payloads || (payload.raw ? [payload.raw] : []);
+                        if (rawPayloads.length === 0) throw new Error("No data found for this period");
 
                         log("Dispatching via Gmail API...");
-                        const gRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-                            method: "POST",
-                            headers: {
-                                "Authorization": `Bearer ${token}`,
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify({ raw: payload.raw })
-                        });
+                        for (const raw of rawPayloads) {
+                            const gRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+                                method: "POST",
+                                headers: {
+                                    "Authorization": `Bearer ${token}`,
+                                    "Content-Type": "application/json"
+                                },
+                                body: JSON.stringify({ raw })
+                            });
 
-                        if (!gRes.ok) {
-                            const errorText = await gRes.text();
-                            throw new Error(`Gmail API HTTP ${gRes.status}: ${errorText}`);
+                            if (!gRes.ok) {
+                                const errorText = await gRes.text();
+                                throw new Error(`Gmail API HTTP ${gRes.status}: ${errorText}`);
+                            }
                         }
                         log("Report securely transmitted!");
                         setTimeout(() => { emailModal.style.display = 'none'; document.getElementById('jobs_panel').style.display = 'block'; }, 2000);
