@@ -185,8 +185,8 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     }
                 }).catch(e => console.warn("[TOT] Interceptor inject skip:", e));
 
-                // Critical: Ensure full AngularJS structural hydration before dispatching synthetic native events
-                await new Promise(r => setTimeout(r, 2000));
+                // Ensure minimal AngularJS structural hydration before dispatching synthetic native events
+                await new Promise(r => setTimeout(r, 250));
 
                 console.log("[TOT][DEBUG] BEFORE_PAGE_CHECK");
                 const pageReady = await waitUntilPageAvailable(runtime.tabId, { isGoogle: false }, keyword);

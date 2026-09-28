@@ -344,14 +344,14 @@ async function clickNextPage() {
     btn.scrollIntoView({ behavior: "instant", block: "center" });
     btn.click();
 
-    // Explicit buffer to allow pagination AJAX to start clearing old DOM
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    // Responsive asynchronous AJAX yielding
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     let lastSignature = null;
     let stableCount = 0;
 
-    for (let attempt = 0; attempt < 40; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+    for (let attempt = 0; attempt < 60; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         const items = document.querySelectorAll("div.listingbox.ng-scope, div.listingbox, div.tender-item");
 
