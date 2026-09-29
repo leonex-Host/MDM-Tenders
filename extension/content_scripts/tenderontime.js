@@ -1,19 +1,19 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     try {
         if (request.action === "check_page_available") {
-            Promise.resolve(checkPageAvailable()).then(sendResponse).catch(e => sendResponse(null));
+            Promise.resolve(checkPageAvailable()).then(sendResponse).catch(e => { console.error("[TOT] FATAL ERROR parsing page availability:", e); sendResponse(null); });
             return true;
         } else if (request.action === "extract_listings") {
-            extractListings().then(sendResponse).catch(e => sendResponse(null));
+            extractListings().then(sendResponse).catch(e => { console.error("[TOT] FATAL ERROR inside extract_listings:", e); sendResponse(null); });
             return true;
         } else if (request.action === "extract_details") {
-            extractDetails(request.keyword).then(sendResponse).catch(e => sendResponse(null));
+            extractDetails(request.keyword).then(sendResponse).catch(e => { console.error("[TOT] FATAL ERROR inside extract_details:", e); sendResponse(null); });
             return true;
         } else if (request.action === "click_next_page") {
-            clickNextPage().then(sendResponse).catch(e => sendResponse(null));
+            Promise.resolve(clickNextPage()).then(sendResponse).catch(e => { console.error("[TOT] FATAL ERROR inside pagination selection:", e); sendResponse(null); });
             return true;
         } else if (request.action === "click_filter_button") {
-            clickFilterButton(request.keyword).then(sendResponse).catch(e => sendResponse(null));
+            Promise.resolve(clickFilterButton(request.options.keyword)).then(sendResponse).catch(e => { console.error("[TOT] FATAL ERROR in filter loop:", e); sendResponse(null); });
             return true;
         }
     } catch (e) {
