@@ -1,0 +1,88 @@
+===================================================================
+  MDM TENDERS - TendersOnTime Scraper: Debug Guide
+  Fixed: 2026-09-29 | Author: Antigravity AI
+===================================================================
+
+PROBLEM
+-------
+The TendersOnTime scraper was running but collecting 0 listings.
+Phase 2 (Details) never started. The popup showed FOUND: 0 always.
+
+HOW WE FOUND IT
+---------------
+We debugged in layers, starting from the Chrome DevTools page console,
+then moving to the Background Service Worker console.
+
+Bug 1 — WRONG INPUT FIELD TARGETED
+  The Chrome Extension searches for the keyword input by scanning all
+  <input> elements using a regex. The TendersOnTime page has a checkbox
+  called id="exactkeyword". Our regex matched "keyword" in the checkbox
+  ID, so the scraper was typing the search term INTO A CHECKBOX instead
+  of the text box.
+  FIX: Added a type filter to block checkbox/radio/hidden inputs before
+  the regex runs. Only text/search inputs are allowed.
+
+Bug 2 — PARSLEY.JS CRASH ON PAGE LOAD
+  When the URL contains ?q=keyword (e.g. advanceSearch?q=codification),
+  TendersOnTime's own form validator (parsley.js) crashes on page load
+  because a required error container (#captcha-error-cb) is missing
+  from their HTML. This froze their entire JS framework — so clicking
+  the Filter button did nothing.
+  FIX: The filter click now uses full MouseEvent chain (mousedown +
+  mouseup + click) to force-trigger filterTendersJS(), which bypasses
+  the broken form submission handler.
+
+Bug 3 — LISTINGS ALWAYS RETURNED EMPTY ARRAY (THE REAL ROOT CAUSE)
+  This was the hardest bug to find. Here is exactly what happened:
+
+  a) The Extension opens an isolated Chrome window (hidden tab) and
+     navigates to TendersOnTime.
+  b) clickFilterButton() runs, detects DOM changes, confirms RESULTS_STABLE.
+  c) The background worker then calls extract_listings via sendMessage().
+  d) BUT — when Angular processes the filter click, it performs a route
+     transition, which INVALIDATES the content script context.
+  e) sendMessage() to a dead content script context returns null silently.
+     No error. No warning. Just null.
+  f) waitUntilListingsReady() retried for 35 seconds, always getting null
+     or empty arrays, then timed out. This is why Phase 2 never started.
+
+  HOW WE CONFIRMED IT:
+  - Background logs showed extract_listings being sent 30+ times
+  - Page console showed RESULTS_STABLE but NO [TOT][LISTINGS] EXTRACT_START
+  - That silence = content script context was dead
+
+  FIX: Replaced sendMessage() with chrome.scripting.executeScript() for
+  the listing extraction. executeScript() injects code DIRECTLY into the
+  tab's DOM fresh each time — it does not rely on a pre-existing content
+  script context. Also switched from innerText to textContent because
+  innerText can return empty in background/minimized tabs.
+
+  Key files changed:
+  - extension/workflows/tendersontime-workflow.js → waitUntilListingsReady()
+  - extension/content_scripts/tenderontime.js → extractListings filter
+
+===================================================================
+HOW TO RUN
+===================================================================
+1. Open Chrome → chrome://extensions → Load Unpacked → select /extension
+2. Open TendersOnTime in same Chrome profile
+3. Click MDM Extension popup → Start TendersOnTime job
+4. Monitor: Background Service Worker console for [TOT][SCRIPTING] logs
+
+IMPORTANT: Always reload the extension AND hard-refresh (F5) the
+TendersOnTime tab after any code change. Chrome caches content scripts
+aggressively. If you don't do both, old code runs.
+
+===================================================================
+LESSON FOR FUTURE DEVS
+===================================================================
+- chrome.tabs.sendMessage() FAILS SILENTLY after Angular route transitions.
+  If extraction returns nothing after filter click — use executeScript() instead.
+- Always open the Background Service Worker console (chrome://extensions →
+  "service worker" link) to see orchestrator logs. Page console only shows
+  content script logs.
+- innerText returns empty strings in hidden/minimized tabs. Use textContent.
+- parsley.js on TendersOnTime is broken (missing #captcha-error-cb).
+  Do not rely on their form submission — always use native MouseEvent chains.
+
+===================================================================
