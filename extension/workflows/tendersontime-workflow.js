@@ -80,9 +80,10 @@ async function waitUntilListingsReady(tabId) {
                     });
                     return items.map(item => {
                         let title = "", href = "", deadline = "", tot_ref = "", country = "";
+                        // STRICT: only pick anchor whose href points to an actual tender detail page
                         const linkEl = [...item.querySelectorAll("a")].find(a => {
                             const h = a.getAttribute("href") || a.getAttribute("ng-href") || a.href || "";
-                            return h && h !== "#" && h.length > 5;
+                            return h && /tender.*detail|tenders-detail|tenders\/detail/i.test(h);
                         });
                         if (linkEl) {
                             title = (linkEl.textContent || "").trim();
