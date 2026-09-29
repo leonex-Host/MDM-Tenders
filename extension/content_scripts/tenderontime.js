@@ -230,29 +230,32 @@ async function extractDetails(keyword) {
     let postingDate = "";
 
     // -- STRICT KEYWORD CHECK --
-    // Only check the tender's actual title elements and primary description.
-    // Full body text is too loose — boilerplate footers and related listings cause false positives.
+    // Targets the actual TenderOnTime DOM structure provided by user
+    // e.g. <p>Summary: <strong class="strval">Actual Title Data</strong></p>
     if (keyword) {
         const kw = keyword.trim().toLowerCase();
         // Allow hyphen-space variants: "data standardization" matches "data-standardization"
         const kwPattern = kw.replace(/\s+/g, "[\\s\\-_]+");
         const kwRegex = new RegExp(kwPattern, "i");
 
-        // Check 1: Page title tag
+        // 1. Check title tag
         const pageTitle = (document.title || "").toLowerCase();
-        // Check 2: h1, h2, h3 headings on the detail page
-        const headingText = [...document.querySelectorAll("h1, h2, h3, h4")]
-            .map(el => (el.innerText || "").trim())
-            .join(" ")
-            .toLowerCase();
-        // Check 3: The tender's primary description/summary block (not full body)
-        const descEl = document.querySelector(
-            ".tender-description, .description, #description, .summary, .tender-summary, " +
-            ".tender-details, .details-body, .scope, article, main p"
-        );
-        const descText = (descEl?.innerText || "").toLowerCase();
 
-        if (kwRegex.test(pageTitle) || kwRegex.test(headingText) || kwRegex.test(descText)) {
+        // 2. Extract actual tender summary/title from DOM
+        let strvalText = "";
+        const pTags = document.querySelectorAll("p");
+        for (const p of pTags) {
+            if (p.textContent.toLowerCase().includes("summary:")) {
+                const strong = p.querySelector("strong.strval");
+                if (strong) {
+                    strvalText += " " + (strong.innerText || strong.textContent || "").trim();
+                } else {
+                    strvalText += " " + (p.innerText || p.textContent || "").replace(/summary:/i, "").trim();
+                }
+            }
+        }
+
+        if (kwRegex.test(pageTitle) || kwRegex.test(strvalText.toLowerCase())) {
             found = true;
         }
     } else {
