@@ -129,8 +129,7 @@ export async function runTendersOnTimeWorkflow(runtime) {
     try {
         for (; kwIndex < keywords.length; kwIndex++) {
             const keyword = keywords[kwIndex];
-            const escaped = encodeURIComponent(keyword.trim());
-            const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
+            const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch`;
 
             // Allow resuming from a specific phase
             let phase = runtime.phase || 'search';
