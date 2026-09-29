@@ -295,7 +295,8 @@ async function extractDetails(keyword) {
     return {
         found,
         description: descriptionSnippet,
-        posting_date: postingDate
+        posting_date: postingDate,
+        extractedTitle: strvalText
     };
 }
 

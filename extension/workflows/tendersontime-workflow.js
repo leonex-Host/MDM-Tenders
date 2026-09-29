@@ -336,9 +336,28 @@ export async function runTendersOnTimeWorkflow(runtime) {
                         await setManualActionRequired(runtime.jobId, 'Cloudflare/Captcha Block at Details', u);
                         throw new Error("CHALLENGE_PAUSED");
                     }
-
                     const detailData = await executeContentScript(runtime.tabId, "extract_details", { keyword });
+
                     if (detailData && detailData.found) {
+                        // STRICT ORCHESTRATOR OVERRIDE:
+                        // If the content script was stale/cached and falsely passed found=true,
+                        // this double-check prevents it from reaching the database!
+                        const kwPattern = keyword.trim().toLowerCase().replace(/\s+/g, "[\\s\\-_]+");
+                        const kwRegex = new RegExp(kwPattern, "i");
+
+                        const extractedTitle = detailData.extractedTitle || "";
+                        const itemTitle = (item.title || "");
+
+                        let safePass = false;
+                        if (kwRegex.test(extractedTitle.toLowerCase()) || kwRegex.test(itemTitle.toLowerCase())) {
+                            safePass = true;
+                        }
+
+                        if (!safePass) {
+                            console.warn(`[TOT][${runtime.jobId}] ORCHESTRATOR BLOCKED STALE MATCH: ${itemTitle} did NOT contain ${keyword}. Skipping.`);
+                            continue; // DO NOT SAVE!
+                        }
+
                         const newMatch = { ...item, ...detailData };
                         kwResults.push(newMatch);
                         await enqueueUpload(runtime.jobId, { source: "tenderontime", keyword: keyword, tenders: [newMatch] });
