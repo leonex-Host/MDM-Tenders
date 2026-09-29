@@ -5,12 +5,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     else if (request.action === "extract_listings") {
         Promise.resolve(extractListings()).then(data => {
-            if (data && data.status) {
-                sendResponse(data);
-            } else {
-                sendResponse({ status: "results", listings: data || [] });
-            }
-        }).catch(e => { console.error("Extract Crash:", e); sendResponse({ status: "results", listings: [] }); });
+            sendResponse(data);
+        }).catch(e => { console.error("Extract Crash:", e); sendResponse([]); });
         return true;
     }
     else if (request.action === "extract_details") {
