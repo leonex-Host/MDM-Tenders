@@ -114,7 +114,14 @@ async function clickFilterButton(keyword) {
 
     console.log("[TOT][CONTENT] SEARCHING_INPUT");
 
-    const allInputs = [...document.querySelectorAll('input')].filter(visible);
+    const allInputs = [...document.querySelectorAll('input')].filter(el => {
+        if (!visible(el)) return false;
+        const type = (el.type || "").toLowerCase();
+        // Specifically block structural/boolean inputs from being mistaken for text search fields
+        if (['checkbox', 'radio', 'hidden', 'submit', 'button', 'file', 'image', 'color'].includes(type)) return false;
+        return true;
+    });
+
     const input = allInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
         || allInputs.find(el => el.type === 'text' || el.type === 'search');
 
