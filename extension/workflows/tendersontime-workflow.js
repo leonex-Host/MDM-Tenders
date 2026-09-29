@@ -13,7 +13,16 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
         try { tabInfo = await chrome.tabs.get(tabId); } catch (e) { return { ready: false, isChallenge: false }; }
 
         const pageCheck = await executeContentScript(tabId, "check_page_available");
-        console.log(`[TOT][WAIT] URL=${tabInfo.url} status=${tabInfo.status}`, pageCheck);
+
+        const currentUrl = (tabInfo.url || "").toLowerCase();
+        let isExpected = false;
+        if (options.isGoogle) {
+            isExpected = currentUrl.includes("google.com/search");
+        } else {
+            isExpected = currentUrl.includes("/tenders/advancesearch");
+        }
+
+        console.log(`[TOT][PAGE] URL_CHECK expected=${isExpected} url=${tabInfo.url}`);
 
         if (pageCheck && pageCheck.cloudflareActive) {
             console.warn(`[TOT][${tabId}] CLOUDFLARE tracking... (${challengeLoops}/12)`);
@@ -36,13 +45,8 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
             await sleep(1500); continue;
         }
 
-        const currentUrl = (tabInfo.url || "").toLowerCase();
-        const isExpected = options.isGoogle
-            ? currentUrl.includes("google.com/search")
-            : currentUrl.includes("/tenders/advancesearch");
-
-        if (isExpected && pageCheck && pageCheck.readyState === "complete" && !pageCheck.cloudflareActive) {
-            console.log(`[TOT][WAIT][${tabId}] PAGE_READY`);
+        if (isExpected && pageCheck.readyState === "complete" && !pageCheck.cloudflareActive) {
+            console.log(`[TOT][PAGE] PAGE_READY [${tabId}]`);
             await sleep(1000);
             return { ready: true, isChallenge: false, pageCheck };
         }
@@ -50,9 +54,7 @@ async function waitUntilPageAvailable(tabId, options = {}, keyword = "") {
         await sleep(1500);
     }
 
-    // Attempt fallback retrieval before hard fail
     const fallbackStatus = await executeContentScript(tabId, "check_page_available") || {};
-    console.error(`[TOT][PAGE_TIMEOUT] keyword="${keyword}"\nreason="timeout"\nurl="${(await chrome.tabs.get(tabId).catch(() => ({ url: '' }))).url}"\nreadyState="${fallbackStatus.readyState}"\nformReady=${fallbackStatus.formReady}\nfilterReady=${fallbackStatus.filterReady}\nexactFilter=${fallbackStatus.exactFilter}`);
     return { ready: false, isChallenge: false, pageCheck: fallbackStatus };
 }
 
@@ -66,7 +68,7 @@ async function waitUntilListingsReady(tabId) {
     while (Date.now() - startTime < timeout) {
         let listingData = await executeContentScript(tabId, "extract_listings");
         if (!listingData) {
-            await sleep(1000); continue;
+            await sleep(200); continue;
         }
         if (listingData.status === "cloudflare") {
             console.warn(`[TOT][${tabId}] CLOUDFLARE tracking organically within items... (${challengeLoops}/12)`);
@@ -88,14 +90,14 @@ async function waitUntilListingsReady(tabId) {
                 } else {
                     noResultsCount = 0;
                 }
-                await sleep(1000);
+                await sleep(500);
                 continue;
             } else {
-                console.log(`[TOT][LISTINGS_READY] Dynamically detected ${listingData.length} valid results on active view.`);
+                console.log(`[TOT][LISTINGS_READY] Dynamically detected ${listingData.length} valid results.`);
                 return { status: "results", listings: listingData };
             }
         }
-        await sleep(1000);
+        await sleep(200);
     }
     console.warn("[TOT][LISTINGS_TIMEOUT] Listings failed to render within allotted tracking window.");
     return { status: "timeout" };
@@ -129,7 +131,8 @@ export async function runTendersOnTimeWorkflow(runtime) {
     try {
         for (; kwIndex < keywords.length; kwIndex++) {
             const keyword = keywords[kwIndex];
-            const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch`;
+            const escaped = encodeURIComponent(keyword.trim());
+            const searchUrl = `https://www.tendersontime.com/tenders/advanceSearch?q=${escaped}`;
 
             // Allow resuming from a specific phase
             let phase = runtime.phase || 'search';
@@ -184,8 +187,8 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     }
                 }).catch(e => console.warn("[TOT] Interceptor inject skip:", e));
 
-                // Critical: Ensure full AngularJS structural hydration before dispatching synthetic native events
-                await new Promise(r => setTimeout(r, 2000));
+                // Ensure minimal AngularJS structural hydration before dispatching synthetic native events
+                await new Promise(r => setTimeout(r, 250));
 
                 console.log("[TOT][DEBUG] BEFORE_PAGE_CHECK");
                 const pageReady = await waitUntilPageAvailable(runtime.tabId, { isGoogle: false }, keyword);
@@ -254,7 +257,10 @@ export async function runTendersOnTimeWorkflow(runtime) {
 
                     const expectedPage = pageNum + 1;
                     const actualPage = nextResult.pageNumber;
-                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_CHANGED Successfully traversed into native iteration loop ${actualPage || expectedPage}.`);
+                    if (actualPage && parseInt(actualPage, 10) !== expectedPage) {
+                        console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] ERROR Pagination sequence mismatch. Expected ${expectedPage}, read ${actualPage}. Exiting slice bounds.`);
+                        break;
+                    }
                     console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_CHANGED Successfully traversed into native iteration loop ${actualPage}.`);
 
                     pageNum++;
@@ -296,20 +302,9 @@ export async function runTendersOnTimeWorkflow(runtime) {
                     if (detailData && detailData.found) {
                         const newMatch = { ...item, ...detailData };
                         kwResults.push(newMatch);
-                        const uploadRes = await enqueueUpload(runtime.jobId, { source: "tenderontime", keyword: keyword, tenders: [newMatch] });
-
+                        await enqueueUpload(runtime.jobId, { source: "tenderontime", keyword: keyword, tenders: [newMatch] });
                         allMatchesCount++;
-
-                        runtime.results = (runtime.results || 0) + 1;
-                        runtime.inserted = (runtime.inserted || 0) + (uploadRes?.inserted || 0);
-                        runtime.duplicates = (runtime.duplicates || 0) + (uploadRes?.duplicates || 0);
-
-                        await updateRuntimeState(runtime.jobId, {
-                            results: runtime.results,
-                            inserted: runtime.inserted,
-                            duplicates: runtime.duplicates,
-                            resultsCollected: allMatchesCount
-                        });
+                        await updateRuntimeState(runtime.jobId, { resultsCollected: allMatchesCount });
                     }
                 }
             }
