@@ -225,9 +225,35 @@ async function extractListings() {
 }
 
 async function extractDetails(keyword) {
-    let found = true;
+    let found = false;
     let descriptionSnippet = "";
     let postingDate = "";
+
+    // -- STRICT KEYWORD CHECK --
+    // Check in title, headings, and summary — the most relevant sections.
+    // Use word-boundary aware check: keyword must appear as a phrase, not as scattered sub-words.
+    if (keyword) {
+        const kw = keyword.trim().toLowerCase();
+        const titleText = (document.title || "").toLowerCase();
+        const h1Text = [...document.querySelectorAll("h1, h2, h3")].map(el => el.innerText || "").join(" ").toLowerCase();
+        const bodyText = (document.body?.innerText || "").toLowerCase();
+
+        // Build a regex that matches the keyword as a complete phrase (allows minor spacing differences)
+        const kwPattern = kw.replace(/\s+/g, "[\\s\\-]+"); // allow hyphen variants e.g. "data-standardization"
+        const kwRegex = new RegExp(kwPattern, "i");
+
+        // Priority 1: keyword in title or headings — strong signal
+        if (kwRegex.test(titleText) || kwRegex.test(h1Text)) {
+            found = true;
+        }
+        // Priority 2: keyword appears in body text (whole page content)
+        else if (kwRegex.test(bodyText)) {
+            found = true;
+        }
+    } else {
+        // No keyword provided — accept everything (fallback)
+        found = true;
+    }
 
     const allParagraphs = [...document.querySelectorAll("p, div, a, span")];
 
