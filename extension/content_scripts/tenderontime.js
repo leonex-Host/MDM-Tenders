@@ -150,6 +150,11 @@ async function extractListings() {
     let listings = [];
 
     const rawItems = document.querySelectorAll("div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item, table#searchedtenders tr, tr.tender-row, tr[class*='tender'], .card");
+    console.log(`[TOT][LISTINGS] rawItems count=${rawItems.length} title="${document.title}" url="${location.href.slice(0, 80)}"`);
+    if (rawItems.length > 0) {
+        const sample = rawItems[0];
+        console.log(`[TOT][LISTINGS] sample[0] tag=${sample.tagName} class="${sample.className}" text="${(sample.innerText || "").slice(0, 80)}"`);
+    }
     const items = [...rawItems].filter(el => {
         const t = (el.innerText || "").toLowerCase();
         const hasText = t.length > 20 && !t.includes("type of tender") && !t.includes("th data") && (t.includes("tender") || t.includes("tot ref") || t.includes("deadline"));
@@ -158,6 +163,7 @@ async function extractListings() {
         const linkHTML = el.innerHTML || el.outerHTML || "";
         return /tenders?(?:-details)?\//i.test(linkHTML);
     });
+    console.log(`[TOT][LISTINGS] filtered items=${items.length}`);
 
     items.forEach(item => {
         try {
