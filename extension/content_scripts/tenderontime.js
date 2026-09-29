@@ -114,16 +114,20 @@ async function clickFilterButton(keyword) {
 
     console.log("[TOT][CONTENT] SEARCHING_INPUT");
 
-    const allInputs = [...document.querySelectorAll('input')].filter(el => {
-        if (!visible(el)) return false;
-        const type = (el.type || "").toLowerCase();
-        // Specifically block structural/boolean inputs from being mistaken for text search fields
-        if (['checkbox', 'radio', 'hidden', 'submit', 'button', 'file', 'image', 'color'].includes(type)) return false;
-        return true;
-    });
+    // Strictly target the sidebar Advanced Search input first
+    let input = document.querySelector("input[placeholder*='Enter your Search keywords'], input[name='multi_search_keyword'], .filter-sec input[type='text'], .left-sidebar input[type='text'], input[placeholder*='keyword']");
 
-    const input = allInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
-        || allInputs.find(el => el.type === 'text' || el.type === 'search');
+    if (!input || !visible(input)) {
+        const allInputs = [...document.querySelectorAll('input')].filter(el => {
+            if (!visible(el)) return false;
+            const type = (el.type || "").toLowerCase();
+            if (['checkbox', 'radio', 'hidden', 'submit', 'button', 'file', 'image', 'color'].includes(type)) return false;
+            return true;
+        });
+
+        input = allInputs.find(el => /search|keyword|query|q/i.test(`${el.name} ${el.id} ${el.placeholder}`))
+            || allInputs.find(el => el.type === 'text' || el.type === 'search');
+    }
 
     if (!input) {
         console.warn('[TOT][FILTER_FAILED] No search input found on page.');
