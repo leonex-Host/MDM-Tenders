@@ -61,6 +61,18 @@ Bug 3 — LISTINGS ALWAYS RETURNED EMPTY ARRAY (THE REAL ROOT CAUSE)
   - extension/workflows/tendersontime-workflow.js → waitUntilListingsReady()
   - extension/content_scripts/tenderontime.js → extractListings filter
 
+Bug 4 — ANGULAR SPA CACHE AND SIDEBAR FALSE POSITIVES 
+  The TendersOnTime Angular application utilizes a Single Page architecture. When the user executed a search for "Data Standardization", Angular updated the hidden `<title>` tag and injected a "Recent Searches: Data Standardization" block in the page footer.
+  When the scraper natively clicked into a totally unrelated dummy tender (e.g., "Provision of Isbn Numbers"):
+  a) The `<title>` cache carried over from the search phase, retaining "Data Standardization".
+  b) The global `document.querySelectorAll("p")` scraped the entire page, slurping up the dynamic footer.
+  This caused EVERY unrelated link visited by that keyword to evaluate `found = true`.
+  FIX: Removed the `document.title` check entirely. Enforced a rigid, absolute DOM pathing rule in `extractDetails` that explicitly isolates the *closest* `<strong class="strval">` natively grouped under the `Summary:` tag, instantly terminating traversal (via `break`) the millisecond it successfully anchors to the genuine Tender identity block.
+
+Bug 5 — ZOMBIE SCRIPT CACHING FATALITIES
+  Because TendersOnTime is an SPA, if a user hits "Reload" on the Chrome Extension but does not physically close the previously generated TendersOnTime bot-window, Chrome natively maintains the OLD version of `content_scripts/tenderontime.js` in execution memory for that tab. This allowed structurally flawed false-positives to persist across multiple debugging runs.
+  FIX: Implemented an unbreakable Background Worker Firewall (`[TOT] ORCHESTRATOR BLOCKED STALE MATCH`). Even if the zombie content script mistakenly returns `found: true`, Phase 2 within `tendersontime-workflow.js` intercepts the IPC payload, independently extracts the actual string, runs a secondary rigid regex check from the sterile background context, and silently annihilates the bad payload before it hits the database.
+
 ===================================================================
 HOW TO RUN
 ===================================================================
@@ -69,7 +81,7 @@ HOW TO RUN
 3. Click MDM Extension popup → Start TendersOnTime job
 4. Monitor: Background Service Worker console for [TOT][SCRIPTING] logs
 
-IMPORTANT: Always reload the extension AND hard-refresh (F5) the
+IMPORTANT: Always reload the extension AND hard-refresh/close (F5) the
 TendersOnTime tab after any code change. Chrome caches content scripts
 aggressively. If you don't do both, old code runs.
 
@@ -78,9 +90,9 @@ LESSON FOR FUTURE DEVS
 ===================================================================
 - chrome.tabs.sendMessage() FAILS SILENTLY after Angular route transitions.
   If extraction returns nothing after filter click — use executeScript() instead.
-- Always open the Background Service Worker console (chrome://extensions →
-  "service worker" link) to see orchestrator logs. Page console only shows
-  content script logs.
+- The `document.title` API does NOT instantly hydrate/swap on SPA click-throughs.
+- `querySelectorAll` must aggressively terminate natively using `break` on SPAs because injected dynamic footers / cookie banners will fatally contaminate the traversal string.
+- Never trust IPC Content Script replies as gospel. Always implement a secondary data-purity verify gate inside the Orchestrator Background context.
 - innerText returns empty strings in hidden/minimized tabs. Use textContent.
 - parsley.js on TendersOnTime is broken (missing #captcha-error-cb).
   Do not rely on their form submission — always use native MouseEvent chains.
