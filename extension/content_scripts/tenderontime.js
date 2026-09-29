@@ -189,8 +189,16 @@ async function extractListings() {
     const rawItems = document.querySelectorAll("div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item, table#searchedtenders tr, tr.tender-row, tr[class*='tender'], .card");
     const items = [...rawItems].filter(el => {
         const t = (el.innerText || "").toLowerCase();
-        return t.length > 20 && !t.includes("type of tender") && !t.includes("th data") && (t.includes("tender") || t.includes("tot ref") || t.includes("deadline"));
+        const valid = t.length > 20 && !t.includes("type of tender") && !t.includes("th data") && (t.includes("tender") || t.includes("tot ref") || t.includes("deadline"));
+        if (!valid) {
+            console.log(`[TOT][CONTENT] DROPPED_RAW_ITEM`, { text: t, rawClass: el.className });
+        } else {
+            console.log(`[TOT][CONTENT] VALIDATED_RAW_ITEM`, { text: t, rawClass: el.className });
+        }
+        return valid;
     });
+
+    console.log(`[TOT][CONTENT] extract_listings raw=${rawItems.length} passed=${items.length}`);
 
     items.forEach(item => {
         try {
@@ -388,8 +396,7 @@ async function clickNextPage() {
         text: btn.innerText?.trim(),
         href: btn.href || null,
         className: btn.className,
-        visible: !!(btn.offsetWidth || btn.offsetHeight || btn.getClientRects().length),
-        outerHTML: btn.outerHTML.slice(0, 1000)
+        visible: !!(btn.offsetWidth || btn.offsetHeight || btn.getClientRects().length)
     });
 
     console.log("[BEFORE NEXT]", {
@@ -399,6 +406,10 @@ async function clickNextPage() {
     });
 
     btn.scrollIntoView({ behavior: "instant", block: "center" });
+
+    // Robust Angular Click Hydration
+    btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     btn.click();
 
     // Explicit buffer to allow pagination AJAX to start clearing old DOM
@@ -440,7 +451,7 @@ async function clickNextPage() {
                     changed: true,
                     beforeSignature,
                     afterSignature: currentSignature,
-                    pageNumber: getCurrentPageNumber()
+                    pageNumber: getCurrentPageNumber() || 999
                 };
             }
         }
@@ -451,6 +462,6 @@ async function clickNextPage() {
         changed: false,
         reason: "new_page_did_not_stabilize",
         beforeSignature,
-        pageNumber: getCurrentPageNumber()
+        pageNumber: getCurrentPageNumber() || 999
     };
 }
