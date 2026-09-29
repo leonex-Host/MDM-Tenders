@@ -64,8 +64,21 @@ async function waitUntilListingsReady(tabId) {
     let noResultsCount = 0;
 
     console.log(`[TOT][LISTINGS_WAIT] Waiting up to ${timeout}ms for search listings to populate...`);
-    let challengeLoops = 0;
+
     while (Date.now() - startTime < timeout) {
+        // ALWAYS check for organic "No Results" message first
+        // TendersOnTime injects 10-page default fallback tenders if a query yields 0 results!
+        const pageCheck = await executeContentScript(tabId, "check_page_available");
+        if (pageCheck && pageCheck.hasNoResultsText) {
+            noResultsCount++;
+            if (noResultsCount >= 3) {
+                console.log("[TOT][NO_RESULTS] Confirmed zero-results display condition organically.");
+                return { status: "no_results" };
+            }
+        } else {
+            noResultsCount = 0;
+        }
+
         // Use executeScript directly — sendMessage fails after Angular route transitions invalidate content script context
         let listingData = null;
         try {
@@ -116,21 +129,9 @@ async function waitUntilListingsReady(tabId) {
         if (!listingData) {
             await sleep(500); continue;
         }
+
         if (Array.isArray(listingData)) {
-            if (listingData.length === 0) {
-                let pageCheck = await executeContentScript(tabId, "check_page_available");
-                if (pageCheck && pageCheck.hasNoResultsText) {
-                    noResultsCount++;
-                    if (noResultsCount >= 3) {
-                        console.log("[TOT][NO_RESULTS] Confirmed zero-results display condition organically.");
-                        return { status: "no_results" };
-                    }
-                } else {
-                    noResultsCount = 0;
-                }
-                await sleep(500);
-                continue;
-            } else {
+            if (listingData.length > 0 && noResultsCount === 0) {
                 console.log(`[TOT][LISTINGS_READY] Dynamically detected ${listingData.length} valid results.`);
                 return { status: "results", listings: listingData };
             }
