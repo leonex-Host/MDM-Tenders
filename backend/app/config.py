@@ -56,6 +56,7 @@ class Settings(BaseSettings):
 
     # All MDM/Tender keywords
     SEARCH_KEYWORDS: List[str] = [
+        "Data Standardization",
         "Data Cataloguing",
         "codification",
         "master data",
@@ -77,7 +78,6 @@ class Settings(BaseSettings):
         "Deduplication, Cleansing and Standardization",
         "Data Cleansing",
         "Enrichment services",
-        "Data Standardization",
         "Cataloguing and standardizing",
         "Cataloguing and classification",
         "Service master",

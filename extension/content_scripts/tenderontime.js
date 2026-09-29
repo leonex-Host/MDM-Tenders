@@ -230,29 +230,33 @@ async function extractDetails(keyword) {
     let postingDate = "";
 
     // -- STRICT KEYWORD CHECK --
-    // Check in title, headings, and summary — the most relevant sections.
-    // Use word-boundary aware check: keyword must appear as a phrase, not as scattered sub-words.
+    // Only check the tender's actual title elements and primary description.
+    // Full body text is too loose — boilerplate footers and related listings cause false positives.
     if (keyword) {
         const kw = keyword.trim().toLowerCase();
-        const titleText = (document.title || "").toLowerCase();
-        const h1Text = [...document.querySelectorAll("h1, h2, h3")].map(el => el.innerText || "").join(" ").toLowerCase();
-        const bodyText = (document.body?.innerText || "").toLowerCase();
-
-        // Build a regex that matches the keyword as a complete phrase (allows minor spacing differences)
-        const kwPattern = kw.replace(/\s+/g, "[\\s\\-]+"); // allow hyphen variants e.g. "data-standardization"
+        // Allow hyphen-space variants: "data standardization" matches "data-standardization"
+        const kwPattern = kw.replace(/\s+/g, "[\\s\\-_]+");
         const kwRegex = new RegExp(kwPattern, "i");
 
-        // Priority 1: keyword in title or headings — strong signal
-        if (kwRegex.test(titleText) || kwRegex.test(h1Text)) {
-            found = true;
-        }
-        // Priority 2: keyword appears in body text (whole page content)
-        else if (kwRegex.test(bodyText)) {
+        // Check 1: Page title tag
+        const pageTitle = (document.title || "").toLowerCase();
+        // Check 2: h1, h2, h3 headings on the detail page
+        const headingText = [...document.querySelectorAll("h1, h2, h3, h4")]
+            .map(el => (el.innerText || "").trim())
+            .join(" ")
+            .toLowerCase();
+        // Check 3: The tender's primary description/summary block (not full body)
+        const descEl = document.querySelector(
+            ".tender-description, .description, #description, .summary, .tender-summary, " +
+            ".tender-details, .details-body, .scope, article, main p"
+        );
+        const descText = (descEl?.innerText || "").toLowerCase();
+
+        if (kwRegex.test(pageTitle) || kwRegex.test(headingText) || kwRegex.test(descText)) {
             found = true;
         }
     } else {
-        // No keyword provided — accept everything (fallback)
-        found = true;
+        found = true; // No keyword = accept all
     }
 
     const allParagraphs = [...document.querySelectorAll("p, div, a, span")];
