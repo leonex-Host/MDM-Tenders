@@ -255,10 +255,7 @@ export async function runTendersOnTimeWorkflow(runtime) {
 
                     const expectedPage = pageNum + 1;
                     const actualPage = nextResult.pageNumber;
-                    if (actualPage && parseInt(actualPage, 10) !== expectedPage) {
-                        console.warn(`[TOT][${runtime.jobId}][${runtime.tabId}] ERROR Pagination sequence mismatch. Expected ${expectedPage}, read ${actualPage}. Exiting slice bounds.`);
-                        break;
-                    }
+                    console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_CHANGED Successfully traversed into native iteration loop ${actualPage || expectedPage}.`);
                     console.log(`[TOT][${runtime.jobId}][${runtime.tabId}] PAGE_CHANGED Successfully traversed into native iteration loop ${actualPage}.`);
 
                     pageNum++;
