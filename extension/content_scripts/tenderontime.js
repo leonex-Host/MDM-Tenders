@@ -1,28 +1,28 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "check_page_available") {
-        sendResponse(checkPageAvailable());
+        Promise.resolve(checkPageAvailable()).then(sendResponse);
         return true;
     }
     else if (request.action === "extract_listings") {
-        extractListings().then(data => {
+        Promise.resolve(extractListings()).then(data => {
             if (data && data.status) {
                 sendResponse(data);
             } else {
                 sendResponse({ status: "results", listings: data || [] });
             }
-        });
+        }).catch(e => { console.error("Extract Crash:", e); sendResponse({ status: "results", listings: [] }); });
         return true;
     }
     else if (request.action === "extract_details") {
-        extractDetails(request.keyword).then(sendResponse);
+        Promise.resolve(extractDetails(request.keyword)).then(sendResponse);
         return true;
     }
     else if (request.action === "click_next_page") {
-        clickNextPage().then(sendResponse);
+        Promise.resolve(clickNextPage()).then(sendResponse);
         return true;
     }
     else if (request.action === "click_filter_button") {
-        clickFilterButton(request.keyword).then(sendResponse);
+        Promise.resolve(clickFilterButton(request.keyword)).then(sendResponse);
         return true;
     }
 });
