@@ -155,8 +155,8 @@ async function extractListings() {
 
     const rawItems = document.querySelectorAll("div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item, table#searchedtenders tr, tr.tender-row, tr[class*='tender'], .card");
     const items = [...rawItems].filter(el => {
-        const t = (el.innerText || "").toLowerCase();
-        return t.length > 20 && !t.includes("type of tender") && !t.includes("th data") && (t.includes("tender") || t.includes("tot ref") || t.includes("deadline"));
+        const linkHTML = el.innerHTML || el.outerHTML || "";
+        return /tenders?(?:-details)?\//i.test(linkHTML);
     });
 
     items.forEach(item => {
