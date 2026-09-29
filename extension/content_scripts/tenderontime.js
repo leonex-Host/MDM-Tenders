@@ -240,26 +240,24 @@ async function extractDetails(keyword) {
 
         // 2. Extract actual tender summary/title from DOM
         let strvalText = "";
-        // Restrict search to the main tender details column to avoid footer/sidebar pollution
-        const pTags = document.querySelectorAll(".column p, .columns p, div[class*='detail'] p");
-        if (pTags.length > 0) {
-            for (const p of pTags) {
-                if (p.textContent.toLowerCase().includes("summary:")) {
-                    const strong = p.querySelector("strong.strval");
-                    if (strong) {
-                        strvalText = (strong.innerText || strong.textContent || "").trim();
-                    } else {
-                        strvalText = (p.innerText || p.textContent || "").replace(/summary:/i, "").trim();
-                    }
-                    break; // STOP at the true tender summary, do not read sidebars
-                }
+
+        // Find ALL strong elements with class 'strval'
+        const allStrvals = document.querySelectorAll("p strong.strval");
+        for (const strong of allStrvals) {
+            // Check if the parent paragraph contains exactly "summary:" before the strong tag
+            const parentP = strong.parentElement;
+            if (parentP && parentP.textContent.toLowerCase().includes("summary:")) {
+                strvalText = (strong.innerText || strong.textContent || "").trim();
+                break; // WE FOUND IT. Stop immediately.
             }
-        } else {
-            // Absolute fallback if structural classes fail
+        }
+
+        // If that structure is completely missing but a summary string exists:
+        if (!strvalText) {
             const allP = document.querySelectorAll("p");
             for (const p of allP) {
-                if (p.textContent.toLowerCase().includes("summary:") && p.querySelector("strong.strval")) {
-                    strvalText = p.innerText.replace(/summary:/i, "").trim();
+                if (p.textContent.toLowerCase().includes("summary:") && p.querySelector("strong")) {
+                    strvalText = (p.querySelector("strong").innerText || p.querySelector("strong").textContent || "").trim();
                     break;
                 }
             }
