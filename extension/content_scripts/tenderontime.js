@@ -240,17 +240,32 @@ async function extractDetails(keyword) {
 
         // 2. Extract actual tender summary/title from DOM
         let strvalText = "";
-        const pTags = document.querySelectorAll("p");
-        for (const p of pTags) {
-            if (p.textContent.toLowerCase().includes("summary:")) {
-                const strong = p.querySelector("strong.strval");
-                if (strong) {
-                    strvalText += " " + (strong.innerText || strong.textContent || "").trim();
-                } else {
-                    strvalText += " " + (p.innerText || p.textContent || "").replace(/summary:/i, "").trim();
+        // Restrict search to the main tender details column to avoid footer/sidebar pollution
+        const pTags = document.querySelectorAll(".column p, .columns p, div[class*='detail'] p");
+        if (pTags.length > 0) {
+            for (const p of pTags) {
+                if (p.textContent.toLowerCase().includes("summary:")) {
+                    const strong = p.querySelector("strong.strval");
+                    if (strong) {
+                        strvalText = (strong.innerText || strong.textContent || "").trim();
+                    } else {
+                        strvalText = (p.innerText || p.textContent || "").replace(/summary:/i, "").trim();
+                    }
+                    break; // STOP at the true tender summary, do not read sidebars
+                }
+            }
+        } else {
+            // Absolute fallback if structural classes fail
+            const allP = document.querySelectorAll("p");
+            for (const p of allP) {
+                if (p.textContent.toLowerCase().includes("summary:") && p.querySelector("strong.strval")) {
+                    strvalText = p.innerText.replace(/summary:/i, "").trim();
+                    break;
                 }
             }
         }
+
+        console.log(`[TOT][EXTRACT] Checking strict match for keyword "${kw}" against strval: "${strvalText}"`);
 
         if (kwRegex.test(strvalText.toLowerCase())) {
             found = true;
