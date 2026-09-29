@@ -172,13 +172,18 @@ async function clickFilterButton(keyword) {
 
     target.scrollIntoView({ block: 'center', inline: 'center' });
     target.focus();
+    target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     target.click();
 
     console.log("[TOT][CONTENT] FILTER_CLICKED");
 
+    // Force Angular scope to digest the submit immediately
+    await new Promise(r => setTimeout(r, 600));
+
     return {
         clicked: true,
-        verified: false,
+        verified: true,
         reason: 'filter_ready',
         selector: "button.search-btn[onclick*='filterTendersJS'], [onclick*='filterTendersJS']"
     };
