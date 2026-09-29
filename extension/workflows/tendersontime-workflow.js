@@ -66,17 +66,54 @@ async function waitUntilListingsReady(tabId) {
     console.log(`[TOT][LISTINGS_WAIT] Waiting up to ${timeout}ms for search listings to populate...`);
     let challengeLoops = 0;
     while (Date.now() - startTime < timeout) {
-        let listingData = await executeContentScript(tabId, "extract_listings");
-        if (!listingData) {
-            await sleep(200); continue;
+        // Use executeScript directly — sendMessage fails after Angular route transitions invalidate content script context
+        let listingData = null;
+        try {
+            const results = await chrome.scripting.executeScript({
+                target: { tabId },
+                world: "MAIN",
+                func: () => {
+                    const rawItems = document.querySelectorAll("div.box-shadow, div.listingbox.ng-scope, div.listingbox, div.tender-item, .card");
+                    const items = [...rawItems].filter(el => {
+                        const t = (el.textContent || "").toLowerCase();
+                        return t.length > 20 && (t.includes("tender") || t.includes("tot ref") || t.includes("deadline"));
+                    });
+                    return items.map(item => {
+                        let title = "", href = "", deadline = "", tot_ref = "", country = "";
+                        const linkEl = [...item.querySelectorAll("a")].find(a => {
+                            const h = a.getAttribute("href") || a.getAttribute("ng-href") || a.href || "";
+                            return h && h !== "#" && h.length > 5;
+                        });
+                        if (linkEl) {
+                            title = (linkEl.textContent || "").trim();
+                            const rawHref = linkEl.getAttribute("href") || linkEl.getAttribute("ng-href") || linkEl.href || "";
+                            if (rawHref && rawHref !== "null") {
+                                try { href = new URL(rawHref, location.origin).href; } catch (e) { href = rawHref; }
+                            }
+                        }
+                        const deadlineEl = item.querySelector(".deadline strong, .deadline-date, td.deadline");
+                        if (deadlineEl) deadline = (deadlineEl.textContent || "").trim();
+                        const refMatch = (item.textContent || "").match(/TOT\s*Ref\.?\s*No\.?\s*:?\s*(\d+)/i);
+                        if (refMatch) tot_ref = refMatch[1];
+                        const flagEl = item.querySelector("span.flag-icon");
+                        if (flagEl && flagEl.parentElement) {
+                            const b = flagEl.parentElement.querySelector("strong");
+                            if (b) country = (b.textContent || "").trim();
+                        }
+                        if (!title) title = (item.textContent || "").split("\n")[0].trim().slice(0, 120);
+                        return { title, href, deadline, tot_ref, country };
+                    }).filter(x => x.href);
+                }
+            });
+            listingData = results?.[0]?.result ?? null;
+            console.log(`[TOT][SCRIPTING] extracted listingData length=${Array.isArray(listingData) ? listingData.length : 'null'}`);
+        } catch (e) {
+            console.warn("[TOT][SCRIPTING] executeScript failed:", e.message);
+            listingData = null;
         }
-        if (listingData.status === "cloudflare") {
-            console.warn(`[TOT][${tabId}] CLOUDFLARE tracking organically within items... (${challengeLoops}/12)`);
-            challengeLoops++;
-            if (challengeLoops > 12) return { isChallenge: true, reason: 'Cloudflare' };
-            await sleep(1000); continue;
-        } else {
-            challengeLoops = 0;
+
+        if (!listingData) {
+            await sleep(500); continue;
         }
         if (Array.isArray(listingData)) {
             if (listingData.length === 0) {
