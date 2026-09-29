@@ -276,7 +276,7 @@ def export_google_excel(
     results = db.query(GoogleResult).filter(
         GoogleResult.scraped_at >= start_dt,
         GoogleResult.scraped_at <= end_dt,
-        GoogleResult.result_type == "filtered"
+        GoogleResult.result_type.in_(["all", "filtered"])
     ).order_by(GoogleResult.scraped_at.desc()).all()
 
     data = []
