@@ -238,9 +238,6 @@ async function extractDetails(keyword) {
         const kwPattern = kw.replace(/\s+/g, "[\\s\\-_]+");
         const kwRegex = new RegExp(kwPattern, "i");
 
-        // 1. Check title tag
-        const pageTitle = (document.title || "").toLowerCase();
-
         // 2. Extract actual tender summary/title from DOM
         let strvalText = "";
         const pTags = document.querySelectorAll("p");
@@ -255,7 +252,7 @@ async function extractDetails(keyword) {
             }
         }
 
-        if (kwRegex.test(pageTitle) || kwRegex.test(strvalText.toLowerCase())) {
+        if (kwRegex.test(strvalText.toLowerCase())) {
             found = true;
         }
     } else {
