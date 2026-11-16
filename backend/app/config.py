@@ -56,7 +56,7 @@ class Settings(BaseSettings):
 
     # All MDM/Tender keywords
     SEARCH_KEYWORDS: List[str] = [
-        "Duplicate Material"
+        "Duplicate Material",
         "Data Standardization",
         "Data Cataloguing",
         "codification",

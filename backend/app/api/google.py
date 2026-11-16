@@ -60,6 +60,7 @@ class GoogleSearchScraper:
         # ALL MDM KEYWORDS (from your boss's document)
         self.mdm_keywords = [
             # Core MDM Keywords
+            "duplicate material",
             "material codification",
             "Data Cataloguing",
             "Master data management",
@@ -147,6 +148,7 @@ class GoogleSearchScraper:
         query_lower = original_query.lower()
         
         mdm_keywords_list = [
+            "duplicate material",
             "material codification", "material code", "codification",
             "data cataloguing", "master data management", "data governance",
             "vendor data governance", "material master", "data enrichment",

@@ -211,6 +211,7 @@ def sync_google(headless: bool = Query(True)):
     
     # Generate Google search keyword matrix
     mdm_keywords = [
+        "duplicate material",
         "material codification", "Data Cataloguing", "Master data management",
         "Data Enrichment", "physical verification", "asset valuation",
         "material cataloguing", "Asset Verification", "bill of material",
