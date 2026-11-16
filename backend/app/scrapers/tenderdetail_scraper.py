@@ -23,7 +23,8 @@ from app.config import settings
 
 # Main page URL
 BASE_URL = "https://www.tenderdetail.com/Indian-tender"
-SEARCH_TPL = "https://www.tenderdetail.com/Indian-tender/%22{}%22-tenders"
+# TenderDetail uses hyphenated slugs (no quotes): /Indian-tender/duplicate-material-tenders
+SEARCH_TPL = "https://www.tenderdetail.com/Indian-tender/{}-tenders"
 
 
 class TenderDetailScraper(BaseScraper):
@@ -42,9 +43,10 @@ class TenderDetailScraper(BaseScraper):
         
         try:
             # Step 1: Format keyword and navigate explicitly to SEARCH_TPL
+            # TenderDetail uses hyphenated slugs: "duplicate material" → "duplicate-material-tenders"
             kw_clean = re.sub(r"[&/()]", " ", keyword.strip())
             kw_clean = re.sub(r"\s+", " ", kw_clean).strip()
-            kw_url = kw_clean.replace(" ", "%20")
+            kw_url = kw_clean.replace(" ", "-").lower()
             url = SEARCH_TPL.format(kw_url)
             
             self.safe_get(url, delay=5)
