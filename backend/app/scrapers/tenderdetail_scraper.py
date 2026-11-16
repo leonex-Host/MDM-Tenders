@@ -51,19 +51,10 @@ class TenderDetailScraper(BaseScraper):
             self.logger.info(f"[TenderDetail] Loaded explicit URL: {url}")
             time.sleep(3)
             
-            # Step 2: Now on results page, apply the 'Next 15 Days' sidebar filter
-            self.logger.info("[TenderDetail] Applying date filters on results sidebar...")
-            
-            self._set_date_filter_next_15_days()
-            self._click_search_button()
-            time.sleep(3)
-            self._sort_closing_date()
-            time.sleep(4)
-            
             # Wait for results to load
             rows = self._find_tender_rows()
             if not rows:
-                self.logger.warning("[TenderDetail] No tenders found after search & filter")
+                self.logger.warning("[TenderDetail] No tenders found after search")
                 return results
                 
             # Step 4: Process results pages

@@ -20,9 +20,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     }
 
                     setTimeout(() => {
-                        const btn = document.getElementById("btnFilterTender") || document.querySelector("input[value='SEARCH']");
                         sendResponse({ done: true });
-                        if (btn) btn.click();
                     }, 500);
                 }, 400);
             }, 200);

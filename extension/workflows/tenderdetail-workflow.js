@@ -33,12 +33,11 @@ export async function runTenderDetailWorkflow(runtime) {
 
                 if (pageNum === 1 && !runtime.pausedUrl) {
                     await navigateAndWait(runtime.tabId, searchUrl);
-                    await sleep(1200);
-                    await executeContentScript(runtime.tabId, "setup_search");
-                    await sleep(1500);
+                    await sleep(3000);
                 } else if (runtime.pausedUrl) {
                     await navigateAndWait(runtime.tabId, runtime.pausedUrl);
                     await updateRuntimeState(runtime.jobId, { pausedUrl: null });
+                    await sleep(1500);
                 }
 
                 while (pageNum <= maxPages) {
